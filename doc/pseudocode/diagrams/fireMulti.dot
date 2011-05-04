@@ -1,0 +1,15 @@
+// dot fireMulti.dot -Tpng -o fireMulti.png
+
+digraph fireMulti {
+
+edge [color=blue];
+node [color=red];
+
+fireMulti -> "bd step (not discussed)"
+fireMulti -> burstMulti [label="reaction\nor escape?"]
+
+burstMulti -> createSingle
+burstMulti -> createSingle
+burstMulti -> createSingle
+}
+

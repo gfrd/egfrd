@@ -1,0 +1,158 @@
+Visualization
+=============
+
+Notes
+-----
+* Right now this is not real-time. First you run your simulation, then you use 
+  Paraview to visualize it.
+
+
+Setting up the simulation
+-------------------------
+### Option 1
+Let a vtklogger write visualization data for the last 100 steps.
+
+* Setup the vtklogger like this in your simulation script (also see 
+  <egfrdDir>/example/example.py):
+
+	{% highlight python %}
+
+        s.initialize()
+        vtklogger = VTKLogger( s, 'myVisualizationDataDirectory', 100 )
+        while(True):
+            try:
+                vtklogger.log()
+                s.step()
+            except RuntimeError, message:
+                print 'Error.', message
+                break
+        vtklogger.stop()
+        s.stop( s.t )
+
+	{% endhighlight %}
+
+* Replace 'myVisualizationDataDirectory' by a descriptive name for each 
+  simulation that you run. It can be a nested directory structure, like 
+  'data/10000steps/run1', and is automatically created.
+
+* This stores all data in a buffer during the simulation, and only writes the 
+  last 100 steps after the simulation has finished. 
+  
+### Option 2
+Let a vtklogger write visualization data for all steps.
+
+* This is done the same way as option 1, except remove the last argument to 
+  VTKLogger.
+
+* This writes the visualization data files directly during the simulation. See 
+  below.
+
+
+
+
+Running the simulation
+----------------------
+* Run the simulation script. 
+
+  PYTHONPATH=../../ python run.py
+
+* This should produce the files static.pvd and files.pvd inside the 
+  visualization data directory specified in your simulation script. The former 
+  contains static information about the surfaces you defined in your 
+  simulation. The latter contains a list of references to .vtu files. For each 
+  timestep there is a .vtu file that contains information about the particles, 
+  a .vtu file for the sphericle shells, and a .vtu file for all the 
+  cylindrical shells.  
+
+* When not using a buffer, i.e. option 2, the .vtu files are created during 
+  the simulation. However, we have to wait for the simulation to finish before 
+  we can visualize the data using Paraview. It is not till the call to 
+  vtklogger.stop() that files.pvd is created with an overview of all .vtu 
+  files. This is the reason that the visualization can not be shown real-time 
+  at the moment.
+
+
+
+
+Configuring Paraview
+--------------------
+* Install Paraview. http://paraview.org/
+
+* Copy the plugins <egfrdDir>/paraview/tensorGlyph.xml and
+  <egfrdDir>/paraview/tensorGlyphCustomSource.xml to
+  /home/<username>/.config/ParaView/ParaView<VERSION>/Plugins/
+  replacing <VERSION> by the version of your Paraview installation (for
+  example 3.6). These 2 files are needed to show cylinders of different sizes
+  and different orientations correctly.
+
+* In <egfrdDir>/paraview/pipeline.pvsm search for and replace
+  /full/path/to/some/files.pvd and /full/path/to/some/static.pvd by the full
+  paths to those files that were created by the simulation. So you should get 
+  something like:
+  /home/<username>/<egfrdDir>/simulations/<mySimulation>/<myVisualizationDataDirectory>/files.pvd
+  and
+  /home/<username>/<egfrdDir>/simulations/<mySimulation>/<myVisualizationDataDirectory>/static.pvd.
+
+  Note that Paraview will crash if these files don't exist. And they have are
+  to be absolute paths, using ~ for home directory, or ./../ for the egfrd
+  directory doesn't seem to work. This means Paraview will also crash if you
+  move your egfrd directory or something at some later point.
+
+* Start Paraview.
+
+* Go to Tools > Manage Plugins/Extensions and check that the plugins are
+  loaded, or load them manually.
+
+  Note that Paraview will crash if the plugins are not loaded when you try
+  to load the pipeline in the next step.
+
+
+
+
+Visualizing the data
+--------------------
+* Go to File > Load State, and select <egfrdDir>/paraview/pipeline.pvsm.
+
+* Click the play button. You should see an animation of your simulation. Yeah!  
+
+
+
+
+Tweaking the pipeline
+---------------------
+* From now on you can make changes to the pipeline from inside Paraview. Here
+  is an example of what to do when you want to use data from a completely
+  different simulation.
+  - Right click in the Pipeline Browswer window. Open files.pvd in the 
+    visualization data directory of the new simulation. Then click apply in 
+    the Object Inspector window. The new files.pvd is now added to the 
+    pipeline, but doesn't do anything yet.
+  - Left click on the 'plus' next to files.pvd in the pipeline browser, then   
+    right click on Objects below files.pvd, then Change Input. In the middle 
+    window that appears, called Select Sources, select the new files.pvd file 
+    you just added. It might be a bit hard to find. Click Ok. Objects is now 
+    rewired to use the new files.pvd. 
+  - Right click the old files.pvd, and delete it. Note that this is only 
+    possible if you actually rewired Objects to a new files.pvd file in the 
+    previous step, otherwise this options is grayed out.
+  - If the definition of the surfaces also changed: open and apply the new
+      static.pvd, rewire Surfaces to it and delete the old static.pvd.
+  - Save the new pipeline. File > Save State.
+
+* If you run a new simulation that writes to the same visualization data 
+  directory, usually Paraview will reload the new data correctly. There can be 
+  a problem if you increase the number of timesteps. If so, open the new 
+  files.pvd into the pipeline and rewire Objects as explained above.
+
+* Different species are given different colors. If you run a new simulation
+  that has many more species, you might need to rescale the color range. Select
+  Particle in the Pipeline Browser window. Then in the Object Inspector window
+  click the middle tab called Display. Click Rescale to Data Range in the
+  Color subsection.
+  Typically you don't want to rescale the colors for Sphere and Cylinder.
+  Pairs are given a different color (2) than Singles (1) by default. The
+  sphere or cylinder that will be updated next is highlighed (color 0).
+
+
+
+

@@ -1,0 +1,29 @@
+
+\subsection{1D Rad Inf}
+
+\paragraph{Green's function}
+\begin{multline}
+  v(z,t|z',t'=0) = \frac{1}{\sqrt{4\pi D_1 t}} [
+  e^{-(z-z')^2/(4 D_1 t)} +
+  e^{-(z+z')^2/(4 D_1 t)} ] \\
+  -h e^{h(z+z') + D_1 th^2} \erfc(\frac{z+z'}{2\sqrt{D_1t}} + h\sqrt{D_1t}) 
+  .\label{green-promoter-solo}
+\end{multline}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_{z=0}(t) = 1 +  e^{h z' + D_1 t h^2}
+  \erfc(\frac{z'}{2 \sqrt{D_1 t}}  + h \sqrt{D_1 t}) -
+  \erfc(\frac{z'}{2 \sqrt{D_1 t}}).
+\end{align}
+
+\paragraph{Propensity function}
+% Not in my notes (Thomas).
+\begin{align}
+  q_{z=0}(t) &= k_+ v|_{z=0} \\
+  &= \frac{h \sqrt{D_1}}{\sqrt{\pi t}} e^{-z'^2/(4 D_1 t)}  
+  -h^2D_1e^{hz'+D_1th^2} \erfc(\frac{z'}{2\sqrt{D_1t}} + kh\sqrt{D_1t}).  
+\end{align}
+\begin{multline}
+\end{multline}
+

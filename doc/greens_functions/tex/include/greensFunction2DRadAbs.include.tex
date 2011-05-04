@@ -1,0 +1,62 @@
+\subsection{2D Rad Abs}
+
+\paragraph{Green's function}
+\begin{multline}
+  v(r,\t, t) = \frac{\pi}{4} \sum_{m=-\infty}^{\infty} \cos m(\t-\t') \\
+  \cdot \sum_{n=1}^{\infty} \frac{\amn^2 J_m^2(b\amn)}{F(\amn)} 
+  C_m(r,\amn)C_m(r',\amn)e^{-D_3\amn^2t},
+\end{multline}
+
+where
+\begin{align}
+  F(\amn) = \left[hJ_m(a\amn) - \amn J_m'(a\amn)\right]^2
+  -[\amn^2+h^2-m^2/a^2]J_m^2(b\amn)
+\end{align}
+and
+\begin{multline}
+  C_m(r,\amn) = J_m(r\amn)\left[hY_m(a\amn)-\amn Y_m'(a\amn)\right]-\\
+  Y_m(r\amn)\left[hJ_m(a\amn)-\amn J_m'(a\amn)\right],
+\end{multline}
+%How can you get F= and C= to align?
+
+while $\amn$ is the $n$-th root of
+\begin{align}
+ \left[\a J_m'(a\a)-hJ_m(a\a)\right]Y_m(b\a) -
+ \left[\a Y_m'(a\a)-hY_m(a\a)\right]J_m(b\a) = 0.
+\end{align}
+
+
+
+\paragraph{Survival probability}
+\begin{align}
+  S(t) &= \int_0^{2\pi}\int_a^bv(r,\t,t)rd\t dr\notag\\
+  &= \frac{\pi^2}{2} \cdot \sum_{n=1}^{\infty}
+  \frac{\azn^2 J_0^2(b\azn)}{F(\azn)}
+  C_0(r',\azn)e^{-D_3\azn^2t} \cdot \int_a^bC_0(r,\azn)r dr
+\end{align}
+
+where
+\begin{align}
+  \int_a^bC_0(r,\azn)r dr = &\frac{1}{\azn}\left[bJ_1(b\azn) - 
+  aJ_1(a\azn)\right] \left[hY_m(a\azn)-\azn Y_m'(a\azn)\right]-\\
+  &\frac{1}{\azn}\left[bY_1(b\azn) - aY_1(a\azn)\right] \left[hJ_m(a\azn)-\azn 
+  J_m'(a\azn)\right]
+\end{align}
+
+and $C_0(r,\azn)$, $F(\azn)$ and $\azn$ are the same as above with $m=0$.
+
+\paragraph{Propensity function}
+Todo.
+% Not in my notes (Thomas).
+
+%\begin{align}
+%  q_{r=a}(t) = k_+ v|_{r=a} =
+%\end{align}
+%\begin{multline}
+%  q_{z=L}(t) = \left.- D_3 \pd{v}{z}\right|_{z=L} =
+%\end{multline}
+
+
+
+
+

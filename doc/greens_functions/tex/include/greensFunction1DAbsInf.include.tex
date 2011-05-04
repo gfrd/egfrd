@@ -1,0 +1,27 @@
+
+\subsection{1D Abs Inf}
+
+\paragraph{Green's function}
+\begin{align}
+ p(z,t|z',t'=0)	&= \frac{1}{\sqrt{4\pi D_1t}} \left[ e^{-\frac{1}{4D_1t}(z-z')^2} - e^{-\frac{1}{4D_1t}(z+z')^2} \right].	\\
+		&= \frac{1}{\sqrt{4\pi D_1t}} \left[ 1 - e^{-\frac{zz'}{D_1t}} \right]e^{-\frac{1}{4D_1t}(z-z')^2}.
+\end{align}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_{z=0}(t) = \int_0^\infty p dz =
+  \text{erf}\left( \frac{z'}{\sqrt{4D_1 t}} \right).
+\end{align}
+
+\paragraph{Propensity functions}
+\begin{align}
+  q_{z=0}(t) = -\frac{d}{dt} S_{z=0}(t)=
+  \frac{z'}{2\sqrt{\pi D_1 t^3}} e^{-\frac{z'^2}{4D_1t}}.
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{align}
+  P_{z=0}(Z,t) = \int_a^Z p dz =
+  \erf{\left(\frac{z'}{\sqrt{4D_1t}}\right)}
+  + \frac{1}{2} \left[ \erf{\left(\frac{Z-z'}{\sqrt{4D_1t}}\right)} - \erf{\left(\frac{Z+z'}{\sqrt{4D_1t}}\right)} \right]
+\end{align}

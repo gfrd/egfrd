@@ -1,0 +1,38 @@
+// dot fireSingle.dot -Tpng -o fireSingle.png
+
+digraph fireSingle {
+
+edge [color=blue];
+node [color=red];
+
+fireSingle -> "eventType?"
+
+"eventType?" -> "Single Reaction"
+"eventType?" -> Else
+
+"Single Reaction" -> propagateSingle1
+propagateSingle1 [label=propagateSingle]
+propagateSingle1 -> drawNewPosition1
+drawNewPosition1 [label=drawNewPosition]
+"Single Reaction" -> fireSingleReaction
+fireSingleReaction -> createSingle1 [label=" product?"]
+createSingle1 [label=createSingle]
+
+Else -> propagateSingle2
+propagateSingle2 [label=propagateSingle]
+propagateSingle2 -> drawNewPosition2
+drawNewPosition2 [label=drawNewPosition]
+
+Else -> eventType2
+eventType2 [label="eventType?"]
+
+eventType2 -> Interaction
+Interaction -> fireSingleReaction2
+fireSingleReaction2 [label=fireSingleReaction]
+fireSingleReaction2 -> createSingle2 [label=" product?"]
+createSingle2 [label=createSingle]
+
+eventType2 -> Escape
+Escape -> "See code"
+}
+

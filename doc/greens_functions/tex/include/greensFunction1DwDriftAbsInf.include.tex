@@ -1,0 +1,35 @@
+
+\subsection{1D Abs Inf with drift $v\neq 0$}
+
+Absorbing boundary at $z=0$.
+
+\paragraph{Green's function}
+\begin{align}
+ p(z,t|z',t'=0)	&= e^{-\frac{1}{4D_1t}\left[v^2t^2 - 2(z-z')vt \right]} \frac{1}{\sqrt{4\pi D_1t}}
+			\left[ e^{-\frac{1}{4D_1t}(z-z')^2} - e^{-\frac{1}{4D_1t}(z+z')^2} \right].	\\
+		&= \frac{1}{\sqrt{4\pi D_1t}} \left[ 1 - e^{-\frac{zz'}{D_1t}} \right]e^{-\frac{1}{4D_1t}(z-z'-vt)^2}.
+\end{align}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_{z=0}(t) &= \int_a^\infty p dz				\\
+& = \frac{1}{2}\left( 1 - e^{-\frac{vz'}{D_1}} \right)
+  + \frac{1}{2} \left[ \erf{\left(\frac{z'+vt}{\sqrt{4D_1t}}\right)} + e^{-\frac{vz'}{D_1}} \erf{\left(\frac{z'-vt}{\sqrt{4D_1t}}\right)} \right] .
+\end{align}
+
+\paragraph{Propensity functions}
+\begin{align}
+  q_{z=0}(t) = -\frac{d}{dt} S_{z=0}(t)=
+  \frac{z'}{\sqrt{4 \pi D_1 t^3}} e^{-\frac{1}{4D_1t}(z'+vt)^2} .
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{align}
+  P_{z=0}(Z,t) &= \int_a^Z p dz 													\\
+& = \frac{1}{2} \left[ \erf{\left(\frac{z'+vt}{\sqrt{4D_1t}}\right)} + \erf{\left(\frac{Z-z'-vt}{\sqrt{4D_1t}}\right)} \right]
+  +\frac{1}{2} e^{-\frac{vz'}{D_1}} \left[ \erf{\left(\frac{z'-vt}{\sqrt{4D_1t}}\right)} - \erf{\left(\frac{Z+z'-vt}{\sqrt{4D_1t}}\right)} \right] .
+\end{align}
+
+\vspace{1cm}
+\noindent \textit{For the case 1D Refl Inf with drift see:}\\
+\textit{\textsc{Smoluchowski}, Phys.Z. 17, p. 557-587, 1916, eq. (52)--(54)}.

@@ -1,0 +1,67 @@
+
+\subsection{1D Rad Abs with drift $v\neq 0$}
+
+Solution on an interval $[a,b]$, initial condition $p(z,z',t'=0)=\delta (z-z')$.
+
+\newcommand{\rn}{\rho_n}
+
+\paragraph{Green's function}
+\begin{align}
+  & p(z,t|z',t'=0) = 2e^{-\frac{1}{4D_1t}\left[v^2t^2 - 2(z-z')vt \right]}
+      \sum_{n=0}^{\infty} e^{-D_1\rn^2t} \frac{ F_n(z')F_n(z) }
+      {h + \left[\rn^2 + h^2\right]L}, \\
+  &\quad\quad F_n(z) = h\sin\left(\rn(z-a)\right) +  \rn\cos\left(\rn(z-a)\right)  , \\
+  &\quad\quad h = \frac{v/2 + k_+}{D_1}, \quad\quad L=(b-a), \quad\quad \tan\left(\rn L\right)=-\frac{\rn}{h}.
+\end{align}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_z(t)
+  &= \int_a^b pdz = 2e^{-\frac{1}{4D_1t}\left[ v^2t^2 + 2z'vt \right]} \\
+  &\quad\quad
+    \times\sum_{n=0}^{\infty} e^{-D_1\rn^2t}
+    \frac{F_n(z')}{\Big. h + \left[\rn^2 + h^2\right]L \Big.}
+    \frac{
+    \left[
+	  e^{\frac{va}{2D_1}} h \frac{k_+}{D_1}
+	- e^{\frac{vb}{2D_1}} \left(\rn^2 + h^2\right) \cos(\rn L)
+    \right]
+    }
+    {\frac{h}{\rn}\left[ \rn^2 + \frac{v^2}{4 D_1^2} \right]}.
+\end{align}
+
+\paragraph{Propensity function}
+\begin{align}
+  q_{z=0}(t) &= k_+ p|_{z=a} = 2k_+ e^{-\frac{1}{4D_1t}\left[v^2t^2 - 2(a-z')vt \right]} 
+  \sum_{n=0}^{\infty} e^{-D_1\rn^2t}
+  \frac{ \rn F_n(z')} {h + \left[\rn^2 + h^2\right]L}, \\
+  q_{z=L}(t) &= \left.- D_1 \pd{p}{z}\right|_{z=b} \\
+  &=  -2D_1 e^{-\frac{1}{4D_1t}\left[v^2t^2 - 2(b-z')vt \right]} 
+    \sum_{n=0}^{\infty} e^{-D_1\rn^2t}
+    \frac{F_n(z') \left[\frac{1}{h}\rn^3 + h\rn\right]\cos\left(\rn L\right)
+ }
+  {h + \left[\rn^2 + h^2\right]L}.
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{multline}
+ P(Z,t|z',t'=0) = \int_a^Z pdz \\
+ \shoveleft{
+  = 2e^{-\frac{1}{4D_1t}\left[ v^2t^2 + 2z'vt \right]}
+    \sum_{n=0}^{\infty} e^{-D_1\rn^2t} \left\lbrace \frac{F_n(z')}{\Big. h + \left[\rn^2 + h^2\right]L \Big.} \right.
+ } \\
+ \shoveright{
+    \quad\quad\quad \left.\times
+    \frac{
+    \left[
+	  e^{\frac{va}{2D_1}} h\frac{k_+}{D_1}
+	- e^{\frac{vZ}{2D_1}}
+	    \left\lbrace
+	       h\frac{k_+}{D_1}\cos\left(\rn(Z-a)\right) - \left(h\rn + \frac{h^2}{\rn}\frac{v}{2D_1}\right)\sin\left(\rn(Z-a)\right)
+	    \right\rbrace
+    \right]
+    }
+    {\frac{h}{\rn}\left[ \rn^2 + \frac{v^2}{4 D_1^2} \right]}
+    \right\rbrace .
+ }
+\end{multline}

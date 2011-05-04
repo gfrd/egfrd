@@ -1,0 +1,42 @@
+// dot firePair.dot -Tpng -o firePair.png
+
+digraph firePair {
+
+edge [color=blue];
+node [color=red];
+
+firePair -> "eventType?"
+
+"eventType?" -> "Single Reaction"
+"eventType?" -> "Pair Reaction"
+"eventType?" -> Escape
+
+"Single Reaction" -> burstPair
+burstPair -> propagatePair1
+propagatePair1 [label=propagatePair]
+propagatePair1 -> drawNewPositions1
+drawNewPositions1 [label=drawNewPositions]
+drawNewPositions1 -> drawNewCoM1
+drawNewCoM1 [label=drawNewCoM]
+drawNewPositions1 -> drawNewIV1
+drawNewIV1 [label=drawNewIV]
+
+
+"Single Reaction" -> fireSingleReaction
+fireSingleReaction -> createSingle [label=" product?"]
+
+"Pair Reaction" -> drawNewCoM
+"Pair Reaction" -> createSingle1
+createSingle1 [label=createSingle]
+
+
+Escape -> propagatePair2
+propagatePair2 [label=propagatePair]
+propagatePair2 -> drawNewPositions2
+drawNewPositions2 [label=drawNewPositions]
+drawNewPositions2 -> drawNewCoM2
+drawNewCoM2 [label=drawNewCoM]
+drawNewPositions2 -> drawNewIV2
+drawNewIV2 [label=drawNewIV]
+}
+

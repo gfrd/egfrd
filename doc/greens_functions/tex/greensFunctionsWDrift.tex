@@ -1,0 +1,24 @@
+
+\documentclass[twoside]{report}
+
+\include{include/include}
+\include{include/subSectionOnly}
+%Page numbers instead of name.
+\fancyfoot[RO, LE]{\thepage}
+
+
+\begin{document}
+
+\title{Greens functions, survival probabilies and propensity functions (1D and 
+2D)}
+\thispagestyle{empty}
+\maketitle
+
+
+\input{include/greensFunction1DwDriftAbsAbs.include}
+\include{include/greensFunction1DwDriftAbsInf.include}
+\include{include/greensFunction1DwDriftRadAbs.include}
+\include{include/greensFunction1DwDriftRadInf.include}
+\include{include/greensFunction2DwDriftRadAbs.include}
+
+\end{document}

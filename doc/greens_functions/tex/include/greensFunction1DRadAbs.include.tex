@@ -1,0 +1,47 @@
+
+\subsection{1D Rad Abs}
+
+\renewcommand{\an}{\rho_n}
+
+\paragraph{Green's function}
+\begin{align}
+  p(z,t|z',t'=0) &= 2\sum_{n=0}^{\infty}
+  e^{-D_1\an^2t} \frac
+  { F_n(z')F_n(z) }
+  {h + (\an^2 + h^2)L}, \\
+  h &= k_+ / D_1, \\
+  F_n(z) &= h\sin\an z +  \an\cos\an z  , \\
+  \tan\an L &= -\frac{\an}{h}.
+\end{align}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_z(t) = \int_0^L pdz
+  = 2\sum_{n=0}^{\infty} e^{-D_1\an^2t}
+    \frac{F_n(z')}{h + (\an^2 + h^2)L}
+    \frac{\left[h^2 - (\an^2 + h^2) \cos(\an L)\right]}{h\an}.
+\end{align}
+
+\paragraph{Propensity function}
+\begin{align}
+  q_{z=0}(t) = k_+ p|_{z=0} =
+    2hD_1 \sum_{n=0}^{\infty} e^{-D_1\an^2t}
+	  \frac{\an F_n(z')}{h + (\an^2 + h^2)L},
+\end{align}
+\begin{align}
+  q_{z=L}(t) &= \left.- D_1 \pd{p}{z}\right|_{z=L} \\
+  &=  -2D_1 \sum_{n=0}^{\infty} e^{-D_1\an^2t}
+	    \frac{
+	    F_n(z') \left[\frac{1}{h}\an^3 + h\an\right] \cos(\an L)
+	    }
+	    {h + (\an^2 + h^2)L}.
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{align}
+  P(Z,t|z',t'=0)) &= \int_0^Z pdz	\\
+  &= 2\sum_{n=0}^{\infty} e^{-D_1\an^2t}
+    \frac{F_n(z')}{h + (\an^2 + h^2)L}
+    \frac{\left[h^2 + h\an\sin(\an Z) - h^2 \cos(\an Z)\right]}{h\an}.
+\end{align}
+

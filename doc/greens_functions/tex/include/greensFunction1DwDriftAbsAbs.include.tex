@@ -1,0 +1,47 @@
+
+\subsection{1D Abs Abs with drift $v\neq 0$}
+
+Solution on an interval $[a,b]$, initial condition $p(z,z',t'=0)=\delta (z-z')$.
+
+\paragraph{Green's function}
+\begin{align}
+  p(z,t|z',t'=0) &= \frac{2}{b-a}e^{-\frac{1}{4D_1t}\left[v^2t^2 - 2(z-z')vt \right]}
+  \sum_{n=1}^{\infty}
+  e^{-D_1\left(\frac{n\pi}{b-a}\right)^2 t} \sin\left(\frac{z-a}{b-a}n\pi\right) \sin\left(\frac{z'-a}{b-a}n\pi\right).
+\end{align}
+
+\paragraph{Survival probability}
+\begin{align}
+  S_z(t) = \int_a^b pdz
+  = 2e^{-\frac{1}{4D_1t}\left[ v^2t^2 + 2 z'vt \right]}
+    \sum_{n=1}^{\infty}
+	\frac{ e^{-D_1\left(\frac{n\pi}{b-a}\right)^2 t} \left[ e^{\frac{va}{2D_1}} - (-1)^n e^{\frac{vb}{2D_1}}\right] }
+	     { \frac{v^2}{4D_1^2}(b-a)^2 + n^2\pi^2 }
+	n\pi \sin\left(\frac{z'-a}{b-a}n\pi \right).
+\end{align}
+
+\paragraph{Propensity function}
+\begin{align}
+  q_{z=0}(t) &= \left.D_1 \pd{p}{z}\right|_{z=a} = \frac{2 D_1}{(b-a)^2} e^{-\frac{1}{4D_1 t}\left[ v^2t^2 - 2(a-z')vt \right]}
+  \sum_{n=1}^{\infty} e^{-D_1\left(\frac{n\pi}{b-a}\right)^2 t} n\pi \sin\left(\frac{z'-a}{b-a}n\pi\right),\\
+  q_{z=L}(t) &= \left.- D_1 \pd{p}{z}\right|_{z=b} = \frac{2 D_1}{(b-a)^2} e^{-\frac{1}{4D_1 t}\left[ v^2t^2 - 2(b-z')vt \right]}
+  \sum_{n=1}^{\infty} (-1)^{n+1} e^{-D_1\left(\frac{n\pi}{b-a}\right)^2 t} n\pi \sin\left(\frac{z'-a}{b-a}n\pi\right).
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{align}
+ & P(Z,t|z',t'=0) = \int_a^Z p dz &\\
+ & = 2e^{-\frac{1}{4D_1t}\left[v^2t^2 + 2z'vt \right]}  &\\
+ & \quad\times \sum_{n=1}^{\infty}
+      \frac{	e^{-D_1\left(\frac{n\pi}{b-a}\right)^2 t}
+		\left[
+		  e^{\frac{va}{2D_1}} + e^{\frac{vZ}{2D_1}}
+		      \left\lbrace
+			\frac{v}{2D_1}\frac{(b-a)}{n\pi}\sin\left(\frac{Z-a}{b-a}n\pi\right)
+		      - \cos\left(\frac{Z-a}{b-a}n\pi\right)
+		      \right\rbrace
+		\right]
+      }
+      { \frac{v^2}{4D_1^2}(b-a)^2 + n^2\pi^2 } 
+      n\pi \sin\left(\frac{z'-a}{b-a}n\pi\right).&
+\end{align}

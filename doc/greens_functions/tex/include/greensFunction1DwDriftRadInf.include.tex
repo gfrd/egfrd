@@ -1,0 +1,40 @@
+
+\subsection{1D Rad Inf with drift $v\neq 0$}
+
+\paragraph{Green's function}
+\begin{multline}
+  p(z,t|z',t'=0) = \frac{1}{\sqrt{4\pi D_1 t}} [
+			e^{-(z-z'-vt)^2/(4 D_1 t)} +
+  e^{-\frac{vz'}{D_1}}	e^{-(z+z'-vt)^2/(4 D_1 t)} ] \\
+  -(h+\frac{v}{2D_1}) e^{\frac{vz'}{D_1}}
+    e^{h \left[ (z+z') + (h + v/D_1) D_1 t \right]} \erfc\left(\frac{z+z'}{\sqrt{4D_1t}} + (h+\frac{v}{2D_1})\sqrt{D_1t} \right) 
+  .\label{green-promoter-solo-drift}
+\end{multline}
+\textit{Source: \textsc{Lamm \& Schulten}, J. Chem. Phys. 78(5), 1983.}
+
+\paragraph{Survival probability}
+%\begin{align}
+%  S_{z=0}(t) &= 1 + \frac{1}{2}\left[ \erf\left( \frac{z'+vt}{4D_1 t}\right) - \erf\left( \frac{z'-vt}{4D_1 t}\right) \right] \\
+%  &\quad + \left(\frac{k_+ + \frac{v}{2}}{k_+ + v}\right) 
+%  \times \left\lgroup
+%	e^{h \left[ z' + \left(h+\frac{v}{D_1}\right) D_1 t \right]} \erfc\left[ \frac{z'}{\sqrt{4D_1 t}} + \left(h+\frac{v}{2D_1}\right)\sqrt{D_1 t} \right] \right.\\
+%	&\left. \quad- \, e^{- \frac{v}{D_1}z'}
+%	\erfc\left[ \frac{z'}{\sqrt{4D_1 t}} - \frac{v}{2D_1}\sqrt{D_1 t} \right]
+%  \right\rgroup.
+%\end{align}
+%%% ABOVE VERSION IS WRONG, HAS TO BE RECALCULATED!
+
+\paragraph{Propensity function}
+% Mathematica result (Tomek)
+%\begin{align}
+%  q_{z=0}(t) &= -\partial_t S(t) \\
+%  &= \frac{1}{4\sqrt{\pi D_1 t^3}}
+%	\Bigg\lbrace
+%		e^{-\frac{(z'+vt)^2}{4D_1 t}} \left[ z'\left( 1-e^{\frac{vz'}{D_1}} \right)
+%						     - vt \left( 1+e^{\frac{vz'}{D_1}}\right) \right] \\
+%	&
+%		+ 2t (2k_+ + v) \left[ 1 - h \sqrt{\frac{\pi t}{D_1}} e^{\frac{\left[z'+(2k_+ + v)t\right]^2}{4D_1 t}}
+%			\erfc\left(\frac{z' + (2k_+ + v)t}{\sqrt{4 D_1 t}} \right)
+%		\right]	\Bigg\rbrace
+%\end{align}
+%%% ABOVE VERSION IS WRONG, HAS TO BE RECALCULATED!

@@ -1,0 +1,23 @@
+
+// dot createMulti.dot -Tpng -o createMulti.png
+
+digraph createMulti {
+
+edge [color=blue];
+node [color=red];
+
+createMulti -> addToMultiRecursive
+createMulti -> addToMultiRecursive
+createMulti -> addToMultiRecursive [label=" neighbors"]
+
+addToMultiRecursive -> "type?"
+
+"type?" -> single
+single -> addToMulti
+single -> burstNonMultis
+single -> addToMultiRecursive2
+addToMultiRecursive2 [label="addToMultiRecursive"]
+
+"type?" -> multi
+multi -> mergeMultis
+}

@@ -1,0 +1,29 @@
+
+// http://linuxdevcenter.com/pub/a/linux/2004/05/06/graphviz_dot.html
+// dot egfrd.dot -Tpng -o egfrd.png
+
+// Directed graph.
+digraph egfrd {
+
+edge [color=blue];
+node [color=red];
+  
+EGFRDSimulator [shape=box]
+
+EGFRDSimulator -> initialize
+EGFRDSimulator -> step
+
+initialize -> createSingle
+initialize -> createSingle
+initialize -> createSingle
+
+step -> scheduler
+
+scheduler -> "topEvent"
+
+"topEvent" -> fireSingle [label="single?"]
+"topEvent" -> firePair [label=" pair?"]
+"topEvent" -> fireMulti [label="multi?"]
+
+}
+
