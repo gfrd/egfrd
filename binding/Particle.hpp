@@ -232,6 +232,20 @@ public:
         return 0;
     }
 
+    static PyObject* get_v(ParticleWrapper* self)
+    {
+        return PyFloat_FromDouble(self->impl_.v());
+    }
+
+    static int set_v(ParticleWrapper* self, PyObject* val, void *)
+    {
+        const double tmp(PyFloat_AsDouble(val));
+        if (PyErr_Occurred())
+            return -1;
+        self->impl_.v() = tmp;
+        return 0;
+    }
+
     static PyObject* get_sid(ParticleWrapper* self)
     {
         return boost::python::incref(
@@ -292,7 +306,7 @@ public:
 
     static PyObject* __sq_item__(PyObject *self, Py_ssize_t idx)
     {
-        if (idx < 0 || idx >= 4)
+        if (idx < 0 || idx >= 5)
         {
             PyErr_SetString(PyExc_IndexError, "index out of range");
             return NULL;
@@ -306,7 +320,9 @@ public:
             return get_radius(reinterpret_cast<ParticleWrapper*>(self));
         case 2:
             return get_D(reinterpret_cast<ParticleWrapper*>(self));
-        case 3:
+	case 3:
+            return get_v(reinterpret_cast<ParticleWrapper*>(self));
+        case 4:
             return get_sid(reinterpret_cast<ParticleWrapper*>(self));
         }
         return NULL; // never get here
@@ -314,7 +330,7 @@ public:
 
     static int __sq_ass_item__(PyObject *self, Py_ssize_t idx, PyObject *val)
     {
-        if (idx < 0 || idx >= 4)
+        if (idx < 0 || idx >= 5)
         {
             PyErr_SetString(PyExc_IndexError, "index out of range");
             return -1;
@@ -328,7 +344,9 @@ public:
             return set_radius(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         case 2:
             return set_D(reinterpret_cast<ParticleWrapper*>(self), val, 0);
-        case 3:
+	case 3:
+            return set_v(reinterpret_cast<ParticleWrapper*>(self), val, 0);
+        case 4:
             return set_sid(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         }
 
@@ -427,6 +445,12 @@ PyGetSetDef ParticleWrapper<Timpl_>::__getsets__[] = {
         const_cast<char*>("D"),
         (getter)ParticleWrapper::get_D,
         (setter)ParticleWrapper::set_D,
+        const_cast<char*>("")
+    },
+    {
+        const_cast<char*>("v"),
+        (getter)ParticleWrapper::get_v,
+        (setter)ParticleWrapper::set_v,
         const_cast<char*>("")
     },
     {
