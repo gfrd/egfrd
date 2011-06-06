@@ -13,6 +13,7 @@
 #include "BDPropagator.hpp"
 #include "Logger.hpp"
 #include "PairGreensFunction.hpp"
+#include "VolumeClearer.hpp"
 #include "utils/array_helper.hpp"
 #include "utils/range.hpp"
 
@@ -74,9 +75,18 @@ public:
 
     virtual bool update_particle(particle_id_pair const& pi_pair)
     {
-        bool const retval(world_.update_particle(pi_pair));
-        particles_[pi_pair.first] = pi_pair.second;
-        return retval;
+        world_.update_particle(pi_pair);
+        typename particle_map::iterator const i(particles_.find(pi_pair.first));
+        if (i != particles_.end())
+        {
+            (*i).second = pi_pair.second;
+            return false;
+        }
+        else
+        {
+            particles_.insert(i, pi_pair);
+            return true;
+        }
     }
 
     virtual bool remove_particle(particle_id_type const& id)
@@ -204,6 +214,8 @@ public:
     typedef typename traits_type::template shell_generator<
         typename simulator_type::sphere_type>::type spherical_shell_type;
     typedef std::pair<const typename traits_type::shell_id_type, spherical_shell_type> spherical_shell_id_pair;
+    typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
+    typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
     typedef typename traits_type::reaction_record_type reaction_record_type;
 
     typedef std::map<shell_id_type, spherical_shell_type> spherical_shell_map;
@@ -233,6 +245,37 @@ private:
         Multi& outer_;
     };
 
+    struct volume_clearer: VolumeClearer<particle_shape_type, particle_id_type>
+    {
+        virtual ~volume_clearer() {}
+
+        virtual bool operator()(particle_shape_type const& shape, particle_id_type const& ignore)
+        {
+            if (!outer_.within_shell(shape))
+            {
+                outer_.last_event_ = ESCAPE;
+                return outer_.clear_volume(shape, ignore);
+            }
+            return true;
+        }
+
+        virtual bool operator()(particle_shape_type const& shape, particle_id_type const& ignore0, particle_id_type const& ignore1)
+        {
+            if (!outer_.within_shell(shape))
+            {
+                outer_.last_event_ = ESCAPE;
+                return outer_.clear_volume(shape, ignore0, ignore1);
+            }
+            return true;
+        }
+
+        volume_clearer(Multi& outer): outer_(outer) {}
+
+        Multi& outer_;
+    };
+
+    friend struct volume_clearer;
+
 public:
     virtual ~Multi() {}
 
@@ -256,7 +299,11 @@ public:
 
     Multi(identifier_type const& id, simulator_type& main, Real dt_factor)
         : base_type(id), main_(main), pc_(*main.world()), dt_factor_(dt_factor),
-          shells_(), last_event_(NONE) {}
+          shells_(), last_event_(NONE)
+    {
+        BOOST_ASSERT(dt_factor > 0.);
+        base_type::dt_ = dt_factor_ * BDSimulator<traits_type>::determine_dt(*main_.world());
+    }
 
     event_kind const& last_event() const
     {
@@ -317,12 +364,38 @@ public:
         {
             spherical_shell_id_pair const& sp(*i);
             position_type ppos(main_.world()->cyclic_transpose(sphere.position(), (sp).second.position()));
-            if (distance(ppos, (sp).second.shape().position()) < (sp).second.shape().radius())
+            if (distance(ppos, (sp).second.shape().position()) < (sp).second.shape().radius() - sphere.radius())
             {
                 return true;
             }
         }
         return false;
+    }
+
+    bool clear_volume(particle_shape_type const& shape, particle_id_type const& ignore) const
+    {
+        LOG_DEBUG(("clear_volume was called here."));
+        main_.clear_volume(shape, base_type::id_);
+        boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(
+            main_.world()->check_overlap(shape, ignore));
+        if (overlapped && ::size(*overlapped))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    bool clear_volume(particle_shape_type const& shape, particle_id_type const& ignore0, particle_id_type const& ignore1) const
+    {
+        LOG_DEBUG(("clear_volume was called here."));
+        main_.clear_volume(shape, base_type::id_);
+        boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(
+            main_.world()->check_overlap(shape, ignore0, ignore1));
+        if (overlapped && ::size(*overlapped))
+        {
+            return false;
+        }
+        return true;
     }
 
     typename multi_particle_container_type::particle_id_pair_range
@@ -338,12 +411,12 @@ public:
                 tx(pc_.create_transaction());
         typedef typename multi_particle_container_type::transaction_type::particle_id_pair_generator particle_id_pair_generator;
         typedef typename multi_particle_container_type::transaction_type::particle_id_pair_and_distance_list particle_id_pair_and_distance_list;
-
         last_reaction_setter rs(*this);
+        volume_clearer vc(*this);
         BDPropagator<traits_type> ppg(
             *tx, *main_.network_rules(), main_.rng(),
-            dt_factor_ * BDSimulator<traits_type>::determine_dt(*main_.world()),
-            1 /* FIXME: dissociation_retry_moves */, &rs,
+            base_type::dt_,
+            1 /* FIXME: dissociation_retry_moves */, &rs, &vc,
             make_select_first_range(pc_.get_particles_range()));
 
         last_event_ = NONE;
@@ -354,35 +427,6 @@ public:
             {
                 last_event_ = REACTION;
                 break;
-            }
-        }
-
-        boost::scoped_ptr<particle_id_pair_generator>
-            added_particles(tx->get_added_particles()),
-            modified_particles(tx->get_modified_particles());
-        LOG_DEBUG(("added_particles=%zu, modified_particles=%zu",
-            ::count(*added_particles), ::count(*modified_particles)));
-        chained_generator<particle_id_pair_generator,
-                          particle_id_pair_generator>
-            gen(*added_particles, *modified_particles);
-        while (::valid(gen))
-        {
-            particle_id_pair pp(gen());
-            boost::scoped_ptr<particle_id_pair_and_distance_list>
-                overlapped(main_.world()->check_overlap(
-                    pp.second.shape(), pp.first));
-            if (overlapped && ::size(*overlapped))
-            {
-                log_.info("collision occurred between particles of a multi and the outside: %s.  moves will be rolled back.",
-                    boost::lexical_cast<std::string>(pp.first).c_str());
-                tx->rollback();
-                return;
-            }
-
-            if (!within_shell(pp.second.shape()))
-            {
-                last_event_ = ESCAPE;
-                main_.clear_volume(pp.second.shape(), base_type::id_);
             }
         }
     }

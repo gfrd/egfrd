@@ -10,7 +10,6 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/lambda/bind.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <boost/fusion/container/map.hpp>
 #include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <boost/fusion/sequence/intrinsic/at_key.hpp>
@@ -471,23 +470,6 @@ protected:
 
     private:
         collector_type& col_;
-        position_type pos_;
-    };
-
-    struct distance_calculator
-    {
-        distance_calculator(world_type const& world,
-                            position_type const& pos)
-            : world_(world), pos_(pos) {}
-
-        template<typename Tshape_>
-        length_type operator()(Tshape_ const& shape) const
-        {
-            return world_.distance(shape, pos_);
-        }
-
-    private:
-        world_type const& world_;
         position_type pos_;
     };
 
@@ -1425,67 +1407,15 @@ protected:
         LOG_DEBUG(("add_event: #%d - %s", domain.event().first, boost::lexical_cast<std::string>(domain).c_str()));
     }
 
-    void update_event(single_type& domain, single_event_kind const& kind)
-    {
-        if (base_type::paranoiac_)
-            BOOST_ASSERT(domains_.find(domain.id()) != domains_.end());
-
-        LOG_DEBUG(("update_event: #%d", domain.event().first));
-        boost::shared_ptr<event_type> new_event(
-            new single_event(base_type::t_ + domain.dt(), domain, kind));
-        domain.event() = std::make_pair(domain.event().first, new_event);
-        try
-        {
-            scheduler_.update(domain.event());
-        }
-        catch (std::exception const&)
-        {
-            throw;
-        }
-    }
-
-    void update_event(pair_type& domain, pair_event_kind const& kind)
-    {
-        if (base_type::paranoiac_)
-            BOOST_ASSERT(domains_.find(domain.id()) != domains_.end());
-
-        LOG_DEBUG(("update_event: #%d", domain.event().first));
-        boost::shared_ptr<event_type> new_event(
-            new pair_event(base_type::t_ + domain.dt(), domain, kind));
-        domain.event() = std::make_pair(domain.event().first, new_event);
-        try
-        {
-            scheduler_.update(domain.event());
-        }
-        catch (std::exception const&)
-        {
-            throw;
-        }
-    }
-
-    void update_event(multi_type& domain)
-    {
-        if (base_type::paranoiac_)
-            BOOST_ASSERT(domains_.find(domain.id()) != domains_.end());
-
-        LOG_DEBUG(("update_event: #%d", domain.event().first));
-        boost::shared_ptr<event_type> new_event(
-            new pair_event(base_type::t_ + domain.dt(), domain));
-        domain.event() = std::make_pair(domain.event().first, new_event);
-        try
-        {
-            scheduler_.update(domain.event());
-        }
-        catch (std::exception const&)
-        {
-            throw;
-        }
-    }
-
     void remove_event(event_id_type const& id)
     {
         LOG_DEBUG(("remove_event: #%d", id));
         scheduler_.remove(id);
+    }
+
+    void remove_event(domain_type const& domain)
+    {
+        remove_event(domain.event().first);
     }
 
     // create_single {{{
@@ -1694,14 +1624,15 @@ protected:
         {
             do
             {
-                r = gf.drawR(rng.uniform(0., 1.), dt);
+                rnd = rng.uniform(0., 1.);
+                r = gf.drawR(rnd, dt);
             } while (r > a || r <= sigma);
         }
         catch (std::exception const& e)
         {
             throw propagation_error(
                 (boost::format(
-                    "gf.drawR() failed: %s, rnd=%g, dt=%g, a=%g, sigma=%g") % e.what() % rnd % dt % a % sigma).str());
+                    "gf.drawR() failed: %s, gf=%s, rnd=%g, dt=%g, a=%g, sigma=%g: %s") % e.what() % gf.getName() % rnd % dt % a % sigma % gf.dump()).str());
         }
 
         return r;
@@ -1778,9 +1709,9 @@ protected:
                 length(displacement)));
         if (base_type::paranoiac_)
         {
-            length_type const scale(domain.particle().second.radius());
             BOOST_ASSERT(r <= domain.mobility_radius());
-            BOOST_ASSERT(feq(length(displacement), std::abs(r), scale));
+            // length_type const scale(domain.particle().second.radius());
+            // BOOST_ASSERT(feq(length(displacement), std::abs(r), scale));
         }
         return (*base_type::world_).apply_boundary(add(domain.particle().second.position(), displacement));
     }
@@ -1936,7 +1867,8 @@ protected:
         domain.last_time() = base_type::t_;
         try
         {
-            update_event(domain, SINGLE_EVENT_ESCAPE);
+            remove_event(domain);
+            add_event(domain, SINGLE_EVENT_ESCAPE);
         }
         catch (std::out_of_range const&)
         {
@@ -2218,7 +2150,7 @@ protected:
         reaction_rules const& rules(
             (*base_type::network_rules_).query_reaction_rule(sid));
         rate_type const k_tot(calculate_k_tot(rules));
-        if (k_tot == 0.)
+        if (k_tot <= 0.)
         {
             return std::numeric_limits<time_type>::infinity();
         }
@@ -2228,7 +2160,15 @@ protected:
         }
         else
         {
-            return (1. / k_tot) * std::log(1. / base_type::rng_.uniform(0., 1.));
+            const double rnd(base_type::rng_.uniform(0., 1.));
+            if(rnd <= 0.)
+            {
+                return std::numeric_limits<time_type>::infinity();
+            }
+            else
+            {
+                return (1. / k_tot) * (- std::log(rnd)); // log(1/x) == - log(x)
+            }
         }
     }
 
@@ -2442,7 +2382,8 @@ protected:
             } else {
                 new_shell_size = closest.second / traits_type::SAFETY;
             }
-            new_shell_size = std::min(max_shell_size(), new_shell_size);
+            new_shell_size = std::min(max_shell_size(), 
+                std::max(domain.particle().second.radius(), new_shell_size));
         }
         else
         {
@@ -2818,14 +2759,14 @@ protected:
     boost::optional<multi_type&>
     form_multi(single_type& domain,
                std::vector<boost::shared_ptr<domain_type> > const& neighbors,
-               std::pair<domain_type&, length_type> closest)
+               std::pair<domain_type*, length_type> closest)
     {
         LOG_DEBUG(("form multi: neighbors=[%s], closest=%s",
                 stringize_and_join(
                     make_transform_iterator_range(neighbors,
                         dereference<boost::shared_ptr<domain_type> >()),
                     ", ").c_str(),
-                boost::lexical_cast<std::string>(closest.first).c_str()));
+                boost::lexical_cast<std::string>(*closest.first).c_str()));
         length_type const min_shell_size(
                 domain.particle().second.radius() *
                     (1.0 + multi_shell_factor_));
@@ -2840,7 +2781,7 @@ protected:
         // If there's a multi neighbor, merge others into it.
         // Otherwise, create a new multi and let it hold them all.
         multi_type* retval(0);
-        retval = dynamic_cast<multi_type*>(&closest.first);
+        retval = dynamic_cast<multi_type*>(closest.first);
         if (!retval)
         {
             retval = create_multi().get();
@@ -3011,8 +2952,8 @@ protected:
         {
             boost::optional<multi_type&> new_multi(
                     form_multi(domain, neighbors,
-                               std::pair<domain_type&, length_type>(
-                                    *possible_partner,
+                               std::pair<domain_type*, length_type>(
+                                    possible_partner,
                                     length_to_possible_partner)));
             if (new_multi)
             {
@@ -3020,6 +2961,14 @@ protected:
             }
         }
         return boost::optional<domain_type&>();
+    }
+  
+    void reject_single_reaction(single_type& domain)
+    {
+        ++rejected_moves_;
+        domain.dt() = 0.;
+        domain.last_time() = base_type::t_;
+        add_event(domain, SINGLE_EVENT_ESCAPE);
     }
 
     void fire_event(single_event const& event)
@@ -3044,6 +2993,7 @@ protected:
             catch (no_space const&)
             {
                 LOG_DEBUG(("single reaction rejected"));
+                reject_single_reaction(domain);
             }
             break;
 
@@ -3091,6 +3041,9 @@ protected:
                         if (!single)
                             continue;
                         restore_domain(*single);
+                        // reschedule events for the restored domains
+                        remove_event(*single);
+                        determine_next_event(*single);
                     }
                 } else {
                     restore_domain(domain, closest);
@@ -3187,6 +3140,7 @@ protected:
                 catch (no_space const&)
                 {
                     LOG_DEBUG(("single reaction rejected"));
+                    reject_single_reaction(*new_single[index]);
                 }
             }
             break;
@@ -3672,12 +3626,11 @@ protected:
 
     static rate_type calculate_k_tot(reaction_rules const& rules)
     {
-        using namespace boost::lambda;
-        using boost::lambda::_1;
-        using boost::lambda::bind;
         rate_type k_tot(0.);
-        std::for_each(boost::begin(rules), boost::end(rules),
-            var(k_tot) += bind(&reaction_rule_type::k, _1));
+        BOOST_FOREACH (reaction_rule_type const& rule, rules)
+        {
+            k_tot += rule.k();
+        }
         return k_tot;
     }
 

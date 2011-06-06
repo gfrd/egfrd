@@ -92,12 +92,16 @@ class Single(object):
         """Return a (reaction time, event type)-tuple.
 
         """
-        if self.k_tot == 0:
+        if self.k_tot <= 0:
             dt = numpy.inf
         elif self.k_tot == numpy.inf:
             dt = 0.0
         else:
-            dt = (1.0 / self.k_tot) * math.log(1.0 / myrandom.uniform())
+            rnd = myrandom.uniform()
+            if rnd == 0:
+                dt = numpy.inf
+            else:
+                dt = (1.0 / self.k_tot) * (- math.log(rnd)) # log(1/x) == - log(x)
         return dt, EventType.SINGLE_REACTION
 
     def draw_interaction_time(self):
@@ -195,11 +199,12 @@ class NonInteractionSingle(Single):
 
         displacement = self.create_position_vector(r)
 
-        if __debug__:
-            scale = self.pid_particle_pair[1].radius
-            if feq(length(displacement), abs(r), typical=scale) == False:
-                raise AssertionError('displacement != abs(r): %g != %g.' % 
-                                     (length(displacement), abs(r)))
+        # This should be checked in the unit test of random_vector.
+        # if __debug__:
+        #     scale = self.pid_particle_pair[1].radius
+        #     if feq(length(displacement), abs(r), typical=scale) == False:
+        #         raise AssertionError('displacement != abs(r): %g != %g.' % 
+        #                              (length(displacement), abs(r)))
 
         # Add displacement to shape.position, not to particle.position.  
         # This distinction is important only in the case of an 

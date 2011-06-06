@@ -134,19 +134,19 @@ class HDF5Logger(object):
 
         num_particles = 0
         for species in sim.world.species:
-            pid_list = sim.particle_pool[species.id]
+            pid_list = sim.world.get_particle_ids(species.id)
             num_particles += len(pid_list)
 
         x = numpy.zeros((num_particles, ),
                         dtype = numpy.dtype(PARTICLES_SCHEMA))
 
         count = 0
-        for sid, pid_set in sim.particle_pool.iteritems():
+        for species in sim.world.species:
+            pid_set = sim.world.get_particle_ids(species.id)
             for pid in pid_set:
                 pid, particle = sim.world.get_particle(pid)
-                species = sim.world.get_species(sid)
                 x['id'][count] = pid.serial
-                x['species_id'][count] = sid.serial
+                x['species_id'][count] = species.id.serial
                 x['position'][count] = particle.position
                 count += 1
 
@@ -304,6 +304,7 @@ class Logger(object):
             for i in sim.get_species()) + '\n')
         self.timecourse_file.flush()
 
+    # this method will be deprecated.
     def write_particles(self, sim):
         if not os.path.exists(self.directory):
             os.mkdir(self.directory)
@@ -335,9 +336,7 @@ class Logger(object):
     def log(self, sim, time):
         if sim.last_reaction:
             self.write_timecourse(sim)
-        self.write_particles(sim)
 
     def start(self, sim):
         self.prepare_timecourse_file(sim)
         self.write_timecourse(sim)
-        self.write_particles(sim)

@@ -67,6 +67,9 @@ CFLAGS="$CFLAGS -g"
 
 AX_BOOST_BASE([1.37],,AC_MSG_ERROR([could not find required version of BOOST.]))
 
+CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
+LDFLAGS="$LDFLAGS $BOOST_LDFLAGS"
+
 BOOST_PYTHON_LIBNAME=boost_python
 
 AC_ARG_WITH(boost-python-libname,
@@ -77,17 +80,6 @@ AC_ARG_WITH(boost-python-libname,
 )
 AC_CHECK_LIB($BOOST_PYTHON_LIBNAME,main,,AC_MSG_ERROR([could not find libboost_python.]),-lpython${PYTHON_VERSION})
 AC_SUBST(BOOST_PYTHON_LIBNAME)
-
-BOOST_DATE_TIME_LIBNAME=boost_date_time
-
-AC_ARG_WITH(boost-date_time-libname,
-  AC_HELP_STRING([--with-boost-date-time-libname=LIBNAME],
-                 [specify the library name of Boost.Python [[boost_date_time]]]
-                ),
-  [BOOST_DATE_TIME_LIBNAME=$withval]
-)
-AC_CHECK_LIB($BOOST_DATE_TIME_LIBNAME,main,,AC_MSG_ERROR([could not find libboost_date_time.]))
-AC_SUBST(BOOST_DATE_TIME_LIBNAME)
 
 BOOST_REGEX_LIBNAME=boost_regex
 
@@ -112,6 +104,7 @@ dnl
 dnl
 dnl
 ECELL_CHECK_NUMPY
+ECELL_CHECK_NUMPY_ARRAY_DESCR
 dnl
 AM_CHECK_PYTHON_HEADERS()
 ac_save_CPPFLAGS="$CPPFLAGS"
