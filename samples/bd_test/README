@@ -1,0 +1,11 @@
+
+
+Introduction
+=====================================
+
+This folder will in the future hold scripts to test the Brownian
+Dynamics part of the code.
+
+To test Brownian Dynamics, one is now referred to the "irreversible"
+example. Which also contains a functionality to test Brownian 
+Dynamics.

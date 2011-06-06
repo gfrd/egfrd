@@ -19,7 +19,7 @@ __all__ = [
     ]
 
 
-# Define _gfrd docstrigns here, much easier to format than in C++.
+# Define _gfrd docstrings here, much easier to format than in C++.
 _gfrd.create_cuboidal_region.__doc__ = \
 """create_cuboidal_region(id, corner, diagonal)
 

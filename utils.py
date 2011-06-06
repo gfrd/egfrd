@@ -28,39 +28,39 @@ MINIMAL_SEPARATION_FACTOR = 1.0 + TOLERANCE
   
 # Float comparison functions.
 def feq(a, b, typical=1, tolerance=TOLERANCE):
-    # Return True if a and b are equal, subject to given tolerances.  
-    # Float comparison.
+    """Return True if a and b are equal, subject to given tolerances.  
+    Float comparison.
 
-    # Also see numpy.allclose().
+    Also see numpy.allclose().
 
-    # The (relative) tolerance must be positive and << 1.0
+    The (relative) tolerance must be positive and << 1.0
 
-    # Instead of specifying an absolute tolerance, you can speciy a 
-    # typical value for a or b. The absolute tolerance is then the 
-    # relative tolerance multipied by this typical value, and will be 
-    # used when comparing a value to zero. By default, the typical 
-    # value is 1.
+    Instead of specifying an absolute tolerance, you can speciy a 
+    typical value for a or b. The absolute tolerance is then the 
+    relative tolerance multipied by this typical value, and will be 
+    used when comparing a value to zero. By default, the typical 
+    value is 1."""
 
     return abs(a - b) < tolerance * (typical + min(abs(a), abs(b)))
 
 
 def fgreater(a, b, typical=1, tolerance=TOLERANCE):
-    # Return True if a is greater than b, subject to given tolerances.  
-    # Float comparison.
+    """Return True if a is greater than b, subject to given tolerances.  
+    Float comparison."""
 
     return a - b > tolerance * (typical + min(abs(a), abs(b)))
 
 
 def fless(a, b, typical=1, tolerance=TOLERANCE):
-    # Return True if a is less than b, subject to given tolerances.  
-    # Float comparison.
+    """Return True if a is less than b, subject to given tolerances.  
+    Float comparison."""
 
     return b - a > tolerance * (typical + min(abs(a), abs(b)))
 
 
 def fgeq(a, b, typical=1, tolerance=TOLERANCE):
-    # Return True if a is greater or equal than b, subject to given 
-    # tolerances. Float comparison.
+    """Return True if a is greater or equal than b, subject to given 
+    tolerances. Float comparison."""
 
     diff = a - b
     barrier = tolerance * (typical + min(abs(a), abs(b)))
@@ -69,8 +69,8 @@ def fgeq(a, b, typical=1, tolerance=TOLERANCE):
 
 
 def fleq(a, b, typical=1, tolerance=TOLERANCE):
-    # Return True if a is less than or equal than b, subject to given 
-    # tolerances. Float comparison.
+    """Return True if a is less than or equal than b, subject to given 
+    tolerances. Float comparison."""
 
     diff = b - a
     barrier = tolerance * (typical + min(abs(a), abs(b)))
@@ -195,9 +195,9 @@ def crossproduct_against_z_axis(a):
     return numpy.array([- a[1], a[0], 0.0])
 
 def rotate_vector(v, r, alpha):
-    # v: vector to rotate
-    # r: normalized rotation axis
-    # alpha: rotation angle in radian
+    """v: vector to rotate
+    r: normalized rotation axis
+    alpha: rotation angle in radian"""
 
     cosalpha = math.cos(alpha)
     sinalpha = math.sin(alpha)

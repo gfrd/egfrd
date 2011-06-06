@@ -1,0 +1,25 @@
+
+
+Introduction
+=====================================
+This script runs a simulation with only one species of particles and 
+then uses the logger to output data on particles to data directory.
+
+Instructive on how to use the logger.
+
+
+Running
+======================================
+Simply use 
+$ PYTHONPATH=../../ python simple.py
+
+
+
+Output
+=======================================
+Script will create a directory 'data' log output data of the logger 
+there.
+
+
+
+

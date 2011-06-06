@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
-from egfrd import *
+# Call with:
+# PYTHONPATH=../../ python pushpull.py [Keq] [koff_ratio] [N_S_total] [N_K] [N_P] [V] [mode] [T]
 
-from logger import *
 import sys
 import os
+
+from egfrd import *
+import gfrdbase
+import _gfrd
+import logger
 import dumper
+import model
 
 from fractionS import *
 
@@ -20,6 +26,7 @@ from fractionS import *
 # T
 
 Keq_str = sys.argv[1]
+
 koff_ratio_str = sys.argv[2]
 N_S_total = int(sys.argv[3])
 N_K = int(sys.argv[4])
@@ -55,30 +62,38 @@ N = N_S_total * 1.1
 matrix_size = min(max(3, int((3 * N) ** (1.0/3.0))), 60)
 print 'matrix_size=', matrix_size
 
-w = World(L, matrix_size)
-s = EGFRDSimulator(w)
+
+# Model
+m = model.ParticleModel(L)
+# Species
+S = model.Species('S', D1, radius)
+P = model.Species('P', D2, radius)
+K = model.Species('K', D2, radius)
+KS = model.Species('KS', D2, radius)
+Sp = model.Species('Sp', D1, radius)
+PSp = model.Species('PSp', D2, radius)
+
+m.add_species_type(S) 
+m.add_species_type(P) 
+m.add_species_type(K) 
+m.add_species_type(KS) 
+m.add_species_type(Sp) 
+m.add_species_type(PSp) 
+# World
+w = gfrdbase.create_world(m, 3)
+# Simulator
+s = EGFRDSimulator(w, myrandom.rng)
 
 #s.set_dt_factor(1e-5)
 print V, L
 
 print C2N(498e-9, V)
 
+#TODO Correct sequence?
+#(id, corner, unit_x, unit_y, length_x, length_y)
+plain1 = _gfrd.create_planar_surface('plain1', [0,0,0], [1,0,0], [0,1,0], L, L)
+plain2 = _gfrd.create_planar_surface('plain2', [L/2,0,0], [1,0,0], [0,1,0], L, L)
 
-
-box1 = CuboidalRegion([0,0,0],[L,L,L])
-plain1 = CuboidalRegion([0,0,0],[0,L,L])
-plain2 = CuboidalRegion([L/2,0,0],[L/2,L,L])
-# not supported yet
-#s.add_surface(box1)
-
-m = ParticleModel()
-
-S = m.new_species_type('S', D1, radius)
-P = m.new_species_type('P', D2, radius)
-K = m.new_species_type('K', D2, radius)
-KS = m.new_species_type('KS', D2, radius)
-Sp = m.new_species_type('Sp', D1, radius)
-PSp = m.new_species_type('PSp', D2, radius)
 
 #fracS = fraction_S(N_K, N_P, Keq)
 fracS = 1
@@ -141,40 +156,42 @@ print (koff1 + kcat1)/kon/S_conc
 
 #sys.exit(0)
 
-s.set_model(m)
-
 if mode == 'normal' or mode == 'immobile':
-    s.throw_in_particles(K, N_K, box1)
-    s.throw_in_particles(P, N_P, box1)
+    s.throw_in_particles(w, K, N_K)
+    s.throw_in_particles(w, P, N_P)
 elif mode == 'localized':
+    
+    P = model.Species('P', D2, radius,'plain1') 
+    K = model.Species('K', D2, radius,'plain2') 
+    m.add_species_type(P) 
+    m.add_species_type(K)
+
     s.throw_in_particles(K, N_K, plain1)
     s.throw_in_particles(P, N_P, plain2)
 elif mode == 'single':
     x = L/2
     yz = L/2
     tl = L/4
-    s.place_particle(K, [tl, tl, tl])
-    s.place_particle(K, [tl, tl, yz+tl])
-    s.place_particle(K, [tl, yz+tl, tl])
-    s.place_particle(K, [tl, yz+tl, yz+tl])
-    s.place_particle(P, [x+tl, tl, tl])
-    s.place_particle(P, [x+tl, tl, yz+tl])
-    s.place_particle(P, [x+tl, yz+tl, tl])
-    s.place_particle(P, [x+tl, yz+tl, yz+tl])
+    place_particle(w, K, [tl, tl, tl])
+    place_particle(w, K, [tl, tl, yz+tl])
+    place_particle(w, K, [tl, yz+tl, tl])
+    place_particle(w, K, [tl, yz+tl, yz+tl])
+    place_particle(w, P, [x+tl, tl, tl])
+    place_particle(w, P, [x+tl, tl, yz+tl])
+    place_particle(w, P, [x+tl, yz+tl, tl])
+    place_particle(w, P, [x+tl, yz+tl, yz+tl])
 else:
     assert False
 
-
-
-s.throw_in_particles(Sp, N_Sp, box1)
-s.throw_in_particles(S, N_S, box1)
+throw_in_particles(w, Sp, N_Sp)
+throw_in_particles(w, S, N_S)
 
 # Stir before actually start the sim.
 
 stir_time = 1e-7
 while 1:
     s.step()
-    next_time = s.scheduler.getTopTime()
+    next_time = s.get_next_time()
     if next_time > stir_time:
         s.stop(stir_time)
         break
@@ -187,29 +204,29 @@ s.reset()
 #  6   PSp     -> P + S
 
 
-r1 = create_binding_reaction_rule(S, K, KS, ka)
+
+
+# Create reaction rules (can this be done after rest is already performed?) TODO
+r1 = model.create_binding_reaction_rule(S, K, KS, ka)
 m.network_rules.add_reaction_rule(r1)
-r2 = create_unbinding_reaction_rule(KS, S, K, kd1)
+r2 = model.create_unbinding_reaction_rule(KS, S, K, kd1)
 m.network_rules.add_reaction_rule(r2)
-r3 = create_unbinding_reaction_rule(KS, K, Sp, kcat1)
+r3 = model.create_unbinding_reaction_rule(KS, K, Sp, kcat1)
 m.network_rules.add_reaction_rule(r3)
-r4 = create_binding_reaction_rule(Sp, P, PSp, ka)
+r4 = model.create_binding_reaction_rule(Sp, P, PSp, ka)
 m.network_rules.add_reaction_rule(r4)
-r5 = create_unbinding_reaction_rule(PSp, Sp, P, kd2)
+r5 = model.create_unbinding_reaction_rule(PSp, Sp, P, kd2)
 m.network_rules.add_reaction_rule(r5)
-r6 = create_unbinding_reaction_rule(PSp, P, S, kcat2)
+r6 = model.create_unbinding_reaction_rule(PSp, P, S, kcat2)
 m.network_rules.add_reaction_rule(r6)
-
-
-s.set_model(m)
 
 
 model = 'pushpull'
 
 # 'pushpull-Keq-koff_ratio-N_K-N_P-V-mode.dat'
-l = Logger(logname = model + '_' + '_'.join(sys.argv[1:8]) + '_' +\
-               os.environ['SGE_TASK_ID'],
-           comment = '@ model=\'%s\'; Keq=%s; koff_ratio=%s\n' %
+l = logger.Logger(logname = model + '_' + '_'.join(sys.argv[1:8]) + '_' # +\
+#               os.environ['SGE_TASK_ID']
+           ,comment = '@ model=\'%s\'; Keq=%s; koff_ratio=%s\n' %
            (model, Keq_str, koff_ratio_str) +
            '#@ V=%s; N_K=%s; N_P=%s; mode=\'%s\'; T=%s\n' % 
            (V_str, N_K, N_P, mode, T_str) +
@@ -219,8 +236,7 @@ l = Logger(logname = model + '_' + '_'.join(sys.argv[1:8]) + '_' +\
            (kcat1, kcat2) +
            '#@ ka=%g; kd1=%g; kd2=%g\n' %
            (ka, kd1, kd2))
-
-interrupter = FixedIntervalInterrupter(s, 1e-7, l)
+interrupter = logger.FixedIntervalInterrupter(s, 1e-7, l.log)
 
 l.start(s)
 while s.t < T:

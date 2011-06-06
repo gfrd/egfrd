@@ -1,0 +1,73 @@
+
+
+
+Introduction
+=====================================
+This example deals with the rebinding problem. The simplest case of
+this problem is when you have two particles of different species
+that can react with each other, say A and B, to a particle of species
+C:
+
+A + B <-> C
+
+If all these particles have different diffusion constants, one may 
+wonder how the path of the center of mass of this particle system 
+can be approximated by a single diffusion constant.
+
+A major question in this problem is how many time the particles 
+spend being particles A & B, and how many time the particles spend
+as particle C.
+
+Here, such a system is simulated. There is one particle A, and a 
+fixed number of particles B, which can react to a particle C. 
+Additionally there are some particles X that are inert.
+
+The simulation initially places a particle A and a particle B next
+to it. If the number of particles B >1 then the rest of the B-particles
+are placed at random positions. (But can still be bound by particle A.)
+
+Running
+=====================================
+The simulation can be run as follows:
+$ LOGLEVEL=ERROR PYTHONPATH=../.. python -O run.py [N_B] [N_X] [N] [t1,
+t2, t3, t4, .., INF]
+
+Example:
+$ LOGLEVEL=ERROR PYTHONPATH=../.. python -O run.py 1 100 10 1.0 2.5 3 4.0 INF
+
+Here, N_B and N_X are respectively the number of B and X particles. N is the 
+number of times the simulation is ran. [t1, t2, .., INF] is an array of times 
+at which the distances between the two particles are logged. (Taken zero if a 
+set of A and B particles have reacted to a C particle.) This array should 
+minimally contain the INF value.
+    If only [INF] is given as input, the simulation will run until it 
+has recorded a duration for which the particles were in a bound state.
+Otherwise, the system will keep going untill all measurement times have 
+been passed (and then still run until a duration is recorded). 
+
+
+Output
+=====================================
+The most important data is written away to files in the data directory.
+
+The duration of recorded bindings are written to:
+rebind_t.dat
+
+The distances between the particles logged at times given by the user 
+are written to:
+rebind_r_<time>.dat
+(Where <time> stands for the applicable measurement time.)
+
+
+Appendix
+=====================================
+
+Some code used in previous versions:
+
+100 nM = 100e-9 * N_A * 100 / m^3 = 6.02e19
+V = 1 / 6.02e19 = 1.66e-20 m^3
+L = 2.55e-7 m
+
+1 uM = 6.02e20 / m^3
+V = 1.66e-21 m^3
+L = 1.18e-7

@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 
+# Run with e.g. $ python run_single.py 1 1e-5 10
+
+import sys
+#Also, set relative egfrd directory path
+sys.path.append('../../')
+
+import myrandom
+
 from egfrd import *
 from bd import *
-
 from logger import *
-import sys
 import time
 import model
 import gfrdbase
 import _gfrd
-import myrandom
+
 
 def run_single(T, V, N):
 

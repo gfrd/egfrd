@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# Call with:
+# PYTHONPATH=../../ python plot.py [data directory] [output directory]
 
 import sys
 import string

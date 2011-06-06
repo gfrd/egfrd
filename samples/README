@@ -1,0 +1,89 @@
+Introduction
+=====================================
+When this README file was written, all Python code was checked for 
+functionality. C++ files might still be in development (and thus non-
+functional). Below one can find the contents of the samples directory,
+sorted by function.
+
+Contents
+=====================================
+See READMEs in sample folders for more information.
+
+    Tutorial & Template
+    =================================
+    - template
+    Contains template file to copy&paste some eGFRD code from. 
+    - tutorial 
+    Non-existent yet. ("TODO")
+    - simple
+    Instructive on how to use the logger.
+
+    Examples
+    =================================
+    (alphabetical order)
+    - cluster
+    Measures unbinding/rebinding-time of molecule released from cluster.
+    - irreversible
+    Samples distance between two reagents placed next to each other, also 
+    outputs reaction time.
+    - mapk
+    Script used for publication; Not looked into when this README file was
+    written. ("TODO")
+    - pushpull
+    Pushpull example. Has no README file yet either. ("TODO")
+    - rebind
+    Measures reaction time and distances inbetween two molecules placed 
+    right next to each other. Has option to add multiple particles of one
+    reacting species, and option to add particles of non-reactive species.
+    - reversible
+    Does the same as rebind, but with two particles only.
+    - single
+    Defective example ("TODO"). 
+    - tf
+    ? ("TODO")
+    
+
+    Benchmarking
+    =================================
+    - benchmark
+    Benchmarking utility that uses C++ part of code.
+    - dimer
+    Script that profiles the eGFRD algorithm. 
+    - hardbody
+    Runs a model composed of a single, non-reactive species. Outputs
+    runtimes simulation runs.
+
+    Testing
+    =================================
+    - bd_propagator
+    Tests for the C++ version of the Brownian Dynamics simulator.
+
+    - bd_test
+    This folder will in the future hold scripts to test the Brownian
+    Dynamics part of the code.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

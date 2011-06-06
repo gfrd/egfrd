@@ -21,11 +21,11 @@ The following command runs the simulation until a reaction occurs
 or the simulator reaches time T, output the distance between
 A and B to the file OUTFILE, and repeat this for N times.
 
-PYTHONPATH=../../.. python run.py OUTFILE T N
+PYTHONPATH=../../ python run.py OUTFILE T N
 
 For example:
 
-PYTHONPATH=../../.. python run.py irr.out 0.0001 
+PYTHONPATH=../../ python run.py irr.out 0.0001 10
 
 
 

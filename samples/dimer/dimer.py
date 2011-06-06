@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+import sys
+
 from egfrd import *
 from bd import *
 from gfrdbase import *
 from logger import *
 import _gfrd
 import model
-import sys
+
 
 
 N = 300
@@ -16,6 +18,7 @@ L = 5e-6
 #L = 5e-8
 #L = 3e-7
 
+# Creating a model with species S and P that can reversibly bind
 m = model.ParticleModel(L)
 S = model.Species('S', 1.5e-12, 5e-9)
 P = model.Species('P', 1e-12, 7e-9)
@@ -27,11 +30,13 @@ m.network_rules.add_reaction_rule(r1)
 m.network_rules.add_reaction_rule(r2)
 m.set_all_repulsive()
 
+# Set up simulator
 world = create_world(m, int((N * 6) ** (1. / 3.)))
 nrw = _gfrd.NetworkRulesWrapper(m.network_rules)
 s = EGFRDSimulator(world, myrandom.rng, nrw)
 #s = BDSimulator(world. myrandom.rng, nrw)
 
+# Throw in particles
 throw_in_particles(s.world, S, N / 2)
 throw_in_particles(s.world, P, N / 2)
 

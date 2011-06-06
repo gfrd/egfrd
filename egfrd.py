@@ -126,6 +126,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return self.containers[0].cell_size
 
     def get_next_time(self):
+        """ 
+        Returns the time it will be when the next egfrd timestep
+        is completed.        
+        """ #~MW
         if self.scheduler.size == 0:
             return self.t
 
@@ -142,6 +146,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
                    self.user_max_shell_size)
 
     def reset(self):
+        """
+        This function resets the "records" of the simulator. This means
+        the simulator time is reset, the step counter is reset, events
+        are reset, etc.
+        Can be for example usefull when users want to "stirr" the 
+        simulation before starting the "real experiment".
+        """ #~ MW
         self.t = 0.0
         self.dt = 0.0
         self.step_counter = 0
@@ -280,13 +291,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
                      'event=#%d reactions=%d rejectedmoves=%d' %
                      (id, self.reaction_events, self.rejected_moves))
        
+        # Dispatch is simply dict of what function to use to fire for 
+        # different classes (see bottom egfrd.py) 
+        # event.data simply holds the data of the next event.
+        # e.g. "if class is single fire single" ~ MW
         for klass, f in self.dispatch:
             if isinstance(event.data, klass):
                 f(self, event.data)
 
         if __debug__:
             if self.scheduler.size == 0:
-                raise RuntimeError('Zero particles left.')
+                raise RuntimeError('Zero events left.')
 
         next_time = self.scheduler.top[1].time
         self.dt = next_time - self.t
@@ -514,6 +529,20 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return bursted
 
     def clear_volume(self, pos, radius, ignore=[]):
+        """ Burst domains within a certain volume and give their ids.
+
+        This function actually has a confusing name, as it only bursts 
+        domains within a certain radius, and gives their ids. It doesn't
+        remove the particles or something like that.
+
+        (Bursting means it propagates the particles within the domain until
+        the current time, and then creates a new, minimum-sized domain.)
+
+        Arguments:
+            - pos: position of area to be "bursted"
+            - radius: radius of area to be "bursted"
+            - ignore: domains that should be ignored, none by default.
+        """ # ~ MW
         neighbors = self.get_neighbors_within_radius_no_sort(pos, radius,
                                                              ignore)
         return self.burst_objs(neighbors)
@@ -685,6 +714,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
             return single
 
     def fire_single(self, single):
+        # In case nothing is scheduled to happen: do nothing; 
+        # results also in disappearance from scheduler.
+        if single.dt == numpy.inf:
+            return single 
+        
+        # Otherwise check timeline
         assert (abs(single.dt + single.last_time - self.t) <= 1e-18 * self.t)
 
         # Reaction.
@@ -992,13 +1027,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return singles
 
     def burst_single(self, single):
+        # Sets next event time of single domain in such a way it will end 
+        # up at current time if fired, and then outputs newly created 
+        # single that is result of firing old single
+
+        # Check correct timeline ~ MW
         assert self.t >= single.last_time
         assert self.t <= single.last_time + single.dt
 
-        if single.dt == numpy.inf:
-            # Performance only: don't reschedule singles with D=0.
-            return single
-
+        # record important single data ~ MW
         oldpos = single.shell.shape.position
         old_shell_size = single.get_shell_size()
 
@@ -1011,6 +1048,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         newsingle = self.propagate_single(single)
 
         newpos = newsingle.pid_particle_pair[1].position
+        # Check if stays within domain ~MW
         assert self.world.distance(newpos, oldpos) <= \
                old_shell_size - particle_radius
         # Displacement check is in NonInteractionSingle.draw_new_position.
@@ -1460,16 +1498,19 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # shells. Can for example be used to try to clear all objects 
         # from a certain volume.
 
-        for container in self.containers:
-            result = container.get_neighbors_within_radius(pos, radius)
-            # result = [((shell_id_shell_pair), distance), ]
-            # Since a domain can have more than 1 shell (multis for 
-            # example), and for each shell there is an entry in the 
-            # shell container, we make sure each domain occurs only once 
-            # in the returned list here.
-            for did in uniq(s[0][1].did for s in result):
-                if did not in ignore:
-                    yield self.domains[did]
+        try:
+            for container in self.containers:
+                result = container.get_neighbors_within_radius(pos, radius)
+                # result = [((shell_id_shell_pair), distance), ]
+                # Since a domain can have more than 1 shell (multis for 
+                # example), and for each shell there is an entry in the 
+                # shell container, we make sure each domain occurs only once 
+                # in the returned list here.
+                for did in uniq(s[0][1].did for s in result):
+                    if did not in ignore:
+                        yield self.domains[did]
+        except AttributeError:
+            pass
 
     def get_intruders(self, position, radius, ignore):
         intruders = []   # intruders are domains within radius

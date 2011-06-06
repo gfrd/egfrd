@@ -8,7 +8,8 @@ if HAVE_PDFLATEX
 # Compile and install; do not distribute.
 pdf_DATA = \
 	implementation_notes.pdf\
-	p1_fp.pdf
+	p1_fp.pdf\
+    interface_functions.pdf
 endif
 
 

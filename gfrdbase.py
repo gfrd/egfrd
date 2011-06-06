@@ -81,13 +81,13 @@ class NoSpace(Exception):
     pass
 
 def get_closest_surface(world, pos, ignore):
-    # Return
-    #   - closest surface
-    #   - distance to closest surface
-    #
-    # We can not use matrix_space, it would miss a surface if the 
-    # origin of the surface would not be in the same or neighboring 
-    # cells as pos.
+    """Return
+      - closest surface
+      - distance to closest surface
+    
+    We can not use matrix_space, it would miss a surface if the 
+    origin of the surface would not be in the same or neighboring 
+    cells as pos."""
 
     surfaces_and_distances_to_surfaces = []
 
@@ -104,10 +104,10 @@ def get_closest_surface(world, pos, ignore):
         return None, numpy.inf
 
 def get_closest_surface_within_radius(world, pos, radius, ignore):
-    # Return:
-    #   - surface within radius or None
-    #   - closest surface (regardless of radius)
-    #   - distance to closest surface
+    """Return:
+      - surface within radius or None
+      - closest surface (regardless of radius)
+      - distance to closest surface"""
 
     surface, distance = get_closest_surface(world, pos, ignore) 
     if distance < radius:
@@ -310,12 +310,61 @@ class ParticleSimulatorBase(object):
         pass
 
     def get_species(self):
+        """
+        Return an iterator over the Species in the simulator. 
+        To be exact, it returns an iterator that returns 
+        all SpeciesInfo instances defined in the simulator.
+        
+        Arguments: 
+            - sim an EGFRDSimulator. 
+
+        More on output:
+            - SpeciesInfo is defined in the C++ code, and has
+              the following attributes that might be of interest
+              to the user:
+                   * SpeciesInfo.id
+                   * SpeciesInfo.radius
+                   * SpeciesInfo.structure_id
+                   * SpeciesInfo.D
+                   * SpeciesInfo.v
+                
+        Example:
+
+            for species in s.get_species():
+                print str(species.radius)
+
+        Note:
+            Dumper.py also holds a copy of this function.        
+
+        """ #TODO: Added by wehrens@amolf.nl; please revise
         return self.world.species
 
     def get_first_pid(self, sid):
+        """
+        Returns the first particle ID of a certain species.
+
+        Arguments:
+            - sid: a(n) (eGFRD) simulator.
+        """ #TODO: Added by wehrens@amolf.nl; please revise
         return iter(self.world.get_particle_ids(sid)).next()
 
     def get_position(self, object):
+        """
+        Function that returns particle position. Can take multiple
+        sorts of arguments as input. 
+
+        Arguments:
+            - object: can be:
+                * pid_particle_pair tuple 
+                  (of which pid_particle_pair[0] is _gfrd.ParticleID).
+                * An instance of _gfrd.ParticleID.
+
+                * An instance of _gfrd.Particle.
+                * An instance of _gfrd.SpeciesID.
+                    In the two latter cases, the function returns the 
+                    first ID of the position of the first particle of 
+                    the given species.
+        """ #TODO: Added by wehrens@amolf.nl; please revise
         if type(object) is tuple and type(object[0]) is _gfrd.ParticleID:
             pid = object[0]
         elif type(object) is _gfrd.ParticleID:

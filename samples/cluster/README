@@ -1,0 +1,42 @@
+
+
+Introduction
+=====================================
+
+This script also deals with the question of rebinding: when two particles can reversibly bind, what's the average time between an unbinding an binding event? (See also the "rebind" folder.)
+
+The script contains the following reaction to simulate the rebinding:
+A + B <-> C
+
+With A and C having diffusion constant D = 0. 
+
+To research the effect of clustering of biological receptors, this script
+can place a "cluster" of A molecules in the simulation (i.e. it can
+place densily packed A particles on a plane, within a circular area). 
+
+In the center of the cluster a B particle is put. Then the simulation is allowed to run untill an unbinding and rebinding event have taken place.
+
+
+Running
+======================================
+
+Run by:
+$ python run.py [N] [runs] [outFilename] [Logmode, default=False]
+
+Arguments:
+  - N: Number of particles in cluster
+  - runs: Number of simulation runs
+  - outFilename: Name of output file
+  - Logmode on/off: should be given False or True value. Is False by 
+    default. If True, only 1 VTK-logged run is performed.    
+
+E.g.:
+$ python run.py 7 1000 data.out
+Or:
+$ python run.py 7 1 data.out True
+
+
+
+
+
+

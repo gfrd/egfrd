@@ -1,0 +1,19 @@
+Introduction
+=====================================
+Script that "profiles" the eGFRD algorithm. This basically means a report
+is generated on which part of the code uses the most resources. For more 
+on profiling, see http://docs.python.org/library/profile.html#id1. 
+The eGFRD algorithm is tested with a simple script which simulates the
+reversible binding reaction between two species, S and P. 
+
+This script is especially usefull for benchmarking and developers, but no
+so much for end-users of the eGFRD algorithm.
+
+Running
+=====================================
+$ PYTHONPATH=../../ python dimer.py 
+
+Will already do the trick.
+
+
+

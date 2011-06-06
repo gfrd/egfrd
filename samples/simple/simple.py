@@ -1,30 +1,37 @@
 #!/usr/bin/env python
 
-from egfrd import *
-
-from logger import *
+# Modules
 import sys
 
+from egfrd import *
+import model
+import gfrdbase
+
+import logger
+
+
+# Constants
 size = 1e-6
-w = World(size, 3)
-s = EGFRDSimulator(w)
 
+# Model
+m = model.ParticleModel(size)
+# Species
+P = model.Species('P', 1e-12, 3e-9)                                   
+m.add_species_type(P) 
 
-box1 = CuboidalRegion([0,0,0],[size,size,size])
-# not supported yet
-#s.add_surface(box1)
+# World
+w = gfrdbase.create_world(m, 3)
+# Simulator
+s = EGFRDSimulator(w, myrandom.rng)
 
-#P = Species('P', 1e-12, 5e-8)
-P = Species('P', 1e-12, 3e-9) #hemo
-s.add_species(P)
+# Throw in particles
+throw_in_particles(w, P, 60)
 
-s.set_all_repulsive()
+# Logger
+l = logger.Logger('simple')
+interrupter = logger.FixedIntervalInterrupter(s, 3.33e-4, l.log)
 
-s.throw_in_particles(P, 60, box1)
-
-l = Logger('simple')
-interrupter = FixedIntervalInterrupter(s, 3.33e-4, l)
-
+# Simulation
 l.start(s)
 while s.t < .1:
     interrupter.step()
