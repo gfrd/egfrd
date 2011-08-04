@@ -1,0 +1,70 @@
+########################################################################
+# Abstract : Sample PBS/bash script to start a simple eGFRD simulation #
+# Author: Thomas Sokolowski (sokolowski@amolf.nl)                      #
+# Date  : 2011-08-02                                                   #
+########################################################################
+
+########################################################################
+# OPTIONS FOR PBS MACRO:                                               #
+#                                                                      #
+# -S: shell to be used for your scripts                                #
+# -l: provide extra options/resources                                  #
+#     notes=x:ppn=y                                                    #
+#       allocate x nodes with y processors each                        #
+#     walltime=hh:mm:ss                                                #
+#       allocate cpu time                                              #
+# -N: job name as shown in the queue                                   #
+#                                                                      #   
+########################################################################
+ 
+#PBS -S /bin/bash
+#PBS -l nodes=1:ppn=1,walltime=24:00:00
+#PBS -N eGFRDjob
+
+# Specify the job directory to which the queing system will redirect
+# its output
+JOB_DIR="/home/thomas/egfrd/samples/irreversible"
+
+# Specify the eGFRD directory
+# PYTHONPATH is set to this directory before the script is started
+EGFRD_DIR="/home/thomas/egfrd/"
+
+# Specify the start command
+# This could also be put into a startscript
+JOB_CMD="***PUT IN JOB START COMMAND WITH FULL PARAMTER LIST HERE***"
+# ( example: JOB_CMD="python26 run.py cluster.out 0.0001 100000" )
+
+# Define output log file
+OUTLOG="run.log"
+
+########################################################################
+# Here the job starts                                                  #
+########################################################################
+
+# First print some log info
+echo "----------------------------------------------------------------"
+echo "Attempting to start PBS job..."
+echo
+echo "Start time:       $(date)"
+echo "Host:             $(hostname)"
+echo "Root directory:   $(pwd)"
+echo "Job directory:    ${JOB_DIR}"
+echo "Job command:      ${JOB_CMD}"
+echo "----------------------------------------------------------------"
+
+# Enter job directory
+pushd ${JOB_DIR}
+
+# Run job command with parameters and redirect output
+PYTHONPATH=${EGFRD_DIR} ${JOB_CMD}
+
+# Return to previous directory
+popd
+
+# Print some final log info
+echo "----------------------------------------------------------------"
+echo "Job finished."
+echo "End time:         $(date)"
+echo "----------------------------------------------------------------"
+
+

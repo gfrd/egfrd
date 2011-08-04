@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+################################################################
+# Submits a job to a TORQUE/Maui operated cluster using qsub   #
+# Started by Koos van Meel, modified by Thomas Sokolowski      #
+#                                                              #
+# The script can start iterations of a job and make the        #
+# subsequent job be dependent on the outcome of the previous.  # 
+#                                                              #
+# For the error path argument is optional and most likely      #
+# you want to set ".", i.e. the error output is redirected     #
+# into the directory the script is started from.               #
+################################################################
+
+# Check command syntax
+if [ $# -lt 2 ];
+then
+  echo "Usage: submit <iterations> <script> [errorpath]"
+  exit
+fi
+
+# Set cluster script name
+SCRIPT=$2
+
+# Set path for the error and output stream. If no argument passed,
+# set it to the current working directory
+if [ "$3" != "" ];
+  then  ERRPATH=$(echo "$3")
+  else  ERRPATH=$(pwd)
+fi
+
+# Output all job ids to a file <script>.jobids
+JOBIDS=${SCRIPT}.jobIDs
+
+# Get number of iterations
+ITERATIONS=$1
+
+# Initialize: Start with iteration counter 0
+I=0
+# First job does not have any dependencies, so leave this like it is!
+DEPEND=
+
+# Loop over all iterations
+while [ $I -lt $ITERATIONS ];
+do
+	# Submit job and print some screen info
+	echo "qsub: DEPEND=$DEPEND"
+	echo "qsub: ERRPATH=$ERRPATH"
+	echo "qsub: SCRIPT=$SCRIPT"
+	echo 'Executing: qsub -e $ERRPATH -o $ERRPATH $DEPEND $SCRIPT'
+
+	JOBID=$( qsub -e $ERRPATH -o $ERRPATH $DEPEND $SCRIPT )
+
+	# Create a job-id list
+	echo "$JOBID" >> $JOBIDS
+
+	# Update dependency
+        # With the following code the job will only start if the
+        # currently started one will terminate properly
+	DEPEND="-W depend=afterok:$JOBID"
+
+	# next iteration
+	(( I++ ))
+done
+

@@ -1,0 +1,20 @@
+
+This directory contains a sample PBS script (egfrd.qsub) to be used for starting
+jobs on a TORQUE/Maui operated cluster with the "qsub" command and a bash script
+(submit) which automatically submits series of jobs to the cluster (using "qsub").
+
+To run a sample on the cluster, copy both scripts into the directory you want to
+run the sample from and replace the start command in "egfrd.qsub".
+To submit one job type
+
+  ./submit 1 egfrd.qsub [error path]
+
+[error path] is an optional argument specifying the output path for the default
+and error output streams and is set to the directory you start "submit" from
+by default.
+
+Both scripts are commented and an example for a job start command is given
+in "egfrd.qsub".
+
+
+Written by:	Thomas Sokolowski (sokolowski@amolf.nl), Aug 2011
