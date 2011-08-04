@@ -1,4 +1,4 @@
-#!/usr/bin/env/python
+#!/usr/bin/python
 
 # varying kf
 # python plot.py 05/data/rebind_1_0.1_ALL_t.dat 05/data/rebind_1_1_ALL_t.dat 05/data/rebind_1_10_ALL_t.dat 

@@ -20,6 +20,8 @@ SURFACES  = True
 DARK_BACKGROUND = True
 
 PARTICLE_RADIUS_SCALE_FACTOR = 1
+SPHERE_RADIUS_SCALE_FACTOR = 1
+CYLINDER_RADIUS_SCALE_FACTOR = 1
 HELIX_RADIUS_SCALE_FACTOR = 1
 RESOLUTION = 18
 
@@ -122,12 +124,19 @@ class Pipeline(object):
                 path of the directory that contains the files 
                 'files.pvd' and 'static.pvd', as created by VTKLogger.
 
+        Call p.rebuild() after this.
+
         """
         self.paraview_scripts_directory = egfrd_directory + '/visualization/'
         self.simulation_data_directory = simulation_data_directory
         
+        self.particle_radius_scale_factor = PARTICLE_RADIUS_SCALE_FACTOR
+        self.sphere_radius_scale_factor = SPHERE_RADIUS_SCALE_FACTOR
+        self.cylinder_radius_scale_factor = CYLINDER_RADIUS_SCALE_FACTOR
+        self.helix_radius_scale_factor = HELIX_RADIUS_SCALE_FACTOR
+        self.resolution = RESOLUTION
+
         self.initialize()
-        self.rebuild()
 
     def initialize(self):
         dir = self.paraview_scripts_directory
@@ -284,12 +293,19 @@ class Pipeline(object):
 
             static = self.add_pvd_reader(static_pvd_path, 'static.pvd')
 
+            if version > 4: 
+                self.annTime = self.simple.AnnotateTimeFilter(files)
+                self.annTime.Format = '%.2f s'
+                rep = self.show(self.annTime)
+                #rep.WindowLocation
+                rep.FontSize = 12
 
         if PARTICLES:
             particle_data = self.add_extract_block(files, [2], 'b1')
 
-            particles = self.add_sphere_glyph(particle_data, name='Particles')
-            particles.SetScaleFactor = PARTICLE_RADIUS_SCALE_FACTOR
+            particles = self.add_sphere_glyph(particle_data, self.resolution,
+                                              name='Particles')
+            particles.SetScaleFactor = self.particle_radius_scale_factor
 
             rep1 = self.show(particles)
             self.set_color(particles, rep1)
@@ -298,8 +314,9 @@ class Pipeline(object):
         if SPHERES:
             sphere_data = self.add_extract_block(files, [4], 'b2')
 
-            spheres = self.add_sphere_glyph(sphere_data, RESOLUTION, 
+            spheres = self.add_sphere_glyph(sphere_data, self.resolution, 
                                             name='Spheres')
+            spheres.SetScaleFactor = self.sphere_radius_scale_factor
 
             rep2 = self.show(spheres)
             self.set_color(spheres, rep2, color_map=MakeNiceLT)
@@ -309,9 +326,11 @@ class Pipeline(object):
 
         if CYLINDERS:
             cylinder_data = self.add_extract_block(files, [6], 'b3')
-
+            scale = self.cylinder_radius_scale_factor
             cylinders = self.add_tensor_glyph(cylinder_data, 'Cylinder', 
-                                              resolution=RESOLUTION, name='tg')
+                                              resolution=self.resolution,
+                                              name='tg',
+                                              scale=scale)
 
             programmable_filter = self.add_color_hack(cylinders,
                                                       name='Cylinders')
@@ -330,8 +349,7 @@ class Pipeline(object):
                 cylindrical_surfaces = \
                     self.add_tensor_glyph(cylindrical_surface_data, 'Cylinder',
                                           name='Cylindrical Surfaces',
-                                          resolution=RESOLUTION,
-                                          scale=HELIX_RADIUS_SCALE_FACTOR) 
+                                          scale=self.helix_radius_scale_factor)
 
                 rep4 = self.show(cylindrical_surfaces)
                 rep4.Representation = 'Wireframe'
@@ -343,7 +361,7 @@ class Pipeline(object):
                 helix_file = open(helix_path, 'r')
                 helix_source = servermanager.sources.ProgrammableSource()
                 helix_source.Script = 'HELIX_RADIUS_SCALE_FACTOR = ' + \
-                                      str(HELIX_RADIUS_SCALE_FACTOR) + \
+                                      str(self.helix_radius_scale_factor) + \
                                       '\n' + helix_file.read()
                 helix_source.UpdatePipeline()
                 servermanager.Register(helix_source, registrationName='ps')
@@ -379,15 +397,15 @@ class Pipeline(object):
                     if value > 0 and value < cylindrical_surface_radius:
                         cylindrical_surface_radius = value
 
-                helix_radius = HELIX_RADIUS_SCALE_FACTOR * \
+                helix_radius = self.helix_radius_scale_factor * \
                                cylindrical_surface_radius
 
                 # Make double_helix a bit thinner than helix.
                 double_helix.Radius = helix_radius / 20
 
                 rep4 = self.show(double_helix)
-                self.set_color(double_helix, rep4,
-                               color_array_name = 'TubeNormals')
+                self.set_color(double_helix, rep4, color_map=MakeCoolToWarmLT,
+                               color_array_name='TubeNormals')
 
 
             # Planar surfaces.

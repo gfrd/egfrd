@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
+
 '''
 # D_factor kf_factor seq N
 
-LOGLEVEL=ERROR PYTHONPATH=../.. python -O run.py 1 1 0 10
+LOGLEVEL=ERROR python -O run.py 1 1 0 10
 
 '''
 

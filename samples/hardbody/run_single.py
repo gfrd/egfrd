@@ -1,11 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Run with e.g. $ python run_single.py 1 1e-5 10
+#
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
 
 import sys
-#Also, set relative egfrd directory path
-sys.path.append('../../')
-
 import myrandom
 
 from egfrd import *

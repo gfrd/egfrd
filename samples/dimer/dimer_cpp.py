@@ -1,4 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
 
 from gfrdbase import N_A, create_world, throw_in_particles
 from logger import *

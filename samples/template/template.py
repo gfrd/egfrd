@@ -1,11 +1,16 @@
+#!/usr/bin/python
 
 # Template file to copy and paste basic code from.
+#
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
 
 # Modules
 # ===============================
 import sys
-#Also, set relative python path
-sys.path.append('../../')
 import os
 
 from egfrd import *
@@ -79,28 +84,4 @@ l = vtklogger.VTKLogger(s, vtk_output_directory, extra_particle_step=True)
 l.log()
 # stop logger, writing away essential data
 l.stop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

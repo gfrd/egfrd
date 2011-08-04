@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+
 
 import sys
 

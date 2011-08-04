@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
+#
 # Run with bash command:
 # $ python tf.py
 
 import sys
-#Also, set relative python path
-sys.path.append('../../')
 import os
 
 from egfrd import *

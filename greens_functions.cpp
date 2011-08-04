@@ -7,6 +7,8 @@
 #include "freeFunctions.hpp"
 #include "GreensFunction1DAbsAbs.hpp"
 #include "GreensFunction1DRadAbs.hpp"
+#include "GreensFunction2DAbsSym.hpp"
+#include "GreensFunction2DRadAbs.hpp"
 #include "GreensFunction3DSym.hpp"
 #include "GreensFunction3DAbsSym.hpp"
 #include "GreensFunction3DRadInf.hpp"
@@ -31,7 +33,6 @@ BOOST_PYTHON_MODULE( _greens_functions )
     def( "p_reaction_irr", __p_reaction_irr );
     def( "p_reaction_irr_t_inf", __p_reaction_irr_t_inf );
 
-    
     class_<GreensFunction1DAbsAbs>("GreensFunction1DAbsAbs",
                                    init<Real, Real, Real, Real>() )
         .def( init<Real, Real, Real, Real, Real>())
@@ -73,6 +74,46 @@ BOOST_PYTHON_MODULE( _greens_functions )
         .def( "calcpcum", &GreensFunction1DRadAbs::calcpcum )
         .def( "dump", &GreensFunction1DRadAbs::dump )
         ;
+
+    class_<GreensFunction2DAbsSym>( "GreensFunction2DAbsSym",
+					init<const Real, const Real>() )
+	.def( "getD", &GreensFunction2DAbsSym::getD )
+	.def( "geta", &GreensFunction2DAbsSym::geta )
+	.def( "drawTime", &GreensFunction2DAbsSym::drawTime )
+	.def( "drawR", &GreensFunction2DAbsSym::drawR )
+	.def( "p_survival", &GreensFunction2DAbsSym::p_survival )
+    .def( "dump", &GreensFunction2DAbsSym::dump )
+	//.def( "p_int_r", &GreensFunction2DAbsSym::p_int_r )
+	//.def( "p_int_r_free", &GreensFunction2DAbsSym::p_int_r_free )
+	//.def( "p_r_fourier", &GreensFunction2DAbsSym::p_r_fourier )
+	;
+
+
+    class_<GreensFunction2DRadAbs>( "GreensFunction2DRadAbs",
+					    init<const Real, 
+					    const Real,
+					    const Real,
+                        const Real,
+                        const Real>() )
+	.def( "geta", &GreensFunction2DRadAbs::geta )
+	.def( "getD", &GreensFunction2DRadAbs::getD )
+	.def( "getkf", &GreensFunction2DRadAbs::getkf )
+	.def( "geth", &GreensFunction2DRadAbs::geth )
+	.def( "getSigma", &GreensFunction2DRadAbs::getSigma )
+	.def( "drawTime", &GreensFunction2DRadAbs::drawTime )
+	.def( "drawEventType", &GreensFunction2DRadAbs::drawEventType )
+	.def( "drawR", &GreensFunction2DRadAbs::drawR )
+	.def( "drawTheta", &GreensFunction2DRadAbs::drawTheta )
+	.def( "getAlpha", &GreensFunction2DRadAbs::getAlpha )
+	.def( "getAlpha0", &GreensFunction2DRadAbs::getAlpha0 )
+	.def( "f_alpha", &GreensFunction2DRadAbs::f_alpha )
+	.def( "f_alpha0", &GreensFunction2DRadAbs::f_alpha0 )
+	.def( "alpha_i", &GreensFunction2DRadAbs::alpha_i )
+	.def( "p_survival", &GreensFunction2DRadAbs::p_survival )
+	.def( "leaves", &GreensFunction2DRadAbs::leaves )
+	.def( "leavea", &GreensFunction2DRadAbs::leavea )
+    .def( "dump", &GreensFunction2DRadAbs::dump )
+	;
     
     class_<GreensFunction3DSym>("GreensFunction3DSym", init<Real>())
         .def( "getD", &GreensFunction3DSym::getD )
@@ -202,4 +243,7 @@ BOOST_PYTHON_MODULE( _greens_functions )
 
         .def( "dump", &GreensFunction3DAbs::dump )
         ;
+
+
+
 }

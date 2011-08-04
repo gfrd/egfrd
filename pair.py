@@ -32,6 +32,7 @@ class Pair(object):
         self.single2 = single2 
 
         self.a_R, self.a_r = self.determine_radii(r0, shell_size)
+	# set the radii of the inner domains as a function of the outer protective domain
 
         self.rt = rt
 
@@ -110,7 +111,7 @@ class Pair(object):
         self.event_type = None
 
     def determine_radii(self, r0, shell_size):
-        """Determine a_r and a_R.
+        """Determine a_r and a_R from the size of the protective domain.
 
         Todo. Make dimension (1D/2D/3D) specific someday. Optimization only.
 
@@ -123,11 +124,15 @@ class Pair(object):
         D1 = single1.pid_particle_pair[1].D
         D2 = single2.pid_particle_pair[1].D
 
+	LD_MAX = 20 # temporary value
+	a_r_max = LD_MAX * (r0 - self.sigma) + self.sigma
+	# a_r_max is the maximum size of a_r for a given maximum ratio of l/delta
+
         # Make sure that D1 != 0 to avoid division by zero in the followings.
         if D1 == 0:
-            D1, D2 = D2, D1
+            D1, D2 = D2, D1	# shouldn't we also here swap the particle radii if we're swapping diffusion contants?
 
-        shell_size /= SAFETY
+        shell_size /= SAFETY	#??
 
         D_tot = D1 + D2
         D_geom = math.sqrt(D1 * D2)
@@ -157,22 +162,31 @@ class Pair(object):
         #ar
         a_r = (D_geom * r0 + D_tot * (shell_size - radiusa)) / (Da + D_geom)
 
+
+	# Now if the planned domainsize for r is too large for proper convergence of the Green's
+	# functions, make it the maximum allowed size
+	if (a_r > a_r_max):
+	    a_r = a_r_max
+	    a_R = shell_size - radiusa - a_r * Da / D_tot
+	    if __debug__:
+		log.info('domainsize changed for convergence.')
+
         assert a_R + a_r * Da / D_tot + radius1 >= \
                a_R + a_r * Db / D_tot + radius2
 
         assert abs(a_R + a_r * Da / D_tot + radiusa - shell_size) \
-            < 1e-12 * shell_size
+            < 1e-12 * shell_size			# here the shell_size is the relevant scale
 
 
         if __debug__:
           log.debug('a %g, r %g, R %g r0 %g' % 
                  (shell_size, a_r, a_R, r0))
         if __debug__:
-            tr = ((a_r - r0) / math.sqrt(6 * self.D_tot))**2
+            tr = ((a_r - r0)**2) / (6 * self.D_tot)	# the expected escape time of the iv
             if self.D_R == 0:
                 tR = numpy.inf 
             else:
-                tR = (a_R / math.sqrt(6*self.D_R))**2
+                tR = (a_R**2) / (6 * self.D_R)		# the expected escape time of the CoM
             log.debug('tr %g, tR %g' % (tr, tR))
 
 
@@ -182,12 +196,13 @@ class Pair(object):
 
         return a_R, a_r
 
+    # draws a first event time and the (not fully specified) type of event
     def draw_com_escape_or_iv_event_time_tuple(self, r0):
         """Returns a (event time, event type, reactingsingle=None) tuple.
         
         """
         dt_com = draw_time_wrapper(self.com_greens_function())
-        dt_iv = draw_time_wrapper(self.iv_greens_function(r0))
+        dt_iv = draw_time_wrapper(self.iv_greens_function(r0))	# uses the full solution to draw IV first event time
         if dt_com < dt_iv:
             return dt_com, EventType.COM_ESCAPE, None
         else:
@@ -301,6 +316,8 @@ class SphericalPair(Pair):
     def create_new_shell(self, position, radius, domain_id):
         return SphericalShell(domain_id, Sphere(position, radius))
 
+    # selects between the full solution or an approximation where one of
+    # the boundaries is ignored
     def choose_pair_greens_function(self, r0, t):
         distance_from_sigma = r0 - self.sigma
         distance_from_shell = self.a_r - r0
@@ -308,8 +325,10 @@ class SphericalPair(Pair):
         threshold_distance = Pair.CUTOFF_FACTOR * \
             math.sqrt(6.0 * self.D_tot * t)
 
+        # if sigma reachable
         if distance_from_sigma < threshold_distance:
         
+            # if shell reachable
             if distance_from_shell < threshold_distance:
                 # near both a and sigma;
                 # use GreensFunction3DRadAbs
@@ -322,6 +341,8 @@ class SphericalPair(Pair):
                     log.debug('GF: only sigma')
                 return GreensFunction3DRadInf(self.D_tot, self.rt.ktot, r0,
                                                self.sigma)
+
+        # sigma unreachable
         else:
             if distance_from_shell < threshold_distance:
                 # near a;
@@ -384,12 +405,10 @@ class PlanarSurfacePair(Pair):
                       r0, shell_size, rt, surface)
 
     def com_greens_function(self):
-        # Todo. 2D gf Abs Sym.
-        return GreensFunction3DAbsSym(self.D_R, self.a_R)
+        return GreensFunction2DAbsSym(self.D_R, self.a_R)
 
     def iv_greens_function(self, r0):
-        # Todo. 2D gf Rad Abs.
-        # This exact solution is used for drawing times.
+	# TODO still doesn't work with 2D Green's functions
         return GreensFunction3DRadAbs(self.D_tot, self.rt.ktot, r0,
                                               self.sigma, self.a_r)
 
@@ -406,11 +425,46 @@ class PlanarSurfacePair(Pair):
         return CylindricalShell(domain_id, Cylinder(position, radius, 
                                                     orientation, half_length))
 
-        a_R, a_r = self.determine_radii()
-
     def choose_pair_greens_function(self, r0, t):
-        # Todo
-        return self.iv_greens_function(r0)
+	# selects between the full solution or an approximation where one of
+	# the boundaries is ignored
+        distance_from_sigma = r0 - self.sigma
+        distance_from_shell = self.a_r - r0
+
+        threshold_distance = Pair.CUTOFF_FACTOR * \
+            math.sqrt(4.0 * self.D_tot * t)
+
+        if distance_from_sigma < threshold_distance:
+        
+            if distance_from_shell < threshold_distance:
+                # near both a and sigma;
+                # use GreensFunction3DRadAbs
+                if __debug__:
+                    log.debug('GF2D: normal')
+                return self.iv_greens_function(r0)
+            else:
+                # near sigma; use GreensFunction3DRadInf
+                if __debug__:
+                    log.debug('GF2D: only sigma')
+                return self.iv_greens_function(r0)
+        	# Todo
+                # return GreensFunction2DRadInf(self.D_tot, self.rt.ktot, r0, self.sigma)
+        else:
+            if distance_from_shell < threshold_distance:
+                # near a;
+                if __debug__:
+                    log.debug('GF2D: only a')
+                return self.iv_greens_function(r0)
+	        # Todo
+                # return GreensFunction2DAbs(self.D_tot, r0, self.a_r)
+                
+            else:
+                # distant from both a and sigma; 
+                if __debug__:
+                    log.debug('GF2D: free')
+                return self.iv_greens_function(r0)
+        	# Todo
+                # return GreensFunction2D(self.D_tot, r0)
 
     def create_com_vector(self, r):
         x, y = random_vector2D(r)

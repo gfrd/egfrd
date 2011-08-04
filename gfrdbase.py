@@ -80,9 +80,6 @@ def p_free(r, t, D):
 
     return p * jacobian
     
-class NoSpace(Exception):
-    pass
-
 def get_closest_surface(world, pos, ignore):
     """Return
       - closest surface
@@ -409,4 +406,7 @@ class ParticleSimulatorBase(object):
 
     def print_report(self):
         pass
+
+class NoSpace(Exception):
+    pass
 

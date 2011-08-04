@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
+
 '''
- PYTHONPATH=../.. python -O run.py single.0.out 5e-4 3e-8 100000
+ python -O run.py single.0.out 5e-4 3e-8 100000
 '''
 
 

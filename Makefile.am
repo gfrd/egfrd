@@ -65,6 +65,8 @@ noinst_HEADERS = \
 	findRoot.hpp\
 	GreensFunction1DRadAbs.hpp\
 	GreensFunction1DAbsAbs.hpp\
+	GreensFunction2DAbsSym.hpp\
+	GreensFunction2DRadAbs.hpp\
 	GreensFunction3DAbsSym.hpp\
 	GreensFunction3DAbs.hpp\
 	GreensFunction3DRadAbs.hpp\
@@ -195,6 +197,8 @@ _greens_functions_la_SOURCES=\
 	freeFunctions.cpp\
 	GreensFunction1DAbsAbs.cpp\
 	GreensFunction1DRadAbs.cpp\
+	GreensFunction2DAbsSym.cpp\
+	GreensFunction2DRadAbs.cpp\
 	GreensFunction3DSym.cpp\
 	GreensFunction3DAbsSym.cpp\
 	GreensFunction3DRadInf.cpp\

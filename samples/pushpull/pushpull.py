@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Call with:
-# PYTHONPATH=../../ python pushpull.py [Keq] [koff_ratio] [N_S_total] [N_K] [N_P] [V] [mode] [T]
+# python pushpull.py [Keq] [koff_ratio] [N_S_total] [N_K] [N_P] [V] [mode] [T]
 
 import sys
 import os

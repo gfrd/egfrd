@@ -85,6 +85,7 @@ class VTKLogger:
         # Step counter.
         self.i = 0
 
+	#OLD COMMENTS?
         # Needed for ParaView time hack.
         #
         # The result should be that with extra_particle_step=True, the number 
@@ -94,7 +95,10 @@ class VTKLogger:
         # floating point output (use repr, not str). But it should be smaller 
         # than the first simulation timestep divided by the number of initial 
         # particles. 1e-15 seems to be a good value.
-        self.delta_t = 1e-15
+        #self.delta_t = 1e-15
+
+        # Needed for ParaView time hack. Note: don't make delta_t too small.
+        self.delta_t = 1e-10
         self.last_time = INF
 
     def cleanup(self):
@@ -125,9 +129,6 @@ class VTKLogger:
             #
             # Now ParaView should perceive a state change.
             # Only needed when showing shells (this is a choice).
-            #
-            # A relative offset is needed when last_time > 1, and an absolute 
-            # offset when last_time < 1.
             time = self.last_time * (1 + self.delta_t) + self.delta_t
 
         # Get data.
@@ -179,7 +180,7 @@ class VTKLogger:
             self.make_snapshot('cylinder_data', cylinder_data_1, index, time)
 
             # Continue with case. 
-            time = time * (1 + self.delta_t / 2.) + self.delta_t / 2.
+            time *= (1 + self.delta_t / 2)
             index += 1
 
         if index == 0:

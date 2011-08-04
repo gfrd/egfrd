@@ -1,4 +1,3 @@
-#!/usr/bin/python
 
 # Rebinding to a cluster
 
@@ -16,17 +15,12 @@
 # $ python run.py 7 1000 data.out
 # Or:
 # $ python run.py 7 1 data.out True
-#
-#
-# Make sure that the egfrd system is added to your PYTHONPATH
-# This means, in bash for example:
-# $ export PYTHONPATH=$HOME/egfrd
-
-print "v23jun2011.3"
 
 # Modules
 # ===============================
 import sys
+#Also, set relative egfrd directory path
+sys.path.append('../../')
 import os
 import shutil
 import datetime
@@ -51,35 +45,31 @@ if __name__ == "__main__":
     try: 
         LOGGING = bool(sys.argv[4])
         if (LOGGING==True): 
-            print "* Logging is ON."
+            print "* Performing only 1 logging run."
+            runs = 1
     except: LOGGING = False
 
-    # Particle constants
-    sigma = 1e-8                    # Diameter particle (normally 1e-9)
-    D = 1e-12                       # Diffusion constant (normally 1e-12)
-    world_size = math.sqrt(2e-13)   # Lengths of simulation box (normally 1e-3) 1e-6
+# Particle constants
+sigma = 1e-5        # Diameter particle; big:1e-5
+D = 1e-8            # Diffusion constant; big:1e-8
+world_size = 1e-3   # Lengths of simulation box; normal: 1e-3
 
-    # k1/kd; kd=4*math.pi*sigma*D
-#    k1 = 0.31706512e-16
-    k1 = 4*math.pi*sigma*D
-    k2 = 1e2
+k1 = 1e-10
+k2 = 1e2
 
-    # Spacing inbetween cluster particles AND cluster/B-particle
-    spacing = sigma/1e5
+# Spacing inbetween cluster particles AND cluster/B-particle
+spacing = sigma/1e5
 
-    # Create "unique" seed
-    # ===============================
-    currenttime = (long(datetime.datetime.now().year*3600*24*365+
-    datetime.datetime.now().month*30.5*24*3600+
-    datetime.datetime.now().day*24*3600+datetime.datetime.now().hour*3600+
-    datetime.datetime.now().minute*60+datetime.datetime.now().second))
-    myrandom.seed(currenttime)
+# Create "unique" seed
+# ===============================
+currenttime = (long(datetime.datetime.now().year*3600*24*365+
+datetime.datetime.now().month*30.5*24*3600+
+datetime.datetime.now().day*24*3600+datetime.datetime.now().hour*3600+
+datetime.datetime.now().minute*60+datetime.datetime.now().second))
+myrandom.seed(currenttime)
 
-    print str('Seed: '+str(currenttime))
-    print "Constants: sigma="+str(sigma)+"; D="+str(D)+"; world_size="+\
-        str(world_size)+"; k1="+str(k1)+"; k2="+str(k2)+"; spacing="+\
-        str(spacing)+"; N="+str(N)+"; runs="+str(runs)+\
-        "; kd/k1="+str((4*math.pi*sigma*D)/k1)+"; f="+str(N*sigma*sigma/(world_size*world_size))
+print str('Seed: '+str(currenttime))
+
 
 # Functions
 # ===============================
@@ -234,7 +224,7 @@ def single_run(N, LOGGING):
     # Enable VTK Logger
     # ===============================
     if (LOGGING == True):
-        vtk_output_directory = 'VTK_out_' + str(M)
+        vtk_output_directory = 'VTK_out'
         if (os.path.exists(vtk_output_directory)):
             print '** Warning: VTK directory already exists.'
         l = vtklogger.VTKLogger(s, vtk_output_directory, extra_particle_step=True) 
@@ -242,27 +232,18 @@ def single_run(N, LOGGING):
     # Running 
     # ===============================
     numberDetected = 0
-    nd = 0 
 
     if (LOGGING == True):
         while 1:
             l.log() # log
             s.step() # and make eGFRD step
-            if s.last_reaction: 
+            if s.last_reaction:
                 numberDetected = numberDetected+1
-                if (numberDetected == 2): 
+                if (numberDetected == 2):
                     # print "2nd Reaction detected at: " + str(s.t) + "(" + str(s.last_reaction) + ")"
                     reaction_time = s.t - previous_time
                     break  
                 else: previous_time = s.t
-            if (s.t > 10000):                
-                reaction_time = 10000
-                print "Long excursion. Aborted."
-                break
-            if (nd > 1000):
-                reaction_time = "NaN"
-                print ">1000 steps, aborted."
-                break
         l.stop() 
     else:
         while 1:
@@ -274,12 +255,13 @@ def single_run(N, LOGGING):
                     reaction_time = s.t - previous_time
                     break  
                 else: previous_time = s.t
-            if (s.t > 10000):
-                reaction_time = 10000
-                print "Long excursion. Aborted."
-                break
 
     s.stop(s.t)
+#TODO
+    del w
+    del s # If this one is thrown in, the runs suddenly stop?!
+    del m
+
     return (reaction_time)
     
 # Main part
@@ -302,23 +284,6 @@ if __name__ == "__main__":
     datetime.datetime.now().day*24*3600+datetime.datetime.now().hour*3600+
     datetime.datetime.now().minute*60+datetime.datetime.now().second)-currenttime)
     print "Done in "+ str(timetaken) +" seconds."
-
-# Print status report to file
-# ============
-    outFile = open(outFilename+"_report", 'w')
-    outFile.write("Cluster simulation")
-    outFile.write("\n========================")
-    outFile.write("\nNumber of runs: "+str(runs))
-    outFile.write("\nNumber of particles: "+str(N))    
-    outFile.write("\nSigma: "+str(sigma))
-    outFile.write("\nDiffusion constant: "+str(D))
-    outFile.write("\nWorld size: "+str(world_size))
-    outFile.write("\nBinding reaction rate: "+str(k1))
-    outFile.write("\nUnbinding reaction rate: "+str(k2))
-    outFile.write("\nDone in "+ str(timetaken) +" seconds.")
-    outFile.close()
-
-
 
 
 # #### OLD CODE

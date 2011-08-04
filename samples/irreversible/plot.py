@@ -1,6 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
-#  PYTHONPATH=../.. python plot.py irr.-2.out 0.000000125  irr.-1.out 0.00000125  irr.0.out 0.0000125 irr.1.out 0.000125 irr.2.out 0.00125 irr.3.out 0.0125
+#
+# Make sure that the egfrd system is added to your PYTHONPATH
+# This means, in bash for example:
+# $ export PYTHONPATH=$HOME/egfrd
+#
+
+#  python plot.py irr.-2.out 0.000000125  irr.-1.out 0.00000125  irr.0.out 0.0000125 irr.1.out 0.000125 irr.2.out 0.00125 irr.3.out 0.0125
 
 # irr.-3.out 0.0000000125 
 

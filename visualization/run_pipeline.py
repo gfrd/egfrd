@@ -1,4 +1,4 @@
-# Test run of VTK-logger by MW - Adapted from Tomek
+# Test run of VTK-logger by MW - Adapted from Tomek Sokolowski
 
 # ### INSTRUCTIONS ###
 """
@@ -6,12 +6,12 @@
 """
 # Root directory of the eGFRD algorithm files:
 # Use the full path (e.g. NOT a tilde)
-egfrd_directory ='/storage1/wehrens/myfork_egfrd/'
+egfrd_directory ='/storage1/wehrens/GF2D_implementation/'
 # Output directory of the VTK logger 
 # (This was defined when calling the logger in your
 # script.)
-simulation_data_directory = egfrd_directory + \
-    'samples/memory/VTK_out/'
+simulation_data_directory =\
+    '/storage1/wehrens/2d/VTK_out' # egfrd_directory + \
 """
 
 2. Start ParaView. Make sure you give Paraview the PYTHONPATH 
