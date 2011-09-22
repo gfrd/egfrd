@@ -42,25 +42,27 @@ def run_single(T, V, N):
 
     w = gfrdbase.create_world(m, matrix_size)
     nrw = _gfrd.NetworkRulesWrapper(m.network_rules)
-    s = EGFRDSimulator(w, myrandom.rng, nrw)
+    #s = EGFRDSimulator(w, myrandom.rng, nrw)
+    s = _gfrd._EGFRDSimulator(w, nrw, myrandom.rng)
     
     gfrdbase.throw_in_particles(w, A, N)
     print 'stir'
 
-    t = 0
     stir_time = T * .1
     while 1:
         s.step()
-        next_time = s.get_next_time()
+        next_time = s.t + s.dt
         if next_time > stir_time:
-            s.stop(stir_time)
+            s.step(stir_time)
             break
 
-    print 'reset'
-    s.reset()
+    stir_steps = s.num_steps
+
+    #print 'reset'
+    #s.reset()
 
     print 'run'
-    run_time = T
+    run_time = T + stir_time
 
     start = time.time()
     while s.t < run_time:
@@ -68,7 +70,7 @@ def run_single(T, V, N):
     end = time.time()
     timing = end - start
 
-    steps = s.step_counter
+    steps = s.num_steps - stir_steps
     stepspersec = float(steps) / timing
     print 'steps (total)= ', steps
     print 'steps/sec= ', stepspersec, ', steps/N= ', float(steps) / N
@@ -103,9 +105,7 @@ def run_single_bd(T, V, N, dt_factor):
 
     w = gfrdbase.create_world(m, matrix_size)
     nrw = _gfrd.NetworkRulesWrapper(m.network_rules)
-    s = BDSimulator(w, myrandom.rng, nrw)
-
-    s.dt_factor = dt_factor
+    s = _gfrd._BDSimulator(w, nrw, myrandom.rng, dt_factor)
     
     gfrdbase.throw_in_particles(w, A, N)
     print 'stir'
@@ -114,16 +114,18 @@ def run_single_bd(T, V, N, dt_factor):
     stir_time = T * .1
     while 1:
         s.step()
-        next_time = s.get_next_time()
+        next_time = s.t + s.dt
         if next_time > stir_time:
-            s.stop(stir_time)
+            s.step(stir_time)
             break
 
-    print 'reset'
-    s.reset()
+    stir_steps = s.num_steps
+
+    #print 'reset'
+    #s.reset()
 
     print 'run'
-    run_time = T
+    run_time = T + stir_time
 
     start = time.time()
     while s.t < run_time:
@@ -132,7 +134,7 @@ def run_single_bd(T, V, N, dt_factor):
 
     timing = end - start
 
-    steps = s.step_counter
+    steps = s.num_steps - stir_steps
     stepspersec = float(steps) / timing
     print 'steps (total)= ', steps
     print 'steps/sec= ', stepspersec, ', steps/N= ', float(steps) / N

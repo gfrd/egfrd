@@ -498,7 +498,7 @@ class CylindricalSurfacePair(SimplePair):
     def iv_greens_function(self, r0):
 	# TODO Fix ugly hack to avoid k=0 below
         #return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot, r0, self.sigma, self.a_r)
-        return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot + 1e-10, r0, self.sigma, self.a_r)
+        return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot, r0, self.sigma, self.a_r)
 
     def create_new_shell(self, position, half_length, domain_id):
         # The radius of a rod is not more than it has to be (namely the 

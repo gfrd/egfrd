@@ -17,6 +17,7 @@ py_range_converters_test \
 linear_algebra_test\
 geometry_test\
 StructureUtils_test\
+sorted_list_test\
 pointer_as_ref_test\
 EGFRDSimulator_test
 
@@ -97,6 +98,7 @@ array_helper_test_SOURCES = array_helper_test.cpp
 filters_test_SOURCES = filters_test.cpp
 
 MatrixSpace_test_SOURCES = MatrixSpace_test.cpp
+MatrixSpace_test_LDADD = $(GSL_LIBS)
 
 MatrixSpaceWithCylinders_test_SOURCES = MatrixSpaceWithCylinders_test.cpp
 
@@ -126,4 +128,7 @@ EGFRDSimulator_test_LIBS = -l@BOOST_REGEX_LIBNAME@ -l@BOOST_DATE_TIME_LIBNAME@
 EGFRDSimulator_test_CPPFLAGS = -DDEBUG
 
 EGFRDSimulator_test_LDADD = $(GSL_LIBS)
+
+sorted_list_test_SOURCES = sorted_list_test.cpp ../sorted_list.hpp
+sorted_list_test_LDADD = $(GSL_LIBS)
 

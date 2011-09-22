@@ -481,7 +481,7 @@ class PlanarSurfaceInteraction(InteractionSingle):
 	# TODO choose interactionrule
 #        return GreensFunction1DRadAbs(self.D, self.interactionrule.k, self.z0,
 #				      -self.get_inner_dz_left(), self.get_inner_dz_right())
-        return GreensFunction1DRadAbs(self.D, 1e-8, self.z0,
+        return GreensFunction1DRadAbs(self.D, 0, self.z0,
 				      -self.get_inner_dz_left(), self.get_inner_dz_right())
 
     def draw_new_position(self, dt, event_type):
