@@ -277,6 +277,23 @@ def create_decay_reaction_rule(reactant, k):
     rr['k'] = '%.16g' % k
     return rr
 
+def create_creation_reaction_rule(product, k):
+    """Example: 0 -> A.
+
+    Arguments:
+	- product
+	    a Species
+	- k
+	    reaction rate. Units: per second.
+
+    A creation reaction rule defines a Poissonian process.
+
+    """
+
+    rr = _gfrd.ReactionRule([], [product])
+    rr['k'] = '%.16g' % k
+    return rr
+
 def create_annihilation_reaction_rule(reactant1, reactant2, ka):
     """Example: A + B -> 0.
 

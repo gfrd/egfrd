@@ -72,7 +72,7 @@ def singlerun(T):
     s = EGFRDSimulator(w, myrandom.rng, nrw)
 
     place_particle(w, A, [0,0,0])
-    place_particle(w, B, [(float(A['radius']) + float(B['radius']))+1e-23,0,0])
+    place_particle(w, B, [(float(A['radius']) + float(B['radius']))+1e-13,0,0])
 
     end_time = T
     s.step()

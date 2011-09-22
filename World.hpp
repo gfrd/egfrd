@@ -236,6 +236,7 @@ public:
     }
 
     void add_species(species_type const& species)
+// Wouldn't it make more sence to make this method part of the model class instead of the world class?
     {
         species_map_[species.id()] = species;
         particle_pool_[species.id()] = particle_id_set();

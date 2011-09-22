@@ -731,6 +731,7 @@ std::string GreensFunction1DRadAbs::dump() const
     std::ostringstream ss;
     ss << "D = " << this->getD() << ", sigma = " << this->getsigma() <<
         ", a = " << this->geta() <<
+        ", r0 = " << this->getr0() <<
         ", k = " << this->getk() << std::endl;
     return ss.str();
 }

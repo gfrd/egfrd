@@ -6,16 +6,20 @@ from utils import *
 import itertools
 
 import _gfrd
+from _gfrd import (SphericalShell, Sphere)
 from constants import EventType
+from domain import Domain
 
 import os
 
-class Multi(object):
+class Multi(Domain):
     def __init__(self, domain_id, main, dt_factor):
+	Domain.__init__(self, domain_id)
+
         self.main = ref(main)
-        self.domain_id = domain_id
-        self.event_id = None
         self.last_event = None
+	self.event_Type = EventType.MULTI_DIFFUSION
+
         self.sphere_container = _gfrd.SphericalShellContainer(main.world.world_size, 3)
         self.particle_container = _gfrd.MultiParticleContainer(main.world)
         self.escaped = False
@@ -31,6 +35,9 @@ class Multi(object):
     def get_multiplicity(self):
         return self.particle_container.num_particles
     multiplicity = property(get_multiplicity)
+
+    def create_new_shell(self, position, radius):
+        return SphericalShell(self.domain_id, Sphere(position, radius))
 
     def within_shell(self, pp):
         return bool(self.sphere_container.get_neighbors_within_radius(pp[1].position, -pp[1].radius))

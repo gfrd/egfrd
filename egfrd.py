@@ -10,9 +10,7 @@ from _gfrd import (
     EventScheduler,
     Particle,
     SphericalShell,
-    SphericalShellContainer,
     CylindricalShell,
-    CylindricalShellContainer,
     DomainIDGenerator,
     ShellIDGenerator,
     DomainID,
@@ -33,6 +31,7 @@ from pair import *
 from multi import *
 from utils import *
 from constants import *
+from shellcontainer import ShellContainer
 
 import logging
 import os
@@ -45,54 +44,37 @@ if __debug__:
     PRECISION = 3
     FORMAT_DOUBLE = '%.' + str(PRECISION) + 'g'
 
-def create_default_single(domain_id, pid_particle_pair, shell_id, rt, surface):
-    if isinstance(surface, CuboidalRegion):
+def create_default_single(domain_id, pid_particle_pair, shell_id, rt, structure):
+    if isinstance(structure, CuboidalRegion):
         return SphericalSingle(domain_id, pid_particle_pair,
-                               shell_id, rt, surface)
-    elif isinstance(surface, CylindricalSurface):
+                               shell_id, rt, structure)
+    elif isinstance(structure, CylindricalSurface):
         return CylindricalSurfaceSingle(domain_id, pid_particle_pair, 
-                                        shell_id, rt, surface)
-    elif isinstance(surface, PlanarSurface):
+                                        shell_id, rt, structure)
+    elif isinstance(structure, PlanarSurface):
         return PlanarSurfaceSingle(domain_id, pid_particle_pair, 
-                                   shell_id, rt, surface)
+                                   shell_id, rt, structure)
 
-def create_default_interaction(domain_id, pid_particle_pair, shell_id,
-                               reaction_types, interaction_type, surface,
-                               projected_point, particle_distance, 
-                               orientation_vector, dr, dz_left, dz_right):
-    if isinstance(surface, CylindricalSurface):
-        return CylindricalSurfaceInteraction(domain_id, pid_particle_pair,
-                                             shell_id, reaction_types,
-                                             interaction_type, surface, 
-                                             projected_point, particle_distance,
-                                             orientation_vector,
-                                             dr, dz_left, dz_right)
-    elif isinstance(surface, PlanarSurface):
-        return PlanarSurfaceInteraction(domain_id, pid_particle_pair,
-                                        shell_id, reaction_types,
-                                        interaction_type, surface,
-                                        projected_point, particle_distance, 
-                                        orientation_vector,
-                                        dr, dz_left, dz_right)
 
 def create_default_pair(domain_id, com, single1, single2, shell_id, 
-                        r0, shell_size, rt, surface):
-    if isinstance(surface, CuboidalRegion):
+                        r0, shell_size, rt, structure):
+    if isinstance(structure, CuboidalRegion):
         return SphericalPair(domain_id, com, single1, single2,
-                             shell_id, r0, shell_size, rt, surface)
-    elif isinstance(surface, CylindricalSurface):
+                             shell_id, r0, shell_size, rt, structure)
+    elif isinstance(structure, CylindricalSurface):
         return CylindricalSurfacePair(domain_id, com, single1, single2,
-                                      shell_id, r0, shell_size, rt, surface)
-    elif isinstance(surface, PlanarSurface):
+                                      shell_id, r0, shell_size, rt, structure)
+    elif isinstance(structure, PlanarSurface):
         return PlanarSurfacePair(domain_id, com, single1, single2,
-                                 shell_id, r0, shell_size, rt, surface)
+                                 shell_id, r0, shell_size, rt, structure)
 
 
 class DomainEvent(Event):
     __slot__ = ['data']
     def __init__(self, time, domain):
         Event.__init__(self, time)
-        self.data = domain
+        self.data = domain.domain_id		# Store the domain_id key refering to the domain
+						# in domains{} in the scheduler
 
 class Delegate(object):
     def __init__(self, obj, method, arg):
@@ -105,7 +87,10 @@ class Delegate(object):
 
 
 class EGFRDSimulator(ParticleSimulatorBase):
-    """
+    """The eGFRDSimulator implements the asynchronous egfrd scheme of performing
+    the diffusing and reaction of n particles. The eGFRDsimulator acts on a 'world'
+    object containing particles and structures, and can be attached and detached from
+    this 'world'.
     """
     def __init__(self, world, rng=myrandom.rng, network_rules=None):
         """Create a new EGFRDSimulator.
@@ -130,20 +115,29 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.domain_id_generator = DomainIDGenerator(0)
         self.shell_id_generator = ShellIDGenerator(0)
 
-        self.MULTI_SHELL_FACTOR = 0.05
-        self.SINGLE_SHELL_FACTOR = 1.1
+	# some constants
+        self.MULTI_SHELL_FACTOR = 1.05		# This is the threshold for when the algorithm switches from
+						# NonInteractionSingles to a Multi and also defines the Multi
+						# shell size.
+        self.SINGLE_SHELL_FACTOR = 2.0		# This is the threshold for when the algorithm switches from
+						# NonInteractionSingles to a Pair or Interaction. It also defines
+						# the radius in which the NonInteractionSingle will burst.
+	self.MAX_NUM_DT0_STEPS = 10000
 
-        self.is_dirty = True			# what does this mean?
-        self.scheduler = EventScheduler()
+	# used datastructrures
+        self.scheduler = EventScheduler()	# contains the events. Note that every domains has exactly one event
 
-        self.user_max_shell_size = numpy.inf	# Note: shell_size is actually the RADIUS of the shell
+        self.domains = {}			# a dictionary containing references to the domains that are defined
+						# in the simulation system. The id of the domain (domain_id) is the key.
+						# The domains can be a single, pair or multi of any type.
 
-        self.domains = {}
+	# other stuff
+        self.is_dirty = True			# The simulator is dirty if the state if the simulator is not
+						# consistent with the content of the world that it represents
+						# (or if we don't know for sure)
 
-        self.reset()
-
-    def get_matrix_cell_size(self):
-        return self.containers[0].cell_size	# cell_size is the width of the (cubic) cell
+        self.reset()				# The Simulator is only initialized at the first step, allowing
+						# modifications to the world to be made before simulation starts
 
     def get_next_time(self):
         """ 
@@ -155,17 +149,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
 	else:
             return self.scheduler.top[1].time
 
-    # Here shell_size is actually the shell radius (and not shell diameter)
-    def set_user_max_shell_size(self, size):
-        self.user_max_shell_size = size
-
-    def get_user_max_shell_size(self):
-        return self.user_max_shell_size
-
-    def get_max_shell_size(self):
-        return min(self.get_matrix_cell_size() * .5 / SAFETY,
-                   self.user_max_shell_size)
-
     ###
     # The next methods control the general functioning of the simulator
     ###
@@ -174,8 +157,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         This function resets the "records" of the simulator. This means
         the simulator time is reset, the step counter is reset, events
         are reset, etc.
-        Can be for example usefull when users want to "stirr" the 
-        simulation before starting the "real experiment".
+        Can be for example usefull when users want to first do an equilibration
+	run before starting the "real experiment".
         """ #~ MW
         self.t = 0.0
         self.dt = 0.0
@@ -197,26 +180,29 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.last_event = None
         self.last_reaction = None
 
-        self.is_dirty = True
+        self.is_dirty = True		# simulator needs to be re-initialized
 
     def initialize(self):
 	"""Initialize the eGFRD simulator
 
-	Not sure what that means yet
+	This method (re-)initializes the simulator with the current state of the 'world'
+	that it represents.
+	Call this method if you change the 'world' using methods outside of the Simulator
+	thereby invalidating the state of the eGFRD simulator (the simulator is dirty), or
+	in an other case that the state of the simulator is inconsistent with the state of
+	the world.
 	"""
+	# 1. (re-)initialize previously set datastructures
         ParticleSimulatorBase.initialize(self)
-
         self.scheduler.clear()
-	# These containers hold the spherical and cylindrical protective domains respectively 
-        self.containers = [SphericalShellContainer(self.world.world_size, 
-                                                   self.world.matrix_size),
-                           CylindricalShellContainer(self.world.world_size, 
-                                                     self.world.matrix_size)]
         self.domains = {}
 
-        singles = []
+	# create/clear other datastructures
+	self.geometrycontainer = ShellContainer(self.world)
 
+	# 2. Couple all the particles in 'world' to a new 'single' in the eGFRD simulator
         # Fix order of adding particles (always, or at least in debug mode).
+        singles = []
         pid_particle_pairs = list(self.world)
         pid_particle_pairs.sort()
 
@@ -228,16 +214,19 @@ class EGFRDSimulator(ParticleSimulatorBase):
             singles.append(single)
         assert len(singles) == self.world.num_particles
         for single in singles:
-            self.add_single_event(single)
+            self.add_domain_event(single)
 
+	# 3. The simulator is now consistent with 'world'
         self.is_dirty = False
 
     def stop(self, t):
-        """Synchronize all particles at time t.
+        """Bring the simulation to a full stop, which synchronizes all
+	particles at time t. The state is similar to the state after
+	initialization.
 
         With eGFRD, particle positions are normally updated 
-        asynchronously. This method bursts all protective domains and 
-        assigns a position to each particle.
+        asynchronously. This method bursts all protective domains so that 
+        the position of each particle is known.
 
         Arguments:
             - t
@@ -255,10 +244,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if __debug__:
             log.info('stop at %s' % (FORMAT_DOUBLE % t))
 
-        if self.t == t:			# FIXME: is this accurate? Probably use feq from utils.py
-            return
+        if self.t == t:				# We actually already stopped?
+            return				# FIXME: is this accurate? Probably use feq from utils.py
 
-        if t >= self.scheduler.top[1].time:
+        if t >= self.scheduler.top[1].time:	# Can't schedule a stop later than the next event time
             raise RuntimeError('Stop time >= next event time.')
 
         if t < self.t:
@@ -270,7 +259,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # first burst all Singles, and put Pairs and Multis in a list.
         for id, event in self.scheduler:
-            obj = event.data
+            obj = self.domains[event.data]
             if isinstance(obj, Pair) or isinstance(obj, Multi):
                 non_single_list.append(obj)
             elif isinstance(obj, Single):
@@ -311,6 +300,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 	# 1. Get the next event from the scheduler
 	#
         id, event = self.scheduler.pop()
+	domain = self.domains[event.data]
         self.t, self.last_event = event.time, event
 
         if __debug__:
@@ -329,8 +319,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # event.data holds the object (Single, Pair, Multi) that is associated with the next event.
         # e.g. "if class is Single, then fire_single" ~ MW
         for klass, f in self.dispatch:
-            if isinstance(event.data, klass):
-                f(self, event.data)		# fire the correct method for the class (e.g. fire_singel(self, Single))
+            if isinstance(domain, klass):
+                f(self, domain)		# fire the correct method for the class (e.g. fire_singel(self, Single))
 
         if __debug__:
             if self.scheduler.size == 0:
@@ -348,119 +338,156 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 self.zero_steps += 1
                 # TODO Changed from 10 to 10000, because only a problem 
                 # when reaching certain magnitude.
-                if self.zero_steps >= max(self.scheduler.size * 3, 10000): 
+                if self.zero_steps >= max(self.scheduler.size * 3, self.MAX_NUM_DT0_STEPS): 
                     raise RuntimeError('too many dt=zero steps. '
                                        'Simulator halted?'
                                     'dt= %.300g-%.300g' % (self.scheduler.top[1].time, self.t))
             else:
                 self.zero_steps = 0
 
+
+
     def create_single(self, pid_particle_pair):
-        rts = self.network_rules.query_reaction_rule(pid_particle_pair[1].sid)
+	# 1. generate identifiers for the domain and shell. The event_id is
+	# generated by the scheduler
         domain_id = self.domain_id_generator()
         shell_id = self.shell_id_generator()
 
-        # Get structure (region or surface).
+        rrs = self.network_rules.query_reaction_rule(pid_particle_pair[1].sid)
+        # Get structure (region or surface) where the particle lives.
         species = self.world.get_species(pid_particle_pair[1].sid)
         structure = self.world.get_structure(species.structure_id)
 
-        # Create single. The type of the single that will be created 
+        # 2. Create and register the single domain.
+	# The type of the single that will be created 
         # depends on the structure (region or surface) this particle is 
         # in/on. Either SphericalSingle, PlanarSurfaceSingle, or 
         # CylindricalSurfaceSingle.
         single = create_default_single(domain_id, pid_particle_pair, 
-                                       shell_id, rts, structure)
-
+                                       shell_id, rrs, structure)
+        assert isinstance(single, NonInteractionSingle)
         single.initialize(self.t)
-        self.move_shell(single.shell_id_shell_pair)
         self.domains[domain_id] = single
+
+	# 3. update the proper shell container
+        self.geometrycontainer.move_shell(single.shell_id_shell_pair)
 
         if __debug__:
             # Used in __str__.
             single.world = self.world
         return single
 
-    def create_interaction(self, single, surface, projected_point, 
-                           particle_distance, orientation_vector,
-                           dr, dz_left, dz_right):
-        assert single.dt == 0.0 and single.get_mobility_radius() == 0.0
+    def create_interaction(self, pid_particle_pair, surface, shell_center,
+			   shell_radius, shell_half_length, shell_unit_z):
 
-        pid_particle_pair = single.pid_particle_pair
-        species_id = pid_particle_pair[1].sid
+##        assert single.dt == 0.0 and single.get_mobility_radius() == 0.0
+#	assert that the particle is not already associate with another domain
 
-        reaction_types = self.network_rules.query_reaction_rule(species_id)
-        #interaction_type = self.query_interaction_rule(species_id, surface)
-        # TODO.
-        interaction_type = None
-
+	# 1. generate identifiers for the domain and shell. event_id is generated by
+	# the scheduler
         domain_id = self.domain_id_generator()
         shell_id = self.shell_id_generator()
 
-        interaction = \
-            create_default_interaction(domain_id, pid_particle_pair, shell_id,
-                                       reaction_types, interaction_type,
-                                       surface, projected_point,
-                                       particle_distance, orientation_vector,
-                                       dr, dz_left, dz_right)
-        interaction.initialize(self.t)
+        species_id = pid_particle_pair[1].sid
+	species = self.world.get_species(species_id)
 
-        self.move_shell(interaction.shell_id_shell_pair)
+        reaction_rules = self.network_rules.query_reaction_rule(species_id)
+        #interaction_type = self.query_interaction_rule(species_id, surface)
+        # TODO.
+        interaction_rules = None
+        structure = self.world.get_structure(species.structure_id)
+
+	particle_pos = pid_particle_pair[1].position
+
+    	if isinstance(surface, CylindricalSurface):
+            particle_pos = self.world.cyclic_transpose(particle_pos, surface.shape.position)
+            projected_point, r0 = surface.projected_point(particle_pos)
+            shell_unit_r = normalize(particle_pos - projected_point)
+
+            z0 = numpy.dot (shell_unit_z, (projected_point - shell_center))
+
+            interaction = CylindricalSurfaceInteraction(domain_id, pid_particle_pair,
+                                                        reaction_rules, structure,
+                                                        shell_id, shell_center, shell_radius,
+                                                        shell_half_length, shell_unit_z, z0,
+                                                        shell_unit_r, r0, interaction_rules, surface)
+	elif isinstance(surface, PlanarSurface):
+            particle_pos = self.world.cyclic_transpose(particle_pos, shell_center)
+            z0 = numpy.dot (shell_unit_z, (particle_pos - shell_center))
+
+            interaction = PlanarSurfaceInteraction(domain_id, pid_particle_pair,
+                                                   reaction_rules, structure,
+                                                   shell_id, shell_center, shell_radius,
+                                                   shell_half_length, shell_unit_z,
+                                                   z0, interaction_rules, surface)
+
+
+        assert isinstance(interaction, InteractionSingle)
+        interaction.initialize(self.t)
         self.domains[domain_id] = interaction
+
+	# 3. update the shell containers 
+        self.geometrycontainer.move_shell(interaction.shell_id_shell_pair)
 
         if __debug__:
             # Used in __str__.
             interaction.world = self.world
 
-        assert isinstance(interaction, InteractionSingle)
         return interaction
 
     def create_pair(self, single1, single2, com, r0, shell_size):
         assert single1.dt == 0.0
         assert single2.dt == 0.0
 
-        # Select 1 reaction type out of all possible reaction types.
-        rts = self.network_rules.query_reaction_rule(
-                single1.pid_particle_pair[1].sid,
-                single2.pid_particle_pair[1].sid)
-        k_array = numpy.add.accumulate([rt.k for rt in rts])
-        k_max = k_array[-1]
-        rnd = myrandom.uniform()
-        i = numpy.searchsorted(k_array, rnd * k_max)
-        rt = rts[i]
-        # The probability for this reaction to happen is proportional to 
-        # the sum of the rates of all the possible reaction types. 
-        rt.ktot = k_max
+	pid_particle_pair1 = single1.pid_particle_pair
+	pid_particle_pair2 = single2.pid_particle_pair
 
+	# 1. generate needed identifiers
         domain_id = self.domain_id_generator()
         shell_id = self.shell_id_generator()
 
-        pos1 = single1.shell.shape.position
-        pos2 = single2.shell.shape.position
+        # Select 1 reaction type out of all possible reaction types between the two particles.
+        rrs = self.network_rules.query_reaction_rule(
+                pid_particle_pair1[1].sid,
+                pid_particle_pair2[1].sid)
+        k_array = numpy.add.accumulate([rr.k for rr in rrs])
+        k_max = k_array[-1]
+        rnd = myrandom.uniform()
+        i = numpy.searchsorted(k_array, rnd * k_max)
+        rr = rrs[i]
+        # The probability for this reaction to happen is proportional to 
+        # the sum of the rates of all the possible reaction types. 
+        rr.ktot = k_max
 
-        # Get structure (region or surface).
-        species = self.world.get_species(single1.pid_particle_pair[1].sid)
-        structure = self.world.get_structure(species.structure_id)
+        # Get structure (region or surface) where particle1 lives (assuming particle2
+	# also lives here -> TODO).
+        species1 = self.world.get_species(pid_particle_pair1[1].sid)
+        structure = self.world.get_structure(species1.structure_id)
 
-        # Create pair. The type of the pair that will be created depends
+
+        # 2. Create pair. The type of the pair that will be created depends
         # on the structure (region or surface) the particles are in/on.  
         # Either SphericalPair, PlanarSurfacePair, or 
         # CylindricalSurfacePair.
         pair = create_default_pair(domain_id, com, single1, single2, shell_id, 
-                                   r0, shell_size, rt, structure)
+                                   r0, shell_size, rr, structure)
 
+	assert isinstance(pair, Pair)
         pair.initialize(self.t)
-
-        self.move_shell(pair.shell_id_shell_pair)
         self.domains[domain_id] = pair
+
+	# 3. update the shell containers with the new shell
+        self.geometrycontainer.move_shell(pair.shell_id_shell_pair)
 
         if __debug__:
             # Used in __str__.
             pair.world = self.world
-
         return pair
 
     def create_multi(self):
+	# 1. generate necessary id's
         domain_id = self.domain_id_generator()
+
         if __debug__:
             try:
                 # Option to make multis run faster for nicer visualization.
@@ -469,9 +496,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 dt_factor = DEFAULT_DT_FACTOR 
         else:
             dt_factor = DEFAULT_DT_FACTOR
+
+	# 2. Create and register domain object
         multi = Multi(domain_id, self, dt_factor)
         self.domains[domain_id] = multi
+
+	# 3. no shells are yet made, since these are added later
+	# -> a multi can have 0 shells
         return multi
+
 
     def move_single(self, single, position, radius=None):
         self.move_single_shell(single, position, radius)
@@ -491,7 +524,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         shell_id_shell_pair = (shell_id, shell) 
 
         single.shell_id_shell_pair = shell_id_shell_pair
-        self.move_shell(shell_id_shell_pair)
+        self.geometrycontainer.move_shell(shell_id_shell_pair)
 
     def move_single_particle(self, single, position):
         new_pid_particle_pair = (single.pid_particle_pair[0],
@@ -503,90 +536,66 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         self.world.update_particle(new_pid_particle_pair)
 
-    def get_container(self, shell):
-        if type(shell) is SphericalShell:
-            return self.containers[0]
-        elif type(shell) is CylindricalShell:
-            return self.containers[1]
-
     def remove_domain(self, obj):
+	# Removes all the ties to a domain (single, pair, multi) from the system.
+	# Note that the particles that it represented still exist
+	# in 'world' and that obj also still persits (?!)
         if __debug__:
             log.info("remove: %s" % obj)
+	# TODO assert that the domain is not still in the scheduler
         del self.domains[obj.domain_id]
-        for shell_id, shell in obj.shell_list:
-            container = self.get_container(shell)
-            del container[shell_id]
+        for shell_id_shell_pair in obj.shell_list:
+	    self.geometrycontainer.remove_shell(shell_id_shell_pair)
 
-    def move_shell(self, shell_id_shell_pair):
-        shell = shell_id_shell_pair[1]
-        container = self.get_container(shell)
-        container.update(shell_id_shell_pair)
-
-    def add_single_event(self, single):
+### TODO These methods can be made methods to the scheduler class
+    def add_domain_event(self, domain):
+    # This method makes an event for domain 'domain' in the scheduler.
+    # The event will have the domain_id pointing to the appropriate domain in 'domains{}'.
+    # The domain will have the event_id pointing to the appropriate event in the scheduler.
+	event_time = self.t + domain.dt
         event_id = self.scheduler.add(
-            DomainEvent(self.t + single.dt, single))
+            DomainEvent(event_time, domain))
         if __debug__:
             log.info('add_event: %s, event=#%d, t=%s' %
-                     (single.domain_id, event_id,
-                      FORMAT_DOUBLE % (self.t + single.dt)))
-        single.event_id = event_id
-
-    def add_pair_event(self, pair):
-        event_id = self.scheduler.add(
-            DomainEvent(self.t + pair.dt, pair))
-        if __debug__:
-            log.info('add_event: %s, event=#%d, t=%s' %
-                     (pair.domain_id, event_id,
-                      FORMAT_DOUBLE % (self.t + pair.dt)))
-        pair.event_id = event_id
-
-    def add_multi_event(self, multi):
-        event_id = self.scheduler.add(
-            DomainEvent(self.t + multi.dt, multi))
-
-        if __debug__:
-            log.info('add_event: %s, event=#%d, t=%s' %
-                     (multi.domain_id, event_id,
-                      FORMAT_DOUBLE % (self.t + multi.dt)))
-        multi.event_id = event_id
+                     (domain.domain_id, event_id,
+                      FORMAT_DOUBLE % (event_time)))
+        domain.event_id = event_id			# FIXME side effect programming -> unclear!!
 
     def remove_event(self, event):
         if __debug__:
             log.info('remove_event: event=#%d' % event.event_id)
         del self.scheduler[event.event_id]
 
-    def update_single_event(self, t, single):
+    def update_domain_event(self, t, domain):
         if __debug__:
             log.info('update_event: %s, event=#%d, t=%s' %
-                     (single.domain_id, single.event_id, FORMAT_DOUBLE % t))
-        self.scheduler.update((single.event_id, DomainEvent(t, single)))
+                     (domain.domain_id, domain.event_id, FORMAT_DOUBLE % t))
+        self.scheduler.update((domain.event_id, DomainEvent(t, domain)))
 
-    def update_multi_event(self, t, multi):
+    def burst_domain(self, domain):
+    # Reduces and domain (Single, Pair or Multi) to Singles with the zero shell, and dt=0
         if __debug__:
-            log.info('update_event: %s, event=#%d, t=%s' %
-                     (multi.domain_id, multi.event_id, FORMAT_DOUBLE % t))
-        self.scheduler.update((multi.event_id, DomainEvent(t, multi)))
+            log.info('burst_domain: %s' % domain)
 
-    def burst_obj(self, obj):
-        if __debug__:
-            log.info('burst_obj: %s' % obj)
-
-        if isinstance(obj, Single):
+        if isinstance(domain, Single):
             # TODO. Compare with gfrd.
-            obj = self.burst_single(obj)
-            bursted = [obj, ]
-        elif isinstance(obj, Pair):  # Pair
-            single1, single2 = self.burst_pair(obj)
+            domain = self.burst_single(domain)
+            bursted = [domain, ]
+        elif isinstance(domain, Pair):  # Pair
+            single1, single2 = self.burst_pair(domain)
             # Don't schedule events in burst/propagate_pair, because 
             # scheduling is different after a single reaction in 
             # fire_pair.
-            self.add_single_event(single1)
-            self.add_single_event(single2)
-            self.remove_event(obj)
+            self.add_domain_event(single1)
+            self.add_domain_event(single2)
+            self.remove_event(domain)
             bursted = [single1, single2]
         else:  # Multi
-            bursted = self.burst_multi(obj)
-            self.remove_event(obj)
+#            bursted = self.burst_multi(domain)
+            bursted = self.break_up_multi(domain)	# Multi's can't really be 'bursted' since the
+							# positions of the particles are known. They
+							# are broken up to singles with a dt=0 shell instead.
+            self.remove_event(domain)
 
         if __debug__:
             # After a burst, InteractionSingles should be gone.
@@ -595,11 +604,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return bursted
 
-    def burst_objs(self, objs):
+    def burst_objs(self, domains):
+    # bursts all the domains that are in the list 'domains'
         bursted = []
-        for obj in objs:
-            b = self.burst_obj(obj)
-            bursted.extend(b)
+        for domain in domains:
+            d = self.burst_domain(domain)
+            bursted.extend(d)
 
         return bursted
 
@@ -618,28 +628,38 @@ class EGFRDSimulator(ParticleSimulatorBase):
             - radius: radius of area to be "bursted"
             - ignore: domains that should be ignored, none by default.
         """ # ~ MW
-        neighbors = self.get_neighbors_within_radius_no_sort(pos, radius,
-                                                             ignore)
+	# TODO clear_volume now always assumes a spherical volume to burst.
+	# It is inefficient to burst on the 'other' side of the membrane or to
+	# burst in a circle, when you want to make a new shell in the membrane.
+	# Then we may want to burst in a cylindrical volume, not a sphere
+        neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(pos, radius,
+                                                                               ignore)
+	neighbors = [self.domains[domain_id] for domain_id in neighbor_ids]
         return self.burst_objs(neighbors)
 
-    def burst_non_multis(self, neighbors):
+    def burst_non_multis(self, domains):
         bursted = []
 
-        for obj in neighbors:
-            if not isinstance(obj, Multi):
-                b = self.burst_obj(obj)
-                bursted.extend(b)
+        for domain in domains:
+            if not isinstance(domain, Multi):
+		# domain is Single or Pair of some subclass
+                single_list = self.burst_domain(domain)
+                bursted.extend(single_list)
             else:
-                bursted.append(obj)
+		# domain is a Multi
+                bursted.append(domain)
 
         return bursted
 
     def fire_single_reaction(self, single, interaction_flag=False):
+	# This takes care of the identity change when a single particle decays into
+	# one or a number of other particles
+	# TODO This can also be used when a particle falls off a surface.
         if interaction_flag == True:
             raise NotImplementedError
         reactant_species_radius = single.pid_particle_pair[1].radius
         oldpos = single.pid_particle_pair[1].position
-        current_surface = single.surface
+        current_structure = single.structure
         
         rt = single.draw_reaction_rule()
 
@@ -668,7 +688,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             newsingle = self.create_single(newparticle)
             if __debug__:
                 log.info('product = %s' % newsingle)
-            self.add_single_event(newsingle)
+            self.add_domain_event(newsingle)
 
             self.last_reaction = (rt, (single.pid_particle_pair[1], None),
                                   [newparticle])
@@ -694,7 +714,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             self.clear_volume(oldpos, rad)
 
             for _ in range(self.dissociation_retry_moves):
-                vector = _random_vector(current_surface, particle_radius12 *
+                vector = _random_vector(current_structure, particle_radius12 *
                                         MINIMAL_SEPARATION_FACTOR, self.rng)
             
                 # place particles according to the ratio D1:D2
@@ -737,8 +757,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 log.info('product1 = %s\nproduct2 = %s' % 
                      (newsingle1, newsingle2))
 
-            self.add_single_event(newsingle1)
-            self.add_single_event(newsingle2)
+            self.add_domain_event(newsingle1)
+            self.add_domain_event(newsingle2)
 
             self.last_reaction = (rt, (single.pid_particle_pair[1], None),
                                   [particle1, particle2])
@@ -791,8 +811,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 # For escapes and bursts of interaction singles we do 
                 # it here.
                 self.move_single_particle(single, newpos)
-                self.remove_domain(single)
                 newsingle = self.create_single(single.pid_particle_pair)
+                self.remove_domain(single)
                 if __debug__:
                     log.debug('    *New %s.\n'
                               '        radius = %.3g. dt = %.3g.' %
@@ -806,17 +826,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 return single
 
     def fire_single(self, single):
-#        assert abs(single.dt + single.last_time - self.t) <= 1e-18 * self.t
-#	# why this assert -> we need to take into account that single.dt might be infinite
+	### 1. Process event produced by the single
+	### 1.1 Special cases (shortcuts)
         # In case nothing is scheduled to happen: do nothing; 
-        # results also in disappearance from scheduler.
+        # results also in disappearance from scheduler. (?)
         if single.dt == numpy.inf:
-            return single 
-        
-        # Otherwise check timeline
+            return 
+	# Else continue
+
+        # check timeline (??)
         assert (abs(single.dt + single.last_time - self.t) <= 1e-18 * self.t)
 
-        # Reaction.
+        # If the single had a decay reaction.
         if single.event_type == EventType.SINGLE_REACTION:
             if __debug__:
                 log.info('%s' % single.event_type)
@@ -835,31 +856,31 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             return
 
-#       TO BE DELETED; code shouldn't be here. 
-#       (<-> Surface binding en unbinding.)
-#
-#        if single.event_type == EventType.IV_EVENT:
-#            # Draw actual pair event for iv at very last minute.
-#            single.event_type = single.draw_iv_event_type()
-#            self.interaction_steps[single.event_type] += 1
-#        else:
-#            self.single_steps[single.event_type] += 1
+	# Else the event was either an ESCAPE (NonInteractionSingle or InteractionSingle),
+	# or IV_EVENT (InteractionSingle only), NO BURST event comes up here!
+
 
         if __debug__:
             log.info('%s' % single.event_type)
             log.info('single = %s' % single)
 
-        # Handle immobile case first.
+        # Handle immobile case (what event has taken place to get here?!).
         if single.getD() == 0:
-            # no propagation, just calculate next reaction time.
+	    # The domain has not produced an decay reaction event and is immobile
+            # ->no propagation, no other changes just calculate next reaction time
+	    # and reschedule the single. So this also takes care of the domain making part
             single.dt, single.event_type = single.determine_next_event() 
             single.last_time = self.t
-            self.add_single_event(single)
+            self.add_domain_event(single)
             return
         
+
+	### 1.2 General case
+	# There is a non-trivial event time for the domain
         if single.dt != 0.0:
             # Propagate this particle to the exit point on the shell.
             single = self.propagate_single(single)
+
 
         # An interaction event is similar to a single reaction.
         if single.event_type == EventType.IV_INTERACTION:
@@ -871,98 +892,324 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             return
 
-        singlepos = single.shell.shape.position
+	self.make_new_domain(single)
+	return
 
-        # (2) Clear volume.
 
-        min_shell = single.pid_particle_pair[1].radius * \
-                    self.SINGLE_SHELL_FACTOR
+    def make_new_domain(self, single):
+	### Make a new domain out of a NonInteractionSingle that was
+	### just fired
 
-        # Burst intruders.
-        intruders, closest, closest_distance = \
-            self.get_intruders(singlepos, min_shell,
-                               ignore=[single.domain_id, ])
+	# can only make new domain from NonInteractionSingle
+	assert isinstance(single, NonInteractionSingle)
+	
+	# 2.1
+	# We prefer to make NonInteractionSingles for efficiency.
+	# But if objects (Shells and surfaces) get close enough (closer than
+	# reaction_threshold) we want to try Interaction and/or Pairs
+
+	single_pos = single.pid_particle_pair[1].position
+	single_radius = single.pid_particle_pair[1].radius
+
+	# Check if there are shells with the burst radius (reaction_threshold)
+	# of the particle (intruders). Note that we approximate the reaction_volume
+	# with a sphere (should be cylinder for 2D or 1D particle)
+        reaction_threshold = single.pid_particle_pair[1].radius * \
+                             self.SINGLE_SHELL_FACTOR
+
+        intruder_ids, closest_id, closest_distance = \
+            self.geometrycontainer.get_intruders(single_pos, reaction_threshold,
+                                                 ignore=[single.domain_id, ])
+	intruders = [self.domains[domain_id] for domain_id in intruder_ids]
 
         if __debug__:
-            log.debug("intruders: %s, closest: %s (dist=%s)" %
-                      (', '.join(str(i) for i in intruders),
-                       closest, FORMAT_DOUBLE % closest_distance))
+            log.debug("intruders: %s" %
+                      (', '.join(str(i) for i in intruders)))
 
+
+        # 2.2 Burst the shells with the following conditions
+	# -shell is in the burst radius (intruder)
+	# -shell is burstable (not Multi)
+	# -shell is not newly made
+	# -shell is not already a zero shell (just bursted)
+	burst = []
         if intruders:
-            burst = self.burst_non_multis(intruders)
-        else:
-            burst = None
+#            burst = self.burst_non_multis(intruders)
+	    for domain in intruders:
+        	if not isinstance(domain, Multi) and \
+                   not self.t == domain.last_time: # and \
+#		   not domain.dt == 0.0:
+                    # domain is Single or Pair of some subclass
+            	    single_list = self.burst_domain(domain)
+                    burst.extend(single_list)
+                elif isinstance(domain, Multi):
+                    # domain is a Multi
+                    burst.append(domain)
 
-        # Check closest surface.
-        # Only relevant when in the "world" or other 3D region.
-        if isinstance(single.surface, CuboidalRegion):
-            interaction_surface, closest_surface, surface_distance = \
-                get_closest_surface_within_radius(self.world, 
-                                                  singlepos, min_shell,
-                                                  ignore=[single.surface.id])
-            if interaction_surface:
-                obj = self.form_interaction(single, interaction_surface, burst)
-                if obj:
-                    return
-        else:
-            # Surfaces are not allowed to touch or overlap.
-            closest_surface = None
+	    # burst now contains all the Domains resulting from the burst.
+	    # These are NonInteractionSingles and Multis
 
-        if burst:
-            obj = self.form_pair_or_multi(single, burst)
 
-            if obj:
-                return
+	# 2.3 get the closest object (a Domain or surface) which can be a
+	# partner for a new domain. This can be:
+	# zero-shell NonInteractionSingle -> Pair or Multi
+	# Multi -> Multi
+	# Surface -> Interaction
 
-            # if nothing was formed, recheck closest and restore shells.
-            burst = uniq(burst)
+	# Potential partners are for now just the bursted domains
+	partners = burst
 
-            closest, closest_distance = \
-                self.get_closest_obj(singlepos, ignore=[single.domain_id],
-                                     ignores=[single.surface.id])
-            self.update_single(single, closest, closest_distance)
-            for s in burst:
-                if not isinstance(s, Single):
-                    continue
-                assert s.is_reset()
-                closest, closest_distance = self.get_closest_obj(
-                    s.shell.shape.position, ignore=[s.domain_id],
-                    ignores=[s.surface.id])
+	dists = []
+	if partners:
+            # sort partners by distance
+	    dists = self.obj_distance_array(single_pos, partners)
+            if len(dists) >= 2:
+        	n = dists.argsort()
+        	partners = numpy.take(partners, n)	# sort the potential partners using the index
+        	dists = dists.take(n)			# sort the distances using the index
 
-                self.update_single(s, closest, closest_distance)
-                self.update_single_event(self.t + s.dt, s)
-                if __debug__:
-                    log.debug('restore shell %s radius %s dt %s\n'
-                              'closest %s distance %s' %
-                              (s, FORMAT_DOUBLE % s.shell.shape.radius,
-                               FORMAT_DOUBLE % s.dt, closest,
-                               FORMAT_DOUBLE % closest_distance))
-        else:
-            if closest_surface and surface_distance < closest_distance:
-                closest = closest_surface
-                closest_distance = surface_distance
-            self.update_single(single, closest, closest_distance)
-            
-        if __debug__:
-            log.info('updated shell: (%s,\n  Shell(%s, %s)' %
-                     (single.shell_id, single.shell.did,
-                      single.shell.shape.show(PRECISION)))
+	    closest_domain = partners[0]
+	    domain_distance = dists[0]
+	    rest_domains = partners[1:]
+	    rest_dists = dists[1:]
+	else:
+	    closest_domain = None
+	    domain_distance = numpy.inf
+	    rest_domains = []
+	    rest_dists = []
+	
+	# Potential partners are also surfaces
+        closest_surface, surface_distance = \
+	get_closest_surface(self.world, single_pos, ignore=[single.structure.id])
 
-        self.add_single_event(single)
-        return
+
+
+	# 2.4 calculate the thresholds (horizons) for trying to form the various domains.
+	# Note that we do not differentiate between directions. This means that we
+	# look around in a sphere, the horizons are spherical
+	surface_horizon = single_radius * self.SINGLE_SHELL_FACTOR
+	multi_horizon = single_radius * self.MULTI_SHELL_FACTOR
+
+	# 2.4 check that the object is a potential partner for an
+	# -Interaction 	(a surface)
+	# -Pair		(a zero dt NonInteractionSingle)
+	# -Multi	(a zero dt NonInteractionSingle or Multi)
+	if isinstance(closest_domain, NonInteractionSingle) and \
+	   closest_domain.is_reset():
+		pair_horizon = (single_radius + \
+                       closest_domain.pid_particle_pair[1].radius) * self.SINGLE_SHELL_FACTOR
+		if domain_distance < pair_horizon:
+	            # try making a Pair (can still be Mixed Pair or Normal Pair)
+		    domain = self.try_pair (single, closest_domain, rest_domains)
+		else:
+		    domain = None
+
+	elif isinstance(single, SphericalSingle) and \
+	     surface_distance < domain_distance and \
+	     surface_distance < surface_horizon:
+		# try making an Interaction
+		domain = self.try_interaction (single, closest_surface)
+	else:
+		domain = None
+
+
+	if not domain:
+	    # No Pair or Interaction could be formed
+	    # Now choose between NonInteractionSingle and Multi
+
+	    if domain_distance > multi_horizon and \
+	       surface_distance > multi_horizon:
+	        # just make a normal NonInteractionSingle
+	        self.update_single(single)
+	        self.add_domain_event(single)
+	    else:
+		# The closest object was too close to make a NonInteractionSingle
+		domain = self.form_multi(single, partners, dists)
+
+	return domain
+
 
     def reject_single_reaction(self, single):
         if __debug__:
             log.info('single reaction; placing product failed.')
         self.domains[single.domain_id] = single
-        self.move_shell(single.shell_id_shell_pair)
+        self.geometrycontainer.move_shell(single.shell_id_shell_pair)
         self.rejected_moves += 1
         single.initialize(self.t)
-        self.add_single_event(single)
+        self.add_domain_event(single)
+
+    def calculate_simplepair_shell_size(self, single1, single2, burst):
+        # 1. Determine min shell size for the SimplePair.
+
+	assert single1.structure == single2.structure
+
+        pos1 = single1.pid_particle_pair[1].position
+        pos2 = single2.pid_particle_pair[1].position
+        radius1 = single1.pid_particle_pair[1].radius
+        radius2 = single2.pid_particle_pair[1].radius
+
+        sigma = radius1 + radius2
+
+        D1 = single1.pid_particle_pair[1].D
+        D2 = single2.pid_particle_pair[1].D
+        D12 = D1 + D2
+
+#        assert (pos1 - single1.shell.shape.position).sum() == 0	# TODO Not sure why this is here
+        r0 = self.world.distance(pos1, pos2)
+        distance_from_sigma = r0 - sigma
+        assert distance_from_sigma >= 0, \
+            'distance_from_sigma (pair gap) between %s and %s = %s < 0' % \
+            (single1, single2, FORMAT_DOUBLE % distance_from_sigma)
+
+        shell_size1 = r0 * D1 / D12 + radius1
+        shell_size2 = r0 * D2 / D12 + radius2
+        shell_size_margin1 = radius1 * 2
+        shell_size_margin2 = radius2 * 2
+        shell_size_with_margin1 = shell_size1 + shell_size_margin1
+        shell_size_with_margin2 = shell_size2 + shell_size_margin2
+        if shell_size_with_margin1  >= shell_size_with_margin2:
+            min_shell_size = shell_size1
+            shell_size_margin = shell_size_margin1
+        else:
+            min_shell_size = shell_size2
+            shell_size_margin = shell_size_margin2
+
+        # 2. Check if min shell size for the Pair not larger than max shell size or 
+        # sim cell size.
+        min_shell_size_with_margin = min_shell_size + shell_size_margin
+        max_shell_size = min(self.geometrycontainer.get_max_shell_size(),
+                             distance_from_sigma * 100 +
+                             sigma + shell_size_margin)
+
+        if min_shell_size_with_margin >= max_shell_size:
+            if __debug__:
+                log.debug('%s not formed: min_shell_size %s >='
+                          'max_shell_size %s' %
+                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
+                                             single2.pid_particle_pair[0]),
+                           FORMAT_DOUBLE % min_shell_size_with_margin,
+                           FORMAT_DOUBLE % max_shell_size))
+            return None, None, None
+
+
+        # 3. Check if bursted Singles can still make a minimal shell.
+	# TODO This should be changed to a more general algorithm
+	# that checks if the closest nearest relevant shell is a
+	# NonInteractionSingle or smt else.
+	# Now it only processes the shells that were actually bursted before.
+	#
+	# In case it's a NonInteractionSingle observe a distance of reaction_radius
+	# In case it's smt else no extra distance has to be held
+
+        com = self.world.calculate_pair_CoM(pos1, pos2, D1, D2)
+        com = self.world.apply_boundary(com)
+        closest, closest_shell_distance = None, numpy.inf
+        for b in burst:
+            if isinstance(b, Single):
+                bpos = b.shell.shape.position
+                d = self.world.distance(com, bpos) - \
+                    b.pid_particle_pair[1].radius * self.SINGLE_SHELL_FACTOR
+                if d < closest_shell_distance:
+                    closest, closest_shell_distance = b, d
+
+        if closest_shell_distance <= min_shell_size_with_margin:
+            if __debug__:
+                log.debug('%s not formed: squeezed by burst neighbor %s' %
+                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
+                                             single2.pid_particle_pair[0]),
+                           closest))
+            return None, None, None
+
+        assert closest_shell_distance > 0
+
+        # 4. Determine shell size and check if closest object not too 
+        # close (squeezing).
+        c, d = self.geometrycontainer.get_closest_obj(com, self.domains, ignore=[single1.domain_id,
+                                                      single2.domain_id],
+                                                      ignores=[single1.structure.id])
+
+        if d < closest_shell_distance:
+            closest, closest_shell_distance = c, d
+
+        if __debug__:
+            log.debug('Pair closest neighbor: %s %s, '
+                      'min_shell_with_margin %s' %
+                      (closest, FORMAT_DOUBLE % closest_shell_distance,
+                       FORMAT_DOUBLE % min_shell_size_with_margin))
+
+        assert closest_shell_distance > 0
+
+        if isinstance(closest, Single):
+
+            D_closest = closest.pid_particle_pair[1].D
+            D_tot = D_closest + D12
+            closest_particle_distance = self.world.distance(
+                    com, closest.pid_particle_pair[1].position)
+
+            closest_min_radius = closest.pid_particle_pair[1].radius
+            closest_min_shell = closest_min_radius * self.SINGLE_SHELL_FACTOR
+
+            # options for shell size:
+            # a. ideal shell size
+            # b. closest shell is from a bursted single
+            # c. closest shell is closer than ideal shell size 
+            shell_size = min((D12 / D_tot) *
+                            (closest_particle_distance - min_shell_size 
+                             - closest_min_radius) + min_shell_size,
+                            closest_particle_distance - closest_min_shell,
+                            closest_shell_distance)
+
+            shell_size /= SAFETY
+            assert shell_size < closest_shell_distance
+
+        else:
+            assert isinstance(closest, (Pair, Multi, Surface, None.__class__))
+
+            shell_size = closest_shell_distance / SAFETY
+
+        if shell_size <= min_shell_size_with_margin:
+            if __debug__:
+                log.debug('%s not formed: squeezed by %s' %
+                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
+                                             single2.pid_particle_pair[0]),
+                           closest))
+            return None, None, None
+
+
+        # 5. Check if singles would not be better.
+	# TODO clear this up -> strange rule
+        d1 = self.world.distance(com, pos1)
+        d2 = self.world.distance(com, pos2)
+
+        if shell_size < max(d1 + single1.pid_particle_pair[1].radius *
+                            self.SINGLE_SHELL_FACTOR, \
+                            d2 + single2.pid_particle_pair[1].radius * \
+                            self.SINGLE_SHELL_FACTOR) * 1.3:
+            if __debug__:
+                log.debug('%s not formed: singles are better' %
+                          'Pair(%s, %s)' % (single1.pid_particle_pair[0], 
+                                            single2.pid_particle_pair[0]))
+            return None, None, None
+
+        shell_size = min(shell_size, max_shell_size)
+
+        assert closest_shell_distance == numpy.inf or \
+               shell_size < closest_shell_distance
+        assert shell_size >= min_shell_size_with_margin
+        assert shell_size <= max_shell_size
+
+	if __debug__:
+	    log.info('SimplePair shell made. shell_size=%s, '
+                     'closest_shell_distance=%s,\nclosest = %s' %
+                     (FORMAT_DOUBLE % shell_size, FORMAT_DOUBLE % closest_shell_distance, closest))
+
+	return com, r0, shell_size
+
 
     def calculate_single_shell_size(self, single, closest, 
                                  distance, shell_distance):
-        assert isinstance(closest, Single)
+	# only if the closest shell is also a 'simple' Single
+        assert isinstance(closest, NonInteractionSingle)
 
         min_radius1 = single.pid_particle_pair[1].radius
         D1 = single.getD()
@@ -983,11 +1230,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return shell_size
 
-    def update_single(self, single, closest, distance_to_shell): 
-        assert not isinstance(single, InteractionSingle)
+    def update_single(self, single): 
+        assert isinstance(single, NonInteractionSingle)	# This only works for 'simple' Singles
 
-        singlepos = single.shell.shape.position
-        if isinstance(closest, Single):
+	singlepos = single.pid_particle_pair[1].position
+	# TODO we need the closest RELEVANT domain, i.e. the domain in the
+	# direction in which we can scale the domain
+	closest, distance_to_shell = \
+            self.geometrycontainer.get_closest_obj(singlepos, self.domains, ignore=[single.domain_id],
+               	                                   ignores=[single.structure.id])
+
+        if isinstance(closest, NonInteractionSingle):
             closestpos = closest.shell.shape.position
             distance_to_closest = self.world.distance(singlepos, closestpos)
             new_shell_size = self.calculate_single_shell_size(single, closest, 
@@ -998,7 +1251,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             new_shell_size = max(new_shell_size,
                                  single.pid_particle_pair[1].radius)
 
-        new_shell_size = min(new_shell_size, self.get_max_shell_size())
+        new_shell_size = min(new_shell_size, self.geometrycontainer.get_max_shell_size())
 
         # Resize shell, don't change position.
         # Note: this should be done before determine_next_event.
@@ -1049,9 +1302,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
             else:
                 theothersingle = single1
 
-            self.burst_pair(pair)
+            self.burst_pair(pair)	# TODO this should be a propagate -> cleaner
 
-            self.add_single_event(theothersingle)
+            self.add_domain_event(theothersingle)
 
             if __debug__:
                 log.info('reactant = %s' % reactingsingle)
@@ -1070,10 +1323,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
             self.world.remove_particle(single1.pid_particle_pair[0])
             self.world.remove_particle(single2.pid_particle_pair[0])
 
-            if len(pair.rt.products) == 1:
-                species3 = self.world.get_species(pair.rt.products[0])
+            if len(pair.rt.products) == 0:
+		# no product particles, nothing new to be made
+                product = []
 
-                # calculate new R
+	    elif len(pair.rt.products) == 1:
+                species3 = self.world.get_species(pair.rt.products[0])
+                # calculate new position
                 event_type = pair.event_type
                 new_com = pair.draw_new_com(pair.dt, event_type)
 
@@ -1084,16 +1340,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                 new_com = self.world.apply_boundary(new_com)
 
+		# make product particle
                 particle = self.world.new_particle(species3.id, new_com)
+
+		# create a new domain for the new particle
                 product = self.create_single(particle)
-                self.add_single_event(product)
+		# schedule domain
+                self.add_domain_event(product)
 
+		# update counters
                 self.reaction_events += 1
-
                 self.last_reaction = (pair.rt, (particle1, particle2),
                                       [particle])
-            elif len(pair.rt.products) == 0:
-                product = []
             else:
                 raise NotImplementedError('num products >= 2 not supported.')
 
@@ -1112,8 +1370,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
             dt = pair.dt
             event_type = pair.event_type
             single1, single2 = self.propagate_pair(pair, dt, event_type)
-            self.add_single_event(single1)
-            self.add_single_event(single2)
+            self.add_domain_event(single1)
+            self.add_domain_event(single2)
         else:
             raise SystemError('Bug: invalid event_type.')
 
@@ -1131,29 +1389,29 @@ class EGFRDSimulator(ParticleSimulatorBase):
             self.reaction_events += 1
             self.last_reaction = multi.last_reaction
 
-        if multi.last_event is not None:
+        if multi.last_event is not None:		# if an event took place
             self.break_up_multi(multi)
             self.multi_steps[multi.last_event] += 1
         else:
-            self.add_multi_event(multi)
+            self.add_domain_event(multi)
 
     def break_up_multi(self, multi):
-        self.remove_domain(multi)
-
+    #Dissolves a multi in singles with a zero shell (dt=0)
         singles = []
         for pid_particle_pair in multi.particles:
             single = self.create_single(pid_particle_pair)
-            self.add_single_event(single)
+            self.add_domain_event(single)
             singles.append(single)
 
+        self.remove_domain(multi)
         return singles
 
-    def burst_multi(self, multi):
-        #multi.sim.sync()
-        assert isinstance(multi, Multi)
-        singles = self.break_up_multi(multi)
-
-        return singles
+#    def burst_multi(self, multi):
+#        #multi.sim.sync()
+#        assert isinstance(multi, Multi)
+#        singles = self.break_up_multi(multi)
+#
+#        return singles
 
     def burst_single(self, single):
         # Sets next event time of single domain in such a way it will end 
@@ -1165,8 +1423,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         assert self.t <= single.last_time + single.dt
 
         # record important single data ~ MW
-        oldpos = single.shell.shape.position
-        old_shell_size = single.get_shell_size()
+#        oldpos = single.shell.shape.position
+#        old_shell_size = single.get_shell_size()
 
         particle_radius = single.pid_particle_pair[1].radius
 
@@ -1178,8 +1436,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         newpos = newsingle.pid_particle_pair[1].position
         # Check if stays within domain ~MW
-        assert self.world.distance(newpos, oldpos) <= \
-               old_shell_size - particle_radius
+#        assert self.world.distance(newpos, oldpos) <= \
+#               old_shell_size - particle_radius
         # Displacement check is in NonInteractionSingle.draw_new_position.
 
         if isinstance(single, InteractionSingle):
@@ -1188,10 +1446,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # InteractionSingles nor for bursting 
             # NonInteractionSingles.
             self.remove_event(single)
-            self.add_single_event(newsingle)
+            self.add_domain_event(newsingle)
         else:
             assert single == newsingle
-            self.update_single_event(self.t, single)
+            self.update_domain_event(self.t, single)
 
         assert newsingle.shell.shape.radius == particle_radius
 
@@ -1200,6 +1458,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return newsingle
 
     def burst_pair(self, pair):
+	# TODO this should also schedule the resulting Singles and remove the
+	# Pair event -> cleaner
         if __debug__:
             log.debug('burst_pair: %s', pair)
 
@@ -1267,8 +1527,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.move_single(single1, newpos1, particle1[1].radius)
         self.move_single(single2, newpos2, particle2[1].radius)
 
+	# TODO This is not very clear or clean now. Also doesn't support MixedPair
         if __debug__:
-            container = self.get_container(single1.shell)
+            container = self.geometrycontainer.get_container(single1.shell)
             assert container[single1.shell_id].shape.radius == \
                    single1.shell.shape.radius
             assert container[single2.shell_id].shape.radius == \
@@ -1288,98 +1549,71 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return single1, single2
 
-    def form_pair_or_multi(self, single, neighbors):
-        assert neighbors
+    def try_interaction(self, single, surface):
+        # Try to form an interaction between the 'single' particle and the 'surface'.
 
-        singlepos = single.shell.shape.position
+        pid_particle_pair = single.pid_particle_pair
+	particle = pid_particle_pair[1]
 
-        # sort burst neighbors by distance
-        dists = self.obj_distance_array(singlepos, neighbors)
-        if len(dists) >= 2:
-            n = dists.argsort()
-            dists = dists.take(n)
-            neighbors = numpy.take(neighbors, n)
-
-        # First, try forming a Pair.
-        if isinstance(neighbors[0], Single):
-            obj = self.form_pair(single, singlepos,
-                                 neighbors[0], neighbors[1:])
-            if obj:
-                return obj
-
-        # If a Pair is not formed, then try forming a Multi.
-        obj = self.form_multi(single, neighbors, dists)
-        if obj:
-            return obj
-
-    def form_interaction(self, single, surface, burst):
-        # Try to form an interaction.
-
-        particle = single.pid_particle_pair[1]
+	# calculate the Projected_point and distance to the surface
         # Cyclic transpose needed when calling surface.projected_point!
         pos_transposed = self.world.cyclic_transpose(particle.position, 
                                                      surface.shape.position) 
         projected_point, projection_distance = \
                 surface.projected_point(pos_transposed)
 
+	# projection_distance is relative to the unit_z of the surface -> can be negative
         particle_distance = abs(projection_distance)
 
         # For interaction with a planar surface, decide orientation. 
+	# Note that the orientation_vector is normalized
         orientation_vector = cmp(projection_distance, 0) * surface.shape.unit_z 
 
         if __debug__:
            log.debug('trying to form Interaction(%s, %s)' % (particle, surface))
 
-        # For an interaction with a PlanarSurface (membrane):
-        # * dr is the radius of the cylinder.
-        # * dz_left determines how much the cylinder is sticking out on the 
-        # other side of the surface, measured from the projected point.
-        # * dz_right is the distance between the particle position and 
-        # the edge of the cylinder in the z direction.
-        #
-        # For interaction with a CylindricalSurface (dna):
-        # * dr is the distance between the particle position and the 
-        # edge of the cylinder in the r direction.
-        # * dz_left is the distance from the projected point to the left edge 
-        # of the cylinder.
-        # * dz_right is the distance from the projected point to the right edge 
-        # of the cylinder.
+
+	### 1. See if there is enough space for the shell
+
+
+	# Make sure the maximal cylinder fits in the maximal sphere. Matrix space
+	# doesn't allow to check for shells outside the maximal sphere.
+	max_cylinder_radius      = self.geometrycontainer.get_max_shell_size()/math.sqrt(2)
+	max_cylinder_half_length = max_cylinder_radius
 
         # Initialize dr, dz_left, dz_right to maximum allowed values.
         # And decide minimal dr, dz_left, dz_right.
         if isinstance(surface, PlanarSurface):
-            dr = self.get_max_shell_size()
+            dr = max_cylinder_radius
             # Leave enough for the particle itself to the left.
             dz_left = particle.radius
-            # Make sure the cylinder stays within 1 cell.
-            dz_right = self.get_max_shell_size() * 2 - \
-                      (particle_distance + dz_left)
+            dz_right = max_cylinder_half_length * 2 - dz_left
 
             min_dr = particle.radius * self.SINGLE_SHELL_FACTOR
             min_dz_left = dz_left
-            min_dz_right = particle.radius * self.SINGLE_SHELL_FACTOR
+            min_dz_right = particle_distance + particle.radius * self.SINGLE_SHELL_FACTOR
 
         elif isinstance(surface, CylindricalSurface):
-            # Make sure the cylinder stays within 1 cell.
-            dr = self.get_max_shell_size() - particle_distance
-            dz_left = self.get_max_shell_size()
-            dz_right = self.get_max_shell_size()
+            dr = max_cylinder_radius
+            dz_left = max_cylinder_half_length
+            dz_right = max_cylinder_half_length
 
-            min_dr = particle.radius * self.SINGLE_SHELL_FACTOR
+            min_dr = particle_distance + particle.radius * self.SINGLE_SHELL_FACTOR
             min_dz_left = particle.radius * self.SINGLE_SHELL_FACTOR
             min_dz_right = particle.radius * self.SINGLE_SHELL_FACTOR
 
         # Miedema's algorithm.
         dr, dz_left, dz_right = \
-            self.determine_optimal_cylinder(single, surface,
-                                            projected_point,
-                                            particle_distance,
-                                            orientation_vector,
-                                            dr, dz_left, dz_right,
-                                            burst)
+            self.calculate_max_cylinder(single, surface,
+                                        projected_point,
+                                        particle_distance,
+                                        orientation_vector,
+                                        dr, dz_left, dz_right)
+
         dr /= SAFETY
-        dz_left /= SAFETY
         dz_right /= SAFETY
+#	 This will break the conditions below for membrane interaction
+#        dz_left /= SAFETY
 
         # Decide if interaction domain is possible.
         if dr < min_dr or dz_left < min_dz_left or dz_right < min_dz_right:
@@ -1394,13 +1628,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
                            dz_right, min_dz_right))
             return None
 
-        interaction = self.create_interaction(single, surface,
-                                              projected_point, 
-                                              particle_distance,
-                                              orientation_vector, 
-                                              dr, dz_left, dz_right)
 
-        # Below here similar as in fire_pair after creating a pair.
+	### 2. The shell can be made. Now do what's necessary to make it
+        # Compute origin, radius and half_length of cylinder.
+        origin = projected_point + ((dz_right - dz_left)/2.0) * orientation_vector
+        half_length = (dz_left + dz_right) / 2.0
+        radius = dr
+
+        interaction = self.create_interaction(pid_particle_pair, surface,
+					      origin, radius, half_length,
+					      orientation_vector)
+
         interaction.dt, interaction.event_type, = \
             interaction.determine_next_event()
         assert interaction.dt >= 0
@@ -1408,7 +1646,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.last_time = self.t
 
         self.remove_domain(single)
-        # single event will be removed by the scheduler.
+        # the event associated with the single will be removed by the scheduler.
+
+        #assert self.check_obj(interaction)
+        self.add_domain_event(interaction)
 
         if __debug__:
             log.debug('        *create_interaction\n'
@@ -1416,28 +1657,42 @@ class EGFRDSimulator(ParticleSimulatorBase):
                       (FORMAT_DOUBLE % dr, FORMAT_DOUBLE % dz_left,
                        FORMAT_DOUBLE % dz_right))
 
-        assert self.check_obj(interaction)
-        self.add_single_event(interaction)
-
         return interaction
 
-    def determine_optimal_cylinder(self, single, surface, projected_point, 
+
+    def calculate_max_cylinder(self, single, surface, projected_point, 
                                    particle_distance, orientation_vector,
-                                   dr, dz_left, dz_right, burst):
+                                   dr, dz_left, dz_right):
         # Find optimal cylinder around particle and surface, such that 
         # it is not interfering with other shells.
-        # Todo. Finding all spheres and cylinders in the matrixspace 
-        # should be sufficient, but domain information is now used for 
-        # get_shell_size is overridden for cylindrical singles and 
-        # pairs.
-        all_neighbors = \
-            self.get_neighbors_within_radius_no_sort(projected_point, 
-                                                     self.get_max_shell_size(),
+	#
+	# To determine the maximal cylindrical shell a starting cylinder is defined
+	# * The projected_point is a reference point along the axis of the cylinder,
+	#   the position, z, can be chosen freely
+	# * orientation_vector is a vector along the z-axis providing orientation
+	#   It usually points in the general direction of the particle
+	#
+        # * dr is the radius of the cylinder.
+        # * dz_right is the distance between the projected_point and the face of the
+	#   cylinder on the side of the orientation_vector 
+        # * dz_left is the distance from the projected_point to the face of the cylinder
+	#   on the side oposite of the orientation_vector
+	#
+	# * particle_distance is the distance from the center of the particle to the
+	#   projected_point
+
+	# the search point is the center of the sphere that surrounds the
+	# maximal cylinder
+        search_point = projected_point + ((dz_right - dz_left)/2.0) * orientation_vector
+        all_neighbor_ids = \
+            self.geometrycontainer.get_neighbors_within_radius_no_sort(search_point, 
+                                                     self.geometrycontainer.get_max_shell_size(),
                                                      ignore=[single.domain_id])
+	all_neighbors = [self.domains[domain_id] for domain_id in all_neighbor_ids]
 
         for domain in all_neighbors:
             if isinstance(domain, Multi):
-                for shell in domain.shell_list:
+                for _, shell in domain.shell_list:
                     shell_position = shell.shape.position
                     shell_size = shell.shape.radius
                     dr, dz_left, dz_right = \
@@ -1454,7 +1709,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 shell_position = domain.shell.shape.position
                 shell_size = domain.get_shell_size()
 
-                # Make bursted singles look bigger, like in form_pair, 
+                # Make bursted singles look bigger,
                 # because the size of their shell is only 
                 # particle.radius (not yet multiplied by 
                 # SINGLE_SHELL_FACTOR)
@@ -1483,6 +1738,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # shell_position and with size (radius or half_length) 
         # shell_size.
 
+	shell_position = self.world.cyclic_transpose(shell_position, projected_point)
         shell_vector = shell_position - projected_point
 
         # Calculate zi and ri for this shell.
@@ -1493,11 +1749,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # Calculate dr_i for this shell.
         dr_i = ri - shell_size
-        if isinstance(surface, CylindricalSurface):
+
+	if isinstance(surface, PlanarSurface):
+	    dz_right -= particle_distance
+        elif isinstance(surface, CylindricalSurface):
             # Run Miedema's algorithm in the r direction 
             # relative to the particle's position, not to 
             # projected point (r=0).
             dr_i -= particle_distance
+	    dr -= particle_distance
+	else:
+	    raise SystemError('Error in Miedema\'s algorithm: surface is not a Surface')
 
         # Calculate dz_left_i or dz_right_i (both will usually 
         # be positive values).
@@ -1529,9 +1791,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 else:
                     dr = dr_i
 
+	if isinstance(surface, PlanarSurface):
+	    dz_right += particle_distance
+	elif isinstance(surface, CylindricalSurface):
+	    dr += particle_distance
+
         return dr, dz_left, dz_right
 
-    def form_pair(self, single1, pos1, single2, burst):
+
+    def try_pair(self, single1, single2, burst):
         if __debug__:
            log.debug('trying to form Pair(%s, %s)' %
                      (single1.pid_particle_pair, single2.pid_particle_pair))
@@ -1539,292 +1807,144 @@ class EGFRDSimulator(ParticleSimulatorBase):
         assert single1.is_reset()
         assert single2.is_reset()
 
-        # Try forming a Pair only if singles are on same surface.
-        if single1.surface != single2.surface:
+        # Try forming a Pair only if singles are on same structure.
+        if single1.structure != single2.structure:
+	    # TODO implement shell making method for MixedPair
+
             if __debug__:
-                log.debug('Pair(%s, %s) not formed: not on same surface.' %
+                log.debug('Pair(%s, %s) not formed: not on same structure.' %
                           (single1.pid_particle_pair[0],
                            single2.pid_particle_pair[0]))
-            return None
 
-        # 1. Determine min shell size.
-        radius1 = single1.pid_particle_pair[1].radius
-        radius2 = single2.pid_particle_pair[1].radius
-
-        sigma = radius1 + radius2
-
-        D1 = single1.pid_particle_pair[1].D
-        D2 = single2.pid_particle_pair[1].D
-        D12 = D1 + D2
-
-        assert (pos1 - single1.shell.shape.position).sum() == 0
-        pos2 = single2.shell.shape.position
-        r0 = self.world.distance(pos1, pos2)
-        distance_from_sigma = r0 - sigma
-        assert distance_from_sigma >= 0, \
-            'distance_from_sigma (pair gap) between %s and %s = %s < 0' % \
-            (single1, single2, FORMAT_DOUBLE % distance_from_sigma)
-
-        shell_size1 = r0 * D1 / D12 + radius1
-        shell_size2 = r0 * D2 / D12 + radius2
-        shell_size_margin1 = radius1 * 2
-        shell_size_margin2 = radius2 * 2
-        shell_size_with_margin1 = shell_size1 + shell_size_margin1
-        shell_size_with_margin2 = shell_size2 + shell_size_margin2
-        if shell_size_with_margin1  >= shell_size_with_margin2:
-            min_shell_size = shell_size1
-            shell_size_margin = shell_size_margin1
-        else:
-            min_shell_size = shell_size2
-            shell_size_margin = shell_size_margin2
-
-        # 2. Check if min shell size not larger than max shell size or 
-        # sim cell size.
-        com = self.world.calculate_pair_CoM(pos1, pos2, D1, D2)
-        com = self.world.apply_boundary(com)
-        min_shell_size_with_margin = min_shell_size + shell_size_margin
-        max_shell_size = min(self.get_max_shell_size(),
-                             distance_from_sigma * 100 +
-                             sigma + shell_size_margin)
-
-        if min_shell_size_with_margin >= max_shell_size:
-            if __debug__:
-                log.debug('%s not formed: min_shell_size %s >='
-                          'max_shell_size %s' %
-                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
-                                             single2.pid_particle_pair[0]),
-                           FORMAT_DOUBLE % min_shell_size_with_margin,
-                           FORMAT_DOUBLE % max_shell_size))
-            return None
-
-        # 3. Check if bursted Singles not too close.
-        # The simple check for closest below could miss
-        # some of them, because sizes of these Singles for this
-        # distance check has to include SINGLE_SHELL_FACTOR, while
-        # these burst objects have zero mobility radii.  This is not
-        # beautiful, a cleaner framework may be possible.
-
-        closest, closest_shell_distance = None, numpy.inf
-        for b in burst:
-            if isinstance(b, Single):
-                bpos = b.shell.shape.position
-                d = self.world.distance(com, bpos) - \
-                    b.pid_particle_pair[1].radius * self.SINGLE_SHELL_FACTOR
-                if d < closest_shell_distance:
-                    closest, closest_shell_distance = b, d
-
-        if closest_shell_distance <= min_shell_size_with_margin:
-            if __debug__:
-                log.debug('%s not formed: squeezed by burst neighbor %s' %
-                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
-                                             single2.pid_particle_pair[0]),
-                           closest))
-            return None
-
-        assert closest_shell_distance > 0
-
-        # 4. Determine shell size and check if closest object not too 
-        # close (squeezing).
-        c, d = self.get_closest_obj(com, ignore=[single1.domain_id,
-                                                 single2.domain_id],
-                                    ignores=[single1.surface.id])
-        if d < closest_shell_distance:
-            closest, closest_shell_distance = c, d
-
-        if __debug__:
-            log.debug('Pair closest neighbor: %s %s, '
-                      'min_shell_with_margin %s' %
-                      (closest, FORMAT_DOUBLE % closest_shell_distance,
-                       FORMAT_DOUBLE % min_shell_size_with_margin))
-
-        assert closest_shell_distance > 0
-
-        if isinstance(closest, Single):
-
-            D_closest = closest.pid_particle_pair[1].D
-            D_tot = D_closest + D12
-            closest_particle_distance = self.world.distance(
-                    com, closest.pid_particle_pair[1].position)
-
-            closest_min_radius = closest.pid_particle_pair[1].radius
-            closest_min_shell = closest_min_radius * self.SINGLE_SHELL_FACTOR
-
-            # options for shell size:
-            # a. ideal shell size
-            # b. closest shell is from a bursted single
-            # c. closest shell is closer than ideal shell size 
-            shell_size = min((D12 / D_tot) *
-                            (closest_particle_distance - min_shell_size 
-                             - closest_min_radius) + min_shell_size,
-                            closest_particle_distance - closest_min_shell,
-                            closest_shell_distance)
-
-            shell_size /= SAFETY
-            assert shell_size < closest_shell_distance
-
-        else:
-            assert isinstance(closest, (Pair, Multi, Surface, None.__class__))
-
-            shell_size = closest_shell_distance / SAFETY
-
-        if shell_size <= min_shell_size_with_margin:
-            if __debug__:
-                log.debug('%s not formed: squeezed by %s' %
-                          ('Pair(%s, %s)' % (single1.pid_particle_pair[0], 
-                                             single2.pid_particle_pair[0]),
-                           closest))
-            return None
+            center, r0, shell_size = None, None, None
+#	    shell = self.make_mixedpair_shell (single1, single2)
+	else:
+	    # particles are on the same structure
+	    center, r0, shell_size = self.calculate_simplepair_shell_size (single1, single2, burst)
 
 
-        # 5. Check if singles would not be better.
-        d1 = self.world.distance(com, pos1)
-        d2 = self.world.distance(com, pos2)
+	if shell_size:
+            # A shell could be made and makes sense. Create a Pair
+            pair = self.create_pair(single1, single2, center, r0, shell_size)
 
-        if shell_size < max(d1 + single1.pid_particle_pair[1].radius *
-                            self.SINGLE_SHELL_FACTOR, \
-                            d2 + single2.pid_particle_pair[1].radius * \
-                            self.SINGLE_SHELL_FACTOR) * 1.3:
-            if __debug__:
-                log.debug('%s not formed: singles are better' %
-                          'Pair(%s, %s)' % (single1.pid_particle_pair[0], 
-                                            single2.pid_particle_pair[0]))
-            return None
-
-        # 6. Ok, Pair makes sense. Create one.
-        shell_size = min(shell_size, max_shell_size)
-
-        pair = self.create_pair(single1, single2, com, r0, shell_size)
-
-        pair.dt, pair.event_type, pair.reactingsingle = \
+            pair.dt, pair.event_type, pair.reactingsingle = \
             pair.determine_next_event(r0)
 
-        assert pair.dt >= 0
+            assert pair.dt >= 0
 
-        self.last_time = self.t
+            self.last_time = self.t
 
-        self.remove_domain(single1)
-        self.remove_domain(single2)
+            self.remove_domain(single1)
+            self.remove_domain(single2)
 
-        # single1 will be removed by the scheduler.
-        self.remove_event(single2)
+            # single1 will be removed by the scheduler.
+            self.remove_event(single2)
 
-        assert closest_shell_distance == numpy.inf or \
-               shell_size < closest_shell_distance
-        assert shell_size >= min_shell_size_with_margin
-        assert shell_size <= max_shell_size
+            assert self.check_obj(pair)
+            self.add_domain_event(pair)
 
-        if __debug__:
-            log.info('%s,\ndt=%s, r0=%s, shell_size=%s, '
-                     'closest_shell_distance=%s,\nclosest = %s' %
-                     (pair, FORMAT_DOUBLE % pair.dt, FORMAT_DOUBLE % r0, 
-                      FORMAT_DOUBLE % shell_size, 
-                      FORMAT_DOUBLE % closest_shell_distance, closest))
+            if __debug__:
+                log.info('%s,\ndt=%s, r0=%s, shell_size=%s, ' %
+                         (pair, FORMAT_DOUBLE % pair.dt, FORMAT_DOUBLE % r0, 
+                          FORMAT_DOUBLE % shell_size)) 
 
-        assert self.check_obj(pair)
-        self.add_pair_event(pair)
-
-        return pair
+            return pair
+	else:
+	    return None
     
 
     def form_multi(self, single, neighbors, dists):
+	# form a Multi with the 'single'
+	# The 'neighbors' are neighboring NonInteractionSingles and Multi which
+	# can be added to the Multi (this can also be empty)
+	# 'dists' are the distances of the 'neighbors'
 
-        min_shell = single.pid_particle_pair[1].radius * \
-                    (1.0 + self.MULTI_SHELL_FACTOR)
-        # Multis shells need to be contiguous.
-        if dists[0] > min_shell:
-            return None
-
+	# Filter out relevant neighbors if present
+	# only consider neighboring bursted domains that are within the Multi horizon
+	min_shell = single.pid_particle_pair[1].radius * self.MULTI_SHELL_FACTOR
+	dists = numpy.array(dists)	# FIXME Not sure why this is necessary, dists should already be array
         neighbors = [neighbors[i] for i in (dists <= min_shell).nonzero()[0]]
+	if neighbors:
+            closest = neighbors[0]
+	else:
+	    closest = None
 
-        closest = neighbors[0]
 
-        # if the closest to this Single is a Single, create a new Multi
-        if isinstance(closest, Single):
-
-            multi = self.create_multi()
-            self.add_to_multi(single, multi)
-            self.remove_domain(single)
-            for neighbor in neighbors:
-                self.add_to_multi_recursive(neighbor, multi)
-
-            multi.initialize(self.t)
-            
-            self.add_multi_event(multi)
-
-            return multi
-
+	# 1. Make new Multi if Necessary
+        if isinstance(closest, Multi):
         # if the closest to this Single is a Multi, reuse the Multi.
-        elif isinstance(closest, Multi):
-
-            multi = closest
-            self.add_to_multi(single, multi)
-            self.remove_domain(single)
-            for neighbor in neighbors[1:]:
-                self.add_to_multi_recursive(neighbor, multi)
-
-            multi.initialize(self.t)
-
-            self.update_multi_event(self.t + multi.dt, multi)
-
-            return multi
+	    multi = closest
+	    neighbors = neighbors[1:]	# the rest of the neighbors are added
+        else: 
+        # the closest is not a Multi. Can be NonInteractionSingle, surface or
+	# nothing. Create new Multi
+            multi = self.create_multi()
 
 
-        assert False, 'do not reach here'
+	# 2. Add the single and neighbors to the Multi
+        self.add_to_multi(single, multi)
+        self.remove_domain(single)
+        for neighbor in neighbors:
+            self.add_to_multi_recursive(neighbor, multi)
 
 
-    def add_to_multi_recursive(self, obj, multi):
-        if isinstance(obj, Single):
-            if multi.has_particle(obj.pid_particle_pair[0]):
+	# 3. Initialize and (re-)schedule
+        multi.initialize(self.t)
+        if isinstance(closest, Multi):
+            self.update_domain_event(self.t + multi.dt, multi)
+	else:
+            self.add_domain_event(multi)
+
+        return multi
+
+
+    def add_to_multi_recursive(self, domain, multi):
+        if isinstance(domain, NonInteractionSingle):
+            if multi.has_particle(domain.pid_particle_pair[0]):
                 # Already in the Multi.
                 return
-            assert obj.is_reset()
-            objpos = obj.shell.shape.position
+            assert domain.is_reset()
+            objpos = domain.shell.shape.position
             
-            self.add_to_multi(obj, multi)
-            self.remove_domain(obj)
-            self.remove_event(obj)
+            self.add_to_multi(domain, multi)
+            self.remove_domain(domain)
+            self.remove_event(domain)
 
-            radius = obj.pid_particle_pair[1].radius * \
-                (1.0 + self.MULTI_SHELL_FACTOR)
-            neighbors = self.get_neighbors_within_radius_no_sort(
-                    objpos, radius, ignore=[obj.domain_id])
+            radius = domain.pid_particle_pair[1].radius * \
+                self.MULTI_SHELL_FACTOR
+            neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(
+                    objpos, radius, ignore=[domain.domain_id])
+	    neighbors = [self.domains[domain_id] for domain_id in neighbor_ids]
 
             burst = self.burst_non_multis(neighbors)
             neighbor_dists = self.obj_distance_array(objpos, burst)
             neighbors = [burst[i] for i
                                   in (neighbor_dists <= radius).nonzero()[0]]
 
-            for obj in neighbors:
-                self.add_to_multi_recursive(obj, multi)
+            for domain in neighbors:
+                self.add_to_multi_recursive(domain, multi)
 
-        elif isinstance(obj, Multi):
+        elif isinstance(domain, Multi):
             for pp in multi.particles:
-                if obj.has_particle(pp[0]):
+                if domain.has_particle(pp[0]):
                     if __debug__:
-                        log.debug('%s already added. skipping.' % obj)
+                        log.debug('%s already added. skipping.' % domain)
                     break
             else:
-                self.merge_multis(obj, multi)
+                self.merge_multis(domain, multi)
         else:
             assert False, 'do not reach here.'  # Pairs are burst
-
-    def new_spherical_shell(self, domain_id, pos, size):
-        shell_id_shell_pair = (
-            self.shell_id_generator(),
-            SphericalShell(domain_id, Sphere(pos, size)))
-        self.move_shell(shell_id_shell_pair)
-        return shell_id_shell_pair
 
     def add_to_multi(self, single, multi):
         if __debug__:
             log.info('add to multi:\n  %s\n  %s' % (single, multi))
 
-        sid_shell_pair = self.new_spherical_shell(
-            multi.domain_id,
-            single.pid_particle_pair[1].position,
-            single.pid_particle_pair[1].radius * \
-                (1.0 + self.MULTI_SHELL_FACTOR))
-        multi.add_shell(sid_shell_pair)
+	shell_id = self.shell_id_generator()
+	shell = multi.create_new_shell(single.pid_particle_pair[1].position,
+                single.pid_particle_pair[1].radius * self.MULTI_SHELL_FACTOR)
+	shell_id_shell_pair = (shell_id, shell)
+        self.geometrycontainer.move_shell(shell_id_shell_pair)
+        multi.add_shell(shell_id_shell_pair)
         multi.add_particle(single.pid_particle_pair)
 
     def merge_multis(self, multi1, multi2):
@@ -1843,7 +1963,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         for sid_shell_pair in multi1.shell_list:
             sid_shell_pair[1].did = multi2.domain_id
-            self.move_shell(sid_shell_pair)
+            self.geometrycontainer.move_shell(sid_shell_pair)
             multi2.add_shell(sid_shell_pair)
 
         for pid_particle_pair in multi1.particles:
@@ -1852,94 +1972,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
         del self.domains[multi1.domain_id]
         self.remove_event(multi1)
 
-    def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):
-        # Get neighbor domains within given radius.
-        #
-        # ignore: domain ids.
-        #
-        # Only returns neighbors, not the distances towards their 
-        # shells. Can for example be used to try to clear all objects 
-        # from a certain volume.
-
-        try:
-            for container in self.containers:
-                result = container.get_neighbors_within_radius(pos, radius)
-                # result = [((shell_id_shell_pair), distance), ]
-                # Since a domain can have more than 1 shell (multis for 
-                # example), and for each shell there is an entry in the 
-                # shell container, we make sure each domain occurs only once 
-                # in the returned list here.
-                for did in uniq(s[0][1].did for s in result):
-                    if did not in ignore:
-                        yield self.domains[did]
-        except AttributeError:
-            pass
-
-    def get_intruders(self, position, radius, ignore):
-        intruders = []   # intruders are domains within radius
-        closest_domain = None   # closest domain, excluding intruders.
-        closest_distance = numpy.inf # distance to the shell of the closest.
-
-        seen = set(ignore)
-        for container in self.containers:
-            neighbors = container.get_neighbors(position)
-            for n in neighbors:
-                domain_id = n[0][1].did
-                distance = n[1]
-                if distance > radius:
-                    if distance < closest_distance:
-                        # This is domain (the first one for this 
-                        # container) that has a shell that is more than 
-                        # radius away from pos.  If it is closer than 
-                        # the closest such one we found so far: store 
-                        # it. Always break out of the inner for loop and 
-                        # check the other containers.
-                        closest_domain = self.domains[domain_id]
-                        closest_distance = distance
-                        break
-                    else:
-                        break
-                elif domain_id not in seen:
-                    # Since a domain can have more than 1 shell (multis 
-                    # for example), and for each shell there is an entry 
-                    # in the shell container, we make sure each domain 
-                    # occurs only once in the returned list here.
-                    seen.add(domain_id)
-                    intruders.append(self.domains[domain_id])
-
-        return intruders, closest_domain, closest_distance
-
-    def get_closest_obj(self, pos, ignore=[], ignores=[]):
-        # ignore: domain ids.
-        closest_domain = None
-        closest_distance = numpy.inf
-
-        for container in self.containers:
-            result = container.get_neighbors(pos)
-
-            for shell_id_shell_pair, distance in result:
-                domain_id = shell_id_shell_pair[1].did 
-
-                if domain_id not in ignore and distance < closest_distance:
-                    domain = self.domains[domain_id]
-                    closest_domain, closest_distance = domain, distance
-                    # Found yet a closer domain. Break out of inner for 
-                    # loop and check other containers.
-                    break   
-
-        surface, distance = get_closest_surface(self.world, pos, ignores)
-
-        if distance < closest_distance:
-            return surface, distance
-        else:
-            return closest_domain, closest_distance
-
-    def obj_distance(self, pos, obj):
+    def domain_distance(self, pos, domain):
+	# calculates the shortest distance from 'pos' to A shell (a Multi
+	# can have multiple) of 'domain'.
+	# Note: it returns the distance between pos and the CENTER of the shell
         return min(self.world.distance(shell.shape, pos)
-                   for i, (_, shell) in enumerate(obj.shell_list))
+                   for i, (_, shell) in enumerate(domain.shell_list))
 
-    def obj_distance_array(self, pos, objs):
-        dists = numpy.array([self.obj_distance(pos, obj) for obj in objs])
+    def obj_distance_array(self, pos, domains):
+        dists = numpy.array([self.domain_distance(pos, domain) for domain in domains])
         return dists
             
 
@@ -1993,16 +2034,22 @@ rejected moves = %d
     def check_obj(self, obj):
         obj.check()
 
+        if isinstance(obj, Multi):
+            # Ignore all surfaces, multi shells can overlap with 
+            # surfaces.
+            ignores = [s.id for s in self.world.structures]
+	elif isinstance(obj, InteractionSingle):
+	    # Ignore surface of the particle and interaction surface
+	    ignores = [obj.structure.id, obj.surface.id]
+        else:
+            ignores = [obj.structure.id]
+
         for shell_id, shell in obj.shell_list:
-            if not isinstance(obj, Multi):
-                ignores = [obj.surface.id]
-            else:
-                # Ignore all surfaces, multi shells can overlap with 
-                # surfaces.
-                ignores = [s.id for s in self.world.structures]
-            closest, distance = self.get_closest_obj(shell.shape.position,
-                                                     ignore=[obj.domain_id],
-                                                     ignores=ignores)
+            closest, distance = self.geometrycontainer.get_closest_obj(shell.shape.position,
+								       self.domains,
+                                                                       ignore=[obj.domain_id],
+                                                                       ignores=ignores)
+	#TODO
             if(type(shell.shape) is Cylinder and
                closest and type(closest.shell.shape) is Sphere):
                 # Note: this case is special.
@@ -2031,11 +2078,11 @@ rejected moves = %d
                     shell_size = shell.shape.radius
                 diff = distance - shell_size
 
-            assert shell_size <= self.get_user_max_shell_size(), \
+            assert shell_size <= self.geometrycontainer.get_user_max_shell_size(), \
                 '%s shell size larger than user-set max shell size' % \
                 str(shell_id)
 
-            assert shell_size <= self.get_max_shell_size(), \
+            assert shell_size <= self.geometrycontainer.get_max_shell_size(), \
                 '%s shell size larger than simulator cell size / 2' % \
                 str(shell_id)
 
@@ -2049,61 +2096,61 @@ rejected moves = %d
 
     def check_obj_for_all(self):
         for id, event in self.scheduler:
-            self.check_obj(event.data)
+	    domain = self.domains[event.data]
+            self.check_obj(domain)
 
     def check_event_stoichiometry(self):
-        event_population = 0
+    # checks if the number of particles in the world is equal to the number
+    # of particles represented in the EGFRD simulator
+	world_population = self.world.num_particles
+        domain_population = 0
         for id, event in self.scheduler:
-            event_population += event.data.multiplicity
+	    domain = self.domains[event.data]
+            domain_population += domain.multiplicity
 
-        if self.world.num_particles != event_population:
-            raise RuntimeError('population %d != event_population %d' %
-                               (population, event_population))
+        if world_population != domain_population:
+            raise RuntimeError('population %d != domain_population %d' %
+                               (world_population, domain_population))
 
     def check_shell_matrix(self):
-        did_map = {}
-        shell_map = {}
-        for container in self.containers:
-            if self.world.world_size != container.world_size:
-                raise RuntimeError('self.world.world_size != '
-                                   'container.world_size')
-            for shell_id, shell in container:
-                did_map.setdefault(shell.did, []).append(shell_id)
-                shell_map[shell_id] = shell
+	did_map, shell_map = self.geometrycontainer.get_dids_shells()
 
         shell_population = 0
         for id, event in self.scheduler:
-            shell_population += event.data.num_shells
-            shell_ids = did_map[event.data.domain_id]
-            if len(shell_ids) != event.data.num_shells:
+	    domain = self.domains[event.data]
+            shell_population += domain.num_shells
+            shell_ids = did_map[domain.domain_id]
+            if len(shell_ids) != domain.num_shells:
                 diff = set(sid for (sid, _)
-                               in event.data.shell_list).difference(shell_ids)
+                               in domain.shell_list).difference(shell_ids)
                 for sid in diff:
                     print shell_map.get(sid, None)
 
                 raise RuntimeError('number of shells are inconsistent '
                                    '(%d != %d; %s) - %s' %
-                                   (len(shell_ids), event.data.num_shells, 
-                                    event.data.domain_id, diff))
+                                   (len(shell_ids), domain.num_shells, 
+                                    domain.domain_id, diff))
 
-        matrix_population = sum(len(container)
-                                for container in self.containers)
+        matrix_population = self.geometrycontainer.get_total_num_shells()
         if shell_population != matrix_population:
             raise RuntimeError('num shells (%d) != matrix population (%d)' %
                                (shell_population, matrix_population))
 
     def check_domains(self):
+	# make set of event_id that are stored in all the domains
         event_ids = set(domain.event_id
                         for domain in self.domains.itervalues())
+	# check that all the event_id in the scheduler are also stored in a domain
         for id, event in self.scheduler:
             if id not in event_ids:
-                raise RuntimeError('%s in EventScheduler not in self.domains' %
-                                   event.data)
-            event_ids.remove(id)
+                raise RuntimeError('Event %s in EventScheduler has no domain in self.domains' %
+                                   event)
+	    else:
+                event_ids.remove(id)
 
         # self.domains always include a None  --> this can change in future
         if event_ids:
-            raise RuntimeError('following domains in self.domains not in '
+            raise RuntimeError('following domains in self.domains are not in '
                                'Event Scheduler: %s' % str(tuple(event_ids)))
 
     def check_pair_pos(self, pair, pos1, pos2, com, radius):
@@ -2172,7 +2219,7 @@ rejected moves = %d
 
         """
         for id, event in self.scheduler:
-            print id, event, event.data
+            print id, event, self.domains[event.data]
 
     def count_domains(self):
         # Returns a tuple (# Singles, # Pairs, # Multis).

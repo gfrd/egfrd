@@ -42,11 +42,14 @@ struct StructureUtils
         BOOST_ASSERT(is_cartesian_versor(unit_y));
         BOOST_ASSERT(is_cartesian_versor(cross_product(unit_x, unit_y)));
 
+	// Note that when calling the function the origin is in the corner and the length
+	// is the whole length of the plane, whereas for 'plane_type' the origin is in the
+	// center of the plane (pos) and that the length is only half lengths 'half_lx' and 'half_ly'.
         const length_type half_lx(lx / 2);
         const length_type half_ly(ly / 2);
 
         const position_type pos(add(add(corner, multiply(unit_x, half_lx)),
-                                    multiply(unit_y, half_ly)));
+                                                multiply(unit_y, half_ly)));
 
         return new planar_surface_type(id,
                                        plane_type(pos, unit_x, unit_y,

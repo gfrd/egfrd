@@ -8,14 +8,15 @@
 
 template< typename T1_, typename T2_ >
 inline typename element_type_of< T1_ >::type distance(
-        T1_ const& p1, T2_ const p2,
+        T1_ const& p1,
+        T2_ const& p2,
         typename boost::enable_if<
             typename boost::mpl::and_<
                 is_vector3<T1_>,
                 is_vector3<T2_> > >::type* = 0)
 {
     return std::sqrt(
-        gsl_pow_2( p1[0] - p2[0] )
+          gsl_pow_2( p1[0] - p2[0] )
         + gsl_pow_2( p1[1] - p2[1] ) 
         + gsl_pow_2( p1[2] - p2[2] ) );
 }
@@ -51,7 +52,11 @@ inline T_ normalize(T_ const& p,
  * note that the returned transposed pos1 may not be within the cyclic boundary.
  */
 template<typename T_>
-inline T_ cyclic_transpose(T_ const& p0, T_ const& p1, T_ const& world_size, typename boost::enable_if<is_scalar<T_> >::type*)
+inline T_ cyclic_transpose(T_ const& p0,
+                           T_ const& p1,
+                           T_ const& world_size,
+                           typename boost::enable_if<is_scalar<T_> >::type*)
+// Used when T_ is only a number (one dimensionally)
 {
     const T_ diff(p1 - p0), half(world_size / 2);
     if (diff > half)
@@ -69,7 +74,11 @@ inline T_ cyclic_transpose(T_ const& p0, T_ const& p1, T_ const& world_size, typ
 }
 
 template<typename T_>
-inline T_ cyclic_transpose(T_ const& p0, T_ const& p1, typename element_type_of<T_>::type const& world_size, typename boost::enable_if<is_vector3<T_> >::type*)
+inline T_ cyclic_transpose(T_ const& p0,
+                           T_ const& p1,
+                           typename element_type_of<T_>::type const& world_size,
+                           typename boost::enable_if<is_vector3<T_> >::type*)
+// Used when the arguments are vectors of length three
 {
     T_ retval;
     retval[0] = cyclic_transpose(p0[0], p1[0], world_size, (void*)0);
@@ -79,10 +88,16 @@ inline T_ cyclic_transpose(T_ const& p0, T_ const& p1, typename element_type_of<
 }
 
 template<typename T1_, typename T2_>
-inline T1_ cyclic_transpose(T1_ const& p0, T1_ const& p1, T2_ const& world_size)
+inline T1_ cyclic_transpose(T1_ const& p0,
+                            T1_ const& p1,
+                            T2_ const& world_size)
+// Used when last argument is not given
 {
     return cyclic_transpose(p0, p1, world_size, (void*)0);
 }
+
+
+
 
 template<typename T_>
 inline T_ apply_boundary(T_ const& p1, T_ const& world_size, typename boost::enable_if<is_scalar<T_> >::type*)

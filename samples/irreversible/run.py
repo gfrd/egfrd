@@ -65,7 +65,7 @@ def singlerun1(T):
     s = BDSimulator(w, myrandom.nrg, nrw)
 
     particleA = gfrdbase.place_particle(w, A, [0,0,0])
-    particleB = gfrdbase.place_particle(w, B, [(float(A['radius']) + float(B['radius']))+1e-23,0,0])
+    particleB = gfrdbase.place_particle(w, B, [(float(A['radius']) + float(B['radius']))+1e-13,0,0])
 
     end_time = T
     s.step()
@@ -114,7 +114,7 @@ def singlerun2(T):
     s = EGFRDSimulator(w, myrandom.rng, nrw)
 
     particleA = gfrdbase.place_particle(w, A, [0,0,0])
-    particleB = gfrdbase.place_particle(w, B, [float(A['radius']) + float(B['radius'])+1e-23,0,0])
+    particleB = gfrdbase.place_particle(w, B, [float(A['radius']) + float(B['radius'])+1e-13,0,0])
 
     end_time = T
 

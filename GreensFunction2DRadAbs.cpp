@@ -1102,6 +1102,7 @@ GreensFunction2DRadAbs::dp_m_alpha_at_a( const unsigned int n,
         const Real a_Anm (a*alpha);
         const Real r0Anm (r0*alpha);
 
+	std::clog << "|";	// DEBUG
         // calculate the needed bessel functions
         const Real Jm_sAnm   (gsl_sf_bessel_Jn(m, s_Anm));
         const Real Jmp1_sAnm (gsl_sf_bessel_Jn(m+1, s_Anm));    // prime
@@ -1110,6 +1111,7 @@ GreensFunction2DRadAbs::dp_m_alpha_at_a( const unsigned int n,
 
         const Real Jm_r0Anm  (gsl_sf_bessel_Jn(m, r0Anm));
         const Real Ym_r0Anm  (gsl_sf_bessel_Yn(m, r0Anm));
+	std::clog << "_";	// DEBUG
 
         // calculating An,m
         const Real h_ma (h - realm/sigma);

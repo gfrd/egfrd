@@ -14,7 +14,7 @@ READERS   = True
 PARTICLES = True
 SPHERES   = True
 CYLINDERS = True
-HELIX     = True
+HELIX     = False
 SURFACES  = True
 
 DARK_BACKGROUND = True

@@ -2,15 +2,18 @@ from _gfrd import *
 from constants import EventType
 from _greens_functions import *
 from greens_function_wrapper import *
+from domain import *
 
 __all__ = [
     'CylindricalSurfacePair',
     'PlanarSurfacePair',
     'SphericalPair',
     'Pair',
+    'SimplePair',
+    'MixedPair',
     ]
 
-class Pair(object):
+class Pair(ProtectiveDomain):
     """There are 3 types of pairs:
         * SphericalPair
         * PlanarSurfacePair
@@ -23,92 +26,164 @@ class Pair(object):
     # 5.6: ~1e-8, 6.0: ~1e-9
     CUTOFF_FACTOR = 5.6
 
-    def __init__(self, domain_id, com, single1, single2, shell_id, r0, 
-                 shell_size, rt, surface):
+    def __init__(self, domain_id, single1, single2, shell_id, r0, 
+                 rt):
+	ProtectiveDomain.__init__(self, domain_id)
+
         self.multiplicity = 2
-        self.num_shells = 1
 
         self.single1 = single1
         self.single2 = single2 
-
-        self.a_R, self.a_r = self.determine_radii(r0, shell_size)
-	# set the radii of the inner domains as a function of the outer protective domain
+	self.pid_particle_pair1 = single1.pid_particle_pair
+	self.pid_particle_pair2 = single2.pid_particle_pair
 
         self.rt = rt
 
-        self.event_id = None
-
-        self.last_time = 0.0
-        self.dt = 0.0
-        self.event_type = None
-
-        self.surface = surface
-
-        # Create shell.
-        shell = self.create_new_shell(com, shell_size, domain_id)
-
-        self.shell_list = [(shell_id, shell), ]
-        self.domain_id = domain_id
+	self.shell_id = shell_id
 
     def __del__(self):
         if __debug__:
             log.debug('del %s' % str(self))
 
-    def get_com(self):
-        return self.shell_list[0][1].shape.position
-    com = property(get_com)
-
-    def get_shell_id(self):
-        return self.shell_list[0][0]
-    shell_id = property(get_shell_id)
-
-    def get_shell(self):
-        return self.shell_list[0][1]
-    shell = property(get_shell)
-
-    def get_shell_id_shell_pair(self):
-        return self.shell_list[0]
-    def set_shell_id_shell_pair(self, value):
-        self.shell_list[0] = value
-    shell_id_shell_pair = property(get_shell_id_shell_pair, 
-                                   set_shell_id_shell_pair)
-
-    def get_shell_size(self):
-        return self.shell_list[0][1].shape.radius
-
     def get_D_tot(self):
-        return self.single1.pid_particle_pair[1].D + \
-               self.single2.pid_particle_pair[1].D
+        return self.pid_particle_pair1[1].D + \
+               self.pid_particle_pair2[1].D
     D_tot = property(get_D_tot)
 
     def get_D_R(self):
-        return (self.single1.pid_particle_pair[1].D *
-                self.single2.pid_particle_pair[1].D) / self.D_tot
+        return (self.pid_particle_pair1[1].D *
+                self.pid_particle_pair2[1].D) / self.D_tot
     D_R = property(get_D_R)
 
-    def get_v_tot(self):
-        return self.single2.pid_particle_pair[1].v - \
-               self.single1.pid_particle_pair[1].v
-    v_tot = property(get_v_tot)
-    
-    v_r = property(get_v_tot)
-
-    def get_v_R(self):
-        return (self.single1.pid_particle_pair[1].v * 
-                self.single2.pid_particle_pair[1].D +
-                self.single2.pid_particle_pair[1].v *
-                self.single1.pid_particle_pair[1].D) / self.D_tot
-    v_R = property(get_v_R)
-
-    def getSigma(self):
-        return self.single1.pid_particle_pair[1].radius + \
-               self.single2.pid_particle_pair[1].radius
-    sigma = property(getSigma)
-
     def initialize(self, t):
+	# re-initialize the time parameters of the Domain to reuse it.
         self.last_time = t
         self.dt = 0
         self.event_type = None
+
+    # draws a first event time and the (not fully specified) type of event
+    def draw_com_escape_or_iv_event_time_tuple(self, r0):
+        """Returns a (event time, event type, reactingsingle=None) tuple.
+        
+        """
+        dt_com = draw_time_wrapper(self.com_greens_function())
+        dt_iv = draw_time_wrapper(self.iv_greens_function(r0))	# uses the full solution to draw IV first event time
+        if dt_com < dt_iv:
+            return dt_com, EventType.COM_ESCAPE, None
+        else:
+            # Note: we are not calling pair.draw_iv_event_type yet, but 
+            # postpone it to the very last minute (when this event is 
+            # executed in fire_pair). So IV_EVENT can still be an iv 
+            # escape or an iv reaction.
+            return dt_iv, EventType.IV_EVENT, None
+
+    def draw_single_reaction_time_tuple(self):
+        """Return a (reaction time, event type, reactingsingle)-tuple.
+
+        """
+        dt_reaction1, event_type1 = self.single1.draw_reaction_time_tuple()
+        dt_reaction2, event_type2 = self.single2.draw_reaction_time_tuple()
+        if dt_reaction1 < dt_reaction2:
+            return dt_reaction1, event_type1, self.single1
+        else:
+            return dt_reaction2, event_type2, self.single2
+
+    def determine_next_event(self, r0):
+        """Return a (event time, event type, reactingsingle)-tuple.
+
+        """
+        return min(self.draw_com_escape_or_iv_event_time_tuple(r0), 
+                   self.draw_single_reaction_time_tuple()) 
+
+    def draw_iv_event_type(self, r0):
+        gf = self.iv_greens_function(r0)
+        event_kind = draw_event_type_wrapper(gf, self.dt)
+        if event_kind == PairEventKind.IV_REACTION:
+            return EventType.IV_REACTION
+        elif event_kind == PairEventKind.IV_ESCAPE:
+            return EventType.IV_ESCAPE
+        raise NotImplemented()
+
+    def draw_new_positions(self, dt, r0, old_iv, event_type):
+        """Calculate new positions of the pair particles using a new 
+        center-of-mass, a new inter-particle vector, and an old 
+        inter-particle vector.
+
+        """
+        new_com = self.draw_new_com(dt, event_type)
+        new_iv = self.draw_new_iv(dt, r0, old_iv, event_type)
+
+        D1 = self.pid_particle_pair1[1].D
+        D2 = self.pid_particle_pair2[1].D
+
+        newpos1 = new_com - new_iv * (D1 / self.D_tot)
+        newpos2 = new_com + new_iv * (D2 / self.D_tot)
+        return newpos1, newpos2
+
+    def draw_new_com(self, dt, event_type):
+        if event_type == EventType.COM_ESCAPE:
+            r = self.a_R
+        else:
+            gf = self.com_greens_function()
+            r = draw_r_wrapper(gf, dt, self.a_R)
+
+        displacement = self.create_com_vector(r)
+
+        # Add displacement to old CoM. This assumes (correctly) that 
+        # r0=0 for the CoM. Compare this to 1D singles, where r0 is not  
+        # necesseraly 0.
+        return self.com + displacement
+
+    def draw_new_iv(self, dt, r0, old_iv, event_type):
+        gf = self.choose_pair_greens_function(r0, dt)
+        if event_type == EventType.IV_ESCAPE:
+            r = self.a_r
+        elif event_type == EventType.IV_REACTION:
+            r = self.sigma
+        else:
+            r = draw_r_wrapper(gf, dt, self.a_r, self.sigma)
+
+        return self.create_interparticle_vector(gf, r, dt, r0, old_iv)
+
+    def check(self):
+        pass
+
+    def __str__(self):
+        sid1 = self.pid_particle_pair1[1].sid
+        sid2 = self.pid_particle_pair2[1].sid
+        name1 = self.world.model.get_species_type_by_id(sid1)["name"]
+        name2 = self.world.model.get_species_type_by_id(sid2)["name"]
+        return 'Pair[%s: %s, %s, (%s, %s)]' % (
+            self.domain_id,
+            self.pid_particle_pair1[0],
+            self.pid_particle_pair2[0],
+            name1, name2)
+
+class SimplePair(Pair):
+    def __init__(self, domain_id, com, single1, single2, shell_id,
+                      r0, shell_size, rt, structure):
+	Pair.__init__(self, domain_id, single1, single2, shell_id,
+                      r0, rt)
+
+        self.structure = structure		# structure on which both particles live
+
+        self.a_R, self.a_r = self.determine_radii(r0, shell_size)
+	# set the radii of the inner domains as a function of the outer protective domain
+
+        self.shell = self.create_new_shell(com, shell_size, domain_id)
+
+
+    def getSigma(self):
+        return self.pid_particle_pair1[1].radius + \
+               self.pid_particle_pair2[1].radius
+    sigma = property(getSigma)
+
+    def get_com(self):
+        return self.shell.shape.position
+    com = property(get_com)
+
+    def get_shell_size(self):
+        return self.shell.shape.radius
 
     def determine_radii(self, r0, shell_size):
         """Determine a_r and a_R from the size of the protective domain.
@@ -116,13 +191,11 @@ class Pair(object):
         Todo. Make dimension (1D/2D/3D) specific someday. Optimization only.
 
         """
-        single1 = self.single1
-        single2 = self.single2
-        radius1 = single1.pid_particle_pair[1].radius
-        radius2 = single2.pid_particle_pair[1].radius
+        radius1 = self.pid_particle_pair1[1].radius
+        radius2 = self.pid_particle_pair2[1].radius
 
-        D1 = single1.pid_particle_pair[1].D
-        D2 = single2.pid_particle_pair[1].D
+        D1 = self.pid_particle_pair1[1].D
+        D2 = self.pid_particle_pair2[1].D
 
 	LD_MAX = 20 # temporary value
 	a_r_max = LD_MAX * (r0 - self.sigma) + self.sigma
@@ -196,112 +269,15 @@ class Pair(object):
 
         return a_R, a_r
 
-    # draws a first event time and the (not fully specified) type of event
-    def draw_com_escape_or_iv_event_time_tuple(self, r0):
-        """Returns a (event time, event type, reactingsingle=None) tuple.
-        
-        """
-        dt_com = draw_time_wrapper(self.com_greens_function())
-        dt_iv = draw_time_wrapper(self.iv_greens_function(r0))	# uses the full solution to draw IV first event time
-        if dt_com < dt_iv:
-            return dt_com, EventType.COM_ESCAPE, None
-        else:
-            # Note: we are not calling pair.draw_iv_event_type yet, but 
-            # postpone it to the very last minute (when this event is 
-            # executed in fire_pair). So IV_EVENT can still be an iv 
-            # escape or an iv reaction.
-            return dt_iv, EventType.IV_EVENT, None
 
-    def draw_single_reaction_time_tuple(self):
-        """Return a (reaction time, event type, reactingsingle)-tuple.
-
-        """
-        dt_reaction1, event_type1 = self.single1.draw_reaction_time_tuple()
-        dt_reaction2, event_type2 = self.single2.draw_reaction_time_tuple()
-        if dt_reaction1 < dt_reaction2:
-            return dt_reaction1, event_type1, self.single1
-        else:
-            return dt_reaction2, event_type2, self.single2
-
-    def determine_next_event(self, r0):
-        """Return a (event time, event type, reactingsingle)-tuple.
-
-        """
-        return min(self.draw_com_escape_or_iv_event_time_tuple(r0), 
-                   self.draw_single_reaction_time_tuple()) 
-
-    def draw_iv_event_type(self, r0):
-        gf = self.iv_greens_function(r0)
-        event_kind = draw_event_type_wrapper(gf, self.dt)
-        if event_kind == PairEventKind.IV_REACTION:
-            return EventType.IV_REACTION
-        elif event_kind == PairEventKind.IV_ESCAPE:
-            return EventType.IV_ESCAPE
-        raise NotImplemented()
-
-    def draw_new_positions(self, dt, r0, old_iv, event_type):
-        """Calculate new positions of the pair particles using a new 
-        center-of-mass, a new inter-particle vector, and an old 
-        inter-particle vector.
-
-        """
-        new_com = self.draw_new_com(dt, event_type)
-        new_iv = self.draw_new_iv(dt, r0, old_iv, event_type)
-
-        D1 = self.single1.pid_particle_pair[1].D
-        D2 = self.single2.pid_particle_pair[1].D
-
-        newpos1 = new_com - new_iv * (D1 / self.D_tot)
-        newpos2 = new_com + new_iv * (D2 / self.D_tot)
-        return newpos1, newpos2
-
-    def draw_new_com(self, dt, event_type):
-        if event_type == EventType.COM_ESCAPE:
-            r = self.a_R
-        else:
-            gf = self.com_greens_function()
-            r = draw_r_wrapper(gf, dt, self.a_R)
-
-        displacement = self.create_com_vector(r)
-
-        # Add displacement to old CoM. This assumes (correctly) that 
-        # r0=0 for the CoM. Compare this to 1D singles, where r0 is not  
-        # necesseraly 0.
-        return self.com + displacement
-
-    def draw_new_iv(self, dt, r0, old_iv, event_type):
-        gf = self.choose_pair_greens_function(r0, dt)
-        if event_type == EventType.IV_ESCAPE:
-            r = self.a_r
-        elif event_type == EventType.IV_REACTION:
-            r = self.sigma
-        else:
-            r = draw_r_wrapper(gf, dt, self.a_r, self.sigma)
-
-        return self.create_interparticle_vector(gf, r, dt, r0, old_iv)
-
-    def check(self):
-        pass
-
-    def __str__(self):
-        sid = self.single1.pid_particle_pair[1].sid
-        sid2 = self.single2.pid_particle_pair[1].sid
-        name = self.world.model.get_species_type_by_id(sid)["name"]
-        name2 = self.world.model.get_species_type_by_id(sid2)["name"]
-        return 'Pair[%s: %s, %s, (%s, %s)]' % (
-            self.domain_id,
-            self.single1.pid_particle_pair[0],
-            self.single2.pid_particle_pair[0],
-            name, name2)
-
-class SphericalPair(Pair):
+class SphericalPair(SimplePair):
     """2 Particles inside a (spherical) shell not on any surface.
 
     """
     def __init__(self, domain_id, com, single1, single2, shell_id,
-                 r0, shell_size, rt, surface):
-        Pair.__init__(self, domain_id, com, single1, single2, shell_id,
-                      r0, shell_size, rt, surface)
+                 r0, shell_size, rt, structure):
+        SimplePair.__init__(self, domain_id, com, single1, single2, shell_id,
+                      r0, shell_size, rt, structure)
 
     def com_greens_function(self):
         # Green's function for centre of mass inside absorbing sphere.
@@ -314,7 +290,7 @@ class SphericalPair(Pair):
                                               self.sigma, self.a_r)
 
     def create_new_shell(self, position, radius, domain_id):
-        return SphericalShell(domain_id, Sphere(position, radius))
+        return SphericalShell(self.domain_id, Sphere(position, radius))
 
     # selects between the full solution or an approximation where one of
     # the boundaries is ignored
@@ -394,15 +370,15 @@ class SphericalPair(Pair):
         return 'Spherical' + Pair.__str__(self)
 
 
-class PlanarSurfacePair(Pair):
+class PlanarSurfacePair(SimplePair):
     """2 Particles inside a (cylindrical) shell on a PlanarSurface. 
     (Hockey pucks).
 
     """
     def __init__(self, domain_id, com, single1, single2, shell_id,
-                 r0, shell_size, rt, surface):
-        Pair.__init__(self, domain_id, com, single1, single2, shell_id,
-                      r0, shell_size, rt, surface)
+                 r0, shell_size, rt, structure):
+        SimplePair.__init__(self, domain_id, com, single1, single2, shell_id,
+                      r0, shell_size, rt, structure)
 
     def com_greens_function(self):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
@@ -418,10 +394,10 @@ class PlanarSurfacePair(Pair):
         # the particle undergoes an unbinding reaction we still have to 
         # clear the target volume and the move may be rejected (NoSpace 
         # error).
-        orientation = crossproduct(self.surface.shape.unit_x,
-                                   self.surface.shape.unit_y)
-        half_length = max(self.single1.pid_particle_pair[1].radius,
-                          self.single2.pid_particle_pair[1].radius)
+        orientation = crossproduct(self.structure.shape.unit_x,
+                                   self.structure.shape.unit_y)
+        half_length = max(self.pid_particle_pair1[1].radius,
+                          self.pid_particle_pair2[1].radius)
         return CylindricalShell(domain_id, Cylinder(position, radius, 
                                                     orientation, half_length))
 
@@ -468,7 +444,7 @@ class PlanarSurfacePair(Pair):
 
     def create_com_vector(self, r):
         x, y = random_vector2D(r)
-        return x * self.surface.shape.unit_x + y * self.surface.shape.unit_y
+        return x * self.structure.shape.unit_x + y * self.structure.shape.unit_y
 
     def create_interparticle_vector(self, gf, r, dt, r0, old_iv): 
         if __debug__:
@@ -476,8 +452,8 @@ class PlanarSurfacePair(Pair):
         theta = draw_theta_wrapper(gf, r, dt)
 
         #FIXME: need better handling of angles near zero and pi?
-        unit_x = self.surface.shape.unit_x
-        unit_y = self.surface.shape.unit_y
+        unit_x = self.structure.shape.unit_x
+        unit_y = self.structure.shape.unit_y
         angle = vector_angle(unit_x, old_iv)
         # Todo. Test if nothing changes when theta == 0.
         new_angle = angle + theta
@@ -491,31 +467,47 @@ class PlanarSurfacePair(Pair):
         return 'PlanarSurface' + Pair.__str__(self)
 
 
-class CylindricalSurfacePair(Pair):
+class CylindricalSurfacePair(SimplePair):
     """2 Particles inside a (cylindrical) shell on a CylindricalSurface.  
     (Rods).
 
     """
     def __init__(self, domain_id, com, single1, single2, shell_id,
-                 r0, shell_size, rt, surface):
-        Pair.__init__(self, domain_id, com, single1, single2, shell_id,
-                      r0, shell_size, rt, surface)
+                 r0, shell_size, rt, structure):
+        SimplePair.__init__(self, domain_id, com, single1, single2, shell_id,
+                      r0, shell_size, rt, structure)
+
+    def get_v_tot(self):
+        return self.pid_particle_pair2[1].v - \
+               self.pid_particle_pair1[1].v
+    v_tot = property(get_v_tot)
+    
+    v_r = property(get_v_tot)
+
+    def get_v_R(self):
+        return (self.pid_particle_pair1[1].v * 
+                self.pid_particle_pair2[1].D +
+                self.pid_particle_pair2[1].v *
+                self.pid_particle_pair1[1].D) / self.D_tot
+    v_R = property(get_v_R)
 
     def com_greens_function(self):
         # The domain is created around r0, so r0 corresponds to r=0 within the domain
         return GreensFunction1DAbsAbs(self.D_R, self.v_R, 0.0, -self.a_R, self.a_R)
 
     def iv_greens_function(self, r0):
-        return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot, r0, self.sigma, self.a_r)
+	# TODO Fix ugly hack to avoid k=0 below
+        #return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot, r0, self.sigma, self.a_r)
+        return GreensFunction1DRadAbs(self.D_tot, self.v_r, self.rt.ktot + 1e-10, r0, self.sigma, self.a_r)
 
     def create_new_shell(self, position, half_length, domain_id):
         # The radius of a rod is not more than it has to be (namely the 
         # radius of the biggest particle), so if the particle undergoes 
         # an unbinding reaction we still have to clear the target volume 
         # and the move may be rejected (NoSpace error).
-        radius = max(self.single1.pid_particle_pair[1].radius,
-                     self.single2.pid_particle_pair[1].radius)
-        orientation = self.surface.shape.unit_z
+        radius = max(self.pid_particle_pair1[1].radius,
+                     self.pid_particle_pair2[1].radius)
+        orientation = self.structure.shape.unit_z
         return CylindricalShell(domain_id, Cylinder(position, radius, 
                                                     orientation, half_length))
 
@@ -524,22 +516,111 @@ class CylindricalSurfacePair(Pair):
         return self.iv_greens_function(r0)
 
     def create_com_vector(self, r):
-        return r * self.surface.shape.unit_z
+        return r * self.structure.shape.unit_z
 
     def create_interparticle_vector(self, gf, r, dt, r0, old_iv): 
         if __debug__:
             log.debug("create_interparticle_vector: r=%g, dt=%g", r, dt)
-        # Note: using self.surface.shape.unit_z here might accidently 
+        # Note: using self.structure.shape.unit_z here might accidently 
         # interchange the particles.
         return r * normalize(old_iv)
 
     def get_shell_size(self):
         # Heads up.
-        return self.shell_list[0][1].shape.half_length
+        return self.shell.shape.half_length
 
     def __str__(self):
         return 'CylindricalSurface' + Pair.__str__(self)
 
 
+class MixedPair(Pair):
+
+    def __init__(self, domain_id, single1, single2, shell_id, shell_center, shell_radius,
+		 shell_half_length, shell_orientation_vector,
+		 unit_r, r0, pair_reaction_rules):
+	Pair.__init__(self, domain_id, single1, single2, shell_id, r0, 
+                 pair_reaction_rules)
 
 
+	self.surface = surface	# the surface on which particle1 lives
+
+    def determine_radii(self):
+	#TODO INCORRECT
+	a_r = self.shell.shape.half_length*2.0 - self.pid_particle_pair1[1].radius
+	a_R = self.shell.shape.radius - a_r*0.5
+	return 
+
+    def get_com(self):
+	# TODO INCORRECT
+	return self.shell.shape.position
+    com = property(get_com)
+
+    def get_sigma(self):
+	# rescale sigma to correct for the rescaling of the coordinate system
+	# TODO check if this is actually correct
+	D_1 = self.pid_particle_pair1[1].D
+	D_2 = self.pid_particle_pair2[1].D
+	xi_inv = math.sqrt(D_2/(D_1 + D_2))
+	alpha = math.acos(xi_inv)
+	sigma = self.pid_particle_pair1[1].radius + self.pid_particle_pair2[1].radius
+	rho = abs(sigma*math.sqrt(0.5 + (alpha/(2.0*xi_inv*math.sin(alpha)))))
+	return rho
+    sigma = property (get_sigma)
+
+    def com_greensfunction(self):
+	# diffusion of the CoM of a mixed pair is only two dimensional
+	return GreensFunction2DAbsSym(self.D_R, self.a_R)
+
+    def iv_greensfunction(self):
+	# diffusion of the interparticle vector is three dimensional
+	return GreensFunction3DRadAbs(self.D_tot, self.rt.ktot, r0,
+				      self.sigma, self.a_r)
+
+    def create_new_shell(self, position, radius, orientation_vector, half_length):
+	# It is assumed that the parameter are correct -> the 'bottom' of the cylinder
+	# sticks through the membrane enough to accomodate the particle in the membrane
+	# assert that orientation_vector is on same line as surface.shape.unit_z
+	return CylindricalShell(self.domain_id, Cylinder(position, radius, orientation_vector,
+							 half_length))
+
+    def create_com_vector(self, r):
+	x, y = random_vector2D(r)
+	return x * self.surface.shape.unit_x + y * self.surface.shape.unit_y
+
+    def create_iv_vector(self, gf, r, dt, r0, old_iv):
+	# TODO This is not yet correct -> stub
+        if __debug__:
+            log.debug("create_interparticle_vector: r=%g, dt=%g", r, dt)
+        theta = draw_theta_wrapper(gf, r, dt)
+
+        new_inter_particle_s = numpy.array([r, theta,
+                                         myrandom.uniform() * 2 * Pi])
+        new_iv = spherical_to_cartesian(new_inter_particle_s)
+
+        #FIXME: need better handling of angles near zero and pi.
+
+        # I rotate the new interparticle vector along the
+        # rotation axis that is perpendicular to both the
+        # z-axis and the original interparticle vector for
+        # the angle between these.
+
+        # the rotation axis is a normalized cross product of
+        # the z-axis and the original vector.
+        # rotation_axis = crossproduct([0,0,1], inter_particle)
+        angle = vector_angle_against_z_axis(old_iv)
+        if angle % numpy.pi != 0.0:
+            rotation_axis = crossproduct_against_z_axis(old_iv)
+            rotation_axis = normalize(rotation_axis)
+            rotated = rotate_vector(new_iv, rotation_axis, angle)
+        elif angle == 0.0:
+            rotated = new_iv
+        else:
+            rotated = numpy.array([new_iv[0], new_iv[1], - new_iv[2]])
+        
+	# TODO
+	# rescale z component by 1/xi (z component becomes slightly smaller, since D = D_A + D_B
+	# was used for calculation, whereas in reality D is only D_B
+	xi_inv = math.sqrt((D_2)/D_1 + D_2)
+	z /= xi
+	# position is reflected back in the membrane if necessary
+	return rotated 
