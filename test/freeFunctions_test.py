@@ -64,25 +64,38 @@ class FreeFunctionsTestCase(unittest.TestCase):
             self.failIf(ip == 0)
             self.assertAlmostEqual(0.0, (S-ip)/ip)
 
+
     def test_int_g_bd_is_I_bd(self):
 
         import scipy.integrate
         import math
 
         D = 1e-12
-        t = 1e-6
-        sigma = 1e-8
-        r0 = 1e-9
+        t = 1e-11
+        sigma = 2e-9
+        r0 = 2e-9
+        v = 0.01
 
-        ibd = mod.I_bd(sigma, t, D)
-        #print ibd
-        result = scipy.integrate.quad(mod.g_bd, sigma, 
+        ibd = mod.I_bd_3D(sigma, t, D)
+        ibd2 = mod.I_bd_1D(sigma, t, D, v)
+        #print ibd, ibd2
+
+        result = scipy.integrate.quad(mod.g_bd_3D, sigma, 
                                       sigma + 6 * math.sqrt(6 * D * t),
                                       args=(sigma, t, D))
+
+        result2 = scipy.integrate.quad(mod.g_bd_1D, sigma, 
+                                      sigma + 100 * math.sqrt(2 * D * t),
+                                      args=(sigma, t, D, v))
+ 
         igbd = result[0]
-        #print igbd
+        igbd2 = result2[0]
+
+        #print igbd2, igbd2
         self.failIf(ibd == 0)
+        self.failIf(ibd2 == 0)
         self.assertAlmostEqual(0.0, (ibd-igbd)/ibd)
+        #self.assertAlmostEqual(0.0, (ibd2-igbd2)/ibd2)
 
 
     def test_int_g_bd_is_I_bd_smallt(self):
@@ -93,30 +106,48 @@ class FreeFunctionsTestCase(unittest.TestCase):
         t = 1e-20
         sigma = 1e-8
         r0 = 1e-9
+        v = 0.01
 
-        ibd = mod.I_bd(sigma, t, D)
-        #print ibd
-        result = scipy.integrate.quad(mod.g_bd, sigma, sigma + 
+        ibd = mod.I_bd_3D(sigma, t, D)
+        ibd2 = mod.I_bd_1D(sigma, t, D, v)
+        #print ibd, ibd2
+
+        result = scipy.integrate.quad(mod.g_bd_3D, sigma, sigma + 
                                       6 * math.sqrt(6 * D * t),
                                       args=(sigma, t, D))
+
+        result2 = scipy.integrate.quad(mod.g_bd_1D, sigma, 
+                                      sigma + 10 * math.sqrt(2 * D * t),
+                                      args=(sigma, t, D, v))
+
         igbd = result[0]
-        #print igbd
+        igbd2 = result2[0]
+
+        #print igbd, igbd2
         self.failIf(ibd == 0)
+        self.failIf(ibd2 == 0)
         self.assertAlmostEqual(0.0, (ibd-igbd)/ibd)
+        self.assertAlmostEqual(0.0, (ibd2-igbd2)/ibd2)
 
 
     def test_I_bd_r_large_is_I_bd(self):
 
         D = 1e-12
-        t = 1e-10
-        sigma = 1e-8
-        r0 = 1e-9
+        t = 1e-11
+        sigma = 2e-9
+        r0 = 5e-9
+        v = 0.01
 
-        ibd = mod.I_bd(sigma, t, D)
-        ibdr = mod.I_bd_r(sigma + 6 * math.sqrt(6 * D * t), sigma, t, D)
+        ibd = mod.I_bd_3D(sigma, t, D)
+        ibdr = mod.I_bd_r_3D(sigma + 6 * math.sqrt(6 * D * t), sigma, t, D)
+
+        ibd2 = mod.I_bd_1D(sigma, t, D, v)
+        ibdr2 = mod.I_bd_r_1D(sigma + 10 * math.sqrt(2 * D * t), sigma, t, D, v)
         #print ibd, ibdr
+        #print ibd2, ibdr2
 
         self.assertAlmostEqual(0.0, (ibd-ibdr)/ibd)
+        self.assertAlmostEqual(0.0, (ibd2-ibdr2)/ibd2)
 
 
     def test_int_g_bd_is_I_bd_r(self):
@@ -125,25 +156,36 @@ class FreeFunctionsTestCase(unittest.TestCase):
         import math
 
         D = 1e-12
-        t = 1e-7
-        sigma = 1e-8
+        t = 1e-11
+        sigma = 2e-9
+        v = 0.01
 
         r_max = 6 * math.sqrt(6 * D * t)
 
-        ibd = mod.I_bd_r(sigma, sigma, t, D)
+        ibd = mod.I_bd_r_3D(sigma, sigma, t, D)
+        self.failIf(ibd != 0.0)
+        ibd = mod.I_bd_r_1D(sigma, sigma, t, D, v)
         self.failIf(ibd != 0.0)
 
         N = 20
         for i in range(1, N):
             r = sigma + r_max / N * i
-            ibd = mod.I_bd_r(r, sigma, t, D)
-            result = scipy.integrate.quad(mod.g_bd, sigma, r,
+            ibd = mod.I_bd_r_3D(r, sigma, t, D)
+            ibd2 = mod.I_bd_r_1D(r, sigma, t, D, v)
+
+            result = scipy.integrate.quad(mod.g_bd_3D, sigma, r,
                                           args=(sigma, t, D))
+
+            result2 = scipy.integrate.quad(mod.g_bd_1D, sigma, r,
+                                          args=(sigma, t, D, v))
+
             igbd = result[0]
+            igbd2 = result2[0]
 
             self.failIf(ibd == 0)
             self.assertAlmostEqual(0.0, (ibd-igbd)/ibd)
-
+            self.failIf(ibd2 == 0)
+            self.assertAlmostEqual(0.0, (ibd2-igbd2)/ibd2)
 
     def test_drawR_gbd(self):
 
@@ -151,19 +193,32 @@ class FreeFunctionsTestCase(unittest.TestCase):
         import math
 
         D = 1e-12
-        t = 1e-8
-        sigma = 1e-8
+        t = 1e-11
+        sigma = 2e-9
+        v = 0.01
 
-        r = mod.drawR_gbd(0.0, sigma, t, D)
+        r = mod.drawR_gbd_3D(0.0, sigma, t, D)
         self.assertEqual(r, sigma)
 
-        r = mod.drawR_gbd(0.5, sigma, t, D)
+        r = mod.drawR_gbd_3D(0.5, sigma, t, D)
         self.failIf(r <= sigma)
         #print 'rr', r
 
-        r = mod.drawR_gbd(1.0, sigma, t, D)
+        r = mod.drawR_gbd_3D(1.0, sigma, t, D)
         self.failIf(r <= sigma)
-        #print 'rr', r
+
+        r = mod.drawR_gbd_1D(0.0, sigma, t, D, v)
+        #print 'rr@0.0', r
+        self.assertEqual(r, sigma)
+
+        r = mod.drawR_gbd_1D(0.5, sigma, t, D, v)
+        #print 'rr@0.5', r
+        self.failIf(r <= sigma)
+
+        r = mod.drawR_gbd_1D(1.0, sigma, t, D, v)
+        #print 'rr@1.0', r
+        self.failIf(r <= sigma)
+
 
     def test_p_reaction_irr_t_inf(self):
         

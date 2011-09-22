@@ -138,7 +138,7 @@ distance(Cylinder<T_> const& obj,
     typedef typename Cylinder<T_>::position_type position_type;
     typedef typename Cylinder<T_>::length_type length_type;
 
-    /* First compute the (z,r) components of pos in a coordinate system 
+    /* First compute the (r,z) components of pos in a coordinate system 
      * defined by the vectors unitR and unit_z, where unitR is
      * choosen such that unitR and unit_z define a plane in which
      * pos lies. */

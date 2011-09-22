@@ -4,6 +4,7 @@
 #include <boost/bind.hpp>
 #include "Surface.hpp"
 #include "Plane.hpp"
+//#include "freeFunctions.hpp"
 
 template<typename Ttraits_>
 class PlanarSurface
@@ -34,12 +35,31 @@ public:
                         base_type::shape().units()[1], rng.uniform(-1., 1.)))), r);
     }
 
-    virtual position_type bd_displacement(length_type const& r, rng_type& rng) const
+    virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const
     {
         length_type const x(rng.normal(0., r)), y(rng.normal(0., r));
         return add(
             multiply(base_type::shape().unit_x(), x),
             multiply(base_type::shape().unit_y(), y));
+    }
+
+    virtual length_type drawR_gbd(Real const& rnd, length_type const& r01, Real const& dt, Real const& D01, Real const& v) const
+    {
+        //TODO: use the 2D BD function instead of the 3D one.
+        return drawR_gbd_3D(rnd, r01, dt, D01);
+    }
+
+    virtual Real p_acceptance(Real const& k_a, Real const& dt, length_type const& r01, position_type const& ipv, 
+                                Real const& D0, Real const& D1, Real const& v0, Real const& v1) const
+    {
+        //TODO: use the 2D BD function instead of the 3D one.
+        return k_a * dt / ((I_bd_3D(r01, dt, D0) + I_bd_3D(r01, dt, D1)) * 4.0 * M_PI);
+    }
+
+    virtual position_type dissociation_vector( rng_type& rng, length_type const& r01, Real const& dt, 
+                                                Real const& D01, Real const& v ) const
+    {
+        return random_vector( drawR_gbd(rng(), r01, dt, D01, v), rng ); 
     }
 
     virtual length_type minimal_distance(length_type const& radius) const

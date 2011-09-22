@@ -18,7 +18,6 @@
 #include "findRoot.hpp"
 #include "GreensFunction1DRadAbs.hpp"
 
-
 // This is the appropriate definition of the function defining
 // the roots of our Green's functions in GSL.
 // Later needed by the rootfinder.
@@ -32,6 +31,7 @@ GreensFunction1DRadAbs::tan_f (double x, void *p)
     const Real a = (params->a);
     const Real h = (params->h);
     const Real h_a (h*a);
+
     if ( h_a < 1 )
     {
 	// h = k/D
@@ -42,6 +42,7 @@ GreensFunction1DRadAbs::tan_f (double x, void *p)
 	// h = k/D
 	return tan(x) + x/(h_a);
     }
+    
 }
 
 // Calculates the roots of tan(x*a)=-x/h
@@ -52,6 +53,11 @@ GreensFunction1DRadAbs::root_n(int n) const
     const Real h( (this->getk()+this->getv()/2.0) / this->getD() );
     // the drift v also comes into this constant, h=(k+v/2)/D
     Real upper, lower;
+
+    //No drift, and k = 0, use reflective solution.
+    if (h == 0.0)
+        return M_PI * ( n - 1./2 ) / L;
+    
 
     if ( h*L < 1 )
     {
@@ -130,7 +136,7 @@ GreensFunction1DRadAbs::Bn (Real root_n) const
     const Real h2(h*h);
     const Real v2D(v/2.0/D);
 
-    if(v==0.0)	return (h2 - (rootn2 + h2)*cos(rootnL)) / (h*root_n);
+    if(v==0.0) return (h2 - (rootn2 + h2)*cos(rootnL)) / (h*root_n);
     else	return (exp(v2D*sigma)*h*k/D - exp(v2D*a)*(rootn2+h2)*cos(rootnL) ) / (h/root_n*(rootn2+v2D*v2D));
 }
 
@@ -157,6 +163,9 @@ GreensFunction1DRadAbs::p_survival (Real t) const
     const Real D(this->getD());
     const Real v(this->getv());
     const Real vexpo(-v*v*t/4.0/D - v*r0/2.0/D);
+    const Real L(this->geta()-this->getsigma());
+    const Real r0_s(this->getr0() - this->getsigma());
+    const Real h((this->getk()+this->getv()/2.0)/this->getD());
 
     if (t == 0.0 || (D == 0.0 && v == 0.0) )
     {
@@ -170,18 +179,40 @@ GreensFunction1DRadAbs::p_survival (Real t) const
     Real sum = 0, term = 0, term_prev = 0;
     int n = 1;
 
-    do
+    if(h != 0.0)
     {
-	root_n = this->root_n(n);
-	term_prev = term;
-	term = this->Cn(root_n, t) * this->An(root_n) * this->Bn(root_n);
-	sum += term;
-	n++;
-    }
-    while ( fabs(term/sum) > EPSILON  ||
-	fabs(term_prev/sum) > EPSILON ||
-	n <= MIN_TERMS);
 
+        do
+        {
+	        root_n = this->root_n(n);
+	        term_prev = term;
+    	    term = this->Cn(root_n, t) * this->An(root_n) * this->Bn(root_n);
+	        sum += term;
+	        n++;
+        }
+        while ( fabs(term/sum) > EPSILON  ||
+	    fabs(term_prev/sum) > EPSILON ||
+	    n <= MIN_TERMS);
+
+    }
+    else
+    {
+
+        do
+        {
+	        root_n = this->root_n(n);
+	        term_prev = term;
+    	    
+            term = this->Cn(root_n, t) * cos( root_n * r0_s ) * sin( root_n * L ) / ( L * root_n );
+
+	        sum += term;
+	        n++;
+        }
+        while ( fabs(term/sum) > EPSILON  ||
+	    fabs(term_prev/sum) > EPSILON ||
+	    n <= MIN_TERMS);
+
+    }
     return 2.0*exp(vexpo)*sum;
 }
 
@@ -371,7 +402,7 @@ GreensFunction1DRadAbs::drawT_f (double t, void *p)
 	if ( n >= terms )
 	{
 	    std::cerr << "Too many terms needed for GF1DRad::DrawTime. N: "
-	              << n << std::endl;
+	              << n << ", conv arg: " << exponent * t <<  std::endl;
 	    break;
 	}
 	prev_term = term;
@@ -379,6 +410,7 @@ GreensFunction1DRadAbs::drawT_f (double t, void *p)
 	Xn = params->Xn[n];
 	exponent = params->exponent[n];
 	term = Xn * exp(exponent * t);
+
 	sum += term;
 	n++;
     }
@@ -436,6 +468,7 @@ GreensFunction1DRadAbs::drawTime (Real rnd) const
     // produce the coefficients and the terms in the exponent and put them
     // in the params structure. This is not very efficient at this point,
     // coefficients should be calculated on demand->TODO
+ 
     for (int n=0; n<MAX_TERMS; n++)
     {
 	root_n = this->root_n(n+1);	// get the n-th root of tan(root*a)=root/-h (Note: root numbering starts at n=1)
@@ -474,24 +507,33 @@ GreensFunction1DRadAbs::drawTime (Real rnd) const
     F.function = &GreensFunction1DRadAbs::drawT_f;
     F.params = &parameters;
 
-
     // Find a good interval to determine the first passage time in
     // get the distance to absorbing boundary (disregard rad BC)
-    const Real dist(fabs(a-r0));
+    Real t_guess;
+    Real dist;
+
+    if (k != 0)
+    {
+        dist = std::min(a - r0, r0 - sigma);
+    }
+    else
+    {
+        dist = a - r0;
+    }
     //const Real dist( std::min(r0, a-r0));	// for test purposes
     // construct a guess: MSD = sqrt (2*d*D*t)
-    Real t_guess( dist * dist / ( 2.0*D ) );
+    t_guess = dist * dist / ( 2.0 * D );
+    t_guess *= .1;
     // A different guess has to be made in case of nonzero drift to account for the displacement due to it
     // TODO: This does not work properly in this case yet, but we don't know why...
     // When drifting towards the closest boundary
     //if( (r0 >= a/2.0 && v > 0.0) || (r0 <= a/2.0 && v < 0.0) )	t_guess = sqrt(D*D/(v*v*v*v)+dist*dist/(v*v)) - D/(v*v);
     // When drifting away from the closest boundary
-    //if( ( r0 < a/2.0 && v > 0.0) || ( r0 > a/2.0 && v < 0.0) )	t_guess = D/(v*v) - sqrt(D*D/(v*v*v*v)-dist*dist/(v*v));
-    
+    //if( ( r0 < a/2.0 && v > 0.0) || ( r0 > a/2.0 && v < 0.0) )	t_guess = D/(v*v) - sqrt(D*D/(v*v*v*v)-dist*dist/(v*v));  
+
     Real value( GSL_FN_EVAL( &F, t_guess ) );
     Real low( t_guess );
     Real high( t_guess );
-
 
     // scale the interval around the guess such that the function straddles
     if( value < 0.0 )
@@ -506,7 +548,7 @@ GreensFunction1DRadAbs::drawTime (Real rnd) const
 
 	    if( fabs( high ) >= t_guess * 1e6 )
 	    {
-		std::cerr << "GF1DRad: Couldn't adjust high. F("
+		std::cerr << "GF1DRad::drawTime Couldn't adjust high. F("
 		          << high << ") = " << value << std::endl;
 		throw std::exception();
 	    }
@@ -524,7 +566,7 @@ GreensFunction1DRadAbs::drawTime (Real rnd) const
 	    if( fabs( low ) <= t_guess * 1e-6 ||
 	        fabs(value-value_prev) < EPSILON*1.0 )
 	    {
-		std::cerr << "GF1DRad: Couldn't adjust low. F(" << low << ") = "
+		std::cerr << "GF1DRad::drawTime Couldn't adjust low. F(" << low << ") = "
 		          << value << " t_guess: " << t_guess << " diff: "
 		          << (value - value_prev) << " value: " << value
 		          << " value_prev: " << value_prev << " rnd: "
@@ -546,7 +588,6 @@ GreensFunction1DRadAbs::drawTime (Real rnd) const
     // define a new solver type brent
     const gsl_root_fsolver_type* solverType( gsl_root_fsolver_brent );
     // make a new solver instance
-    // TODO: incl typecast?
     gsl_root_fsolver* solver( gsl_root_fsolver_alloc( solverType ) );
     const Real t( findRoot( F, solver, low, high, t_scale*EPSILON, EPSILON,
                             "GreensFunction1DRadAbs::drawTime" ) );
@@ -631,34 +672,30 @@ GreensFunction1DRadAbs::drawR (Real rnd, Real t) const
     double root_n = 0;
     double S_Cn_root_n;
     double root_n2, root_n_r0_s;
+
     const Real vexpo(-v*v*t/4.0/D - v*r0/2.0/D); // exponent of the drift-prefactor, same as in survival prob.
     const Real v2D(v/2.0/D);
     const Real v2Dv2D(v2D*v2D);
-    const Real S = 2.0*exp(vexpo)/p_survival(t); // This is a prefactor to every term, so it also contains
-						 // the exponential drift-prefactor.
+    const Real S = 2.0*exp(vexpo)/p_survival(t); 
 
+    assert(p_survival(t) >= 0.0);
 
     // produce the coefficients and the terms in the exponent and put them
     // in the params structure
     for (int n=0; n<MAX_TERMS; n++)
     {
-	root_n = this->root_n(n+1);  // get the n-th root of tan(alfa*a)=alfa/-k
-	root_n2 = root_n * root_n;
-	root_n_r0_s = root_n * (r0-sigma);
-	S_Cn_root_n =	S * exp(-D*root_n2*t)
-		      * (root_n*cos(root_n_r0_s) + h*sin(root_n_r0_s)) / (L*(root_n2 + h*h) + h)
-		      * root_n / (root_n2 + v2Dv2D);
+	    root_n = this->root_n(n+1);  // get the n-th root of tan(alfa*a)=alfa/-k
+       	root_n2 = root_n * root_n;
+       	root_n_r0_s = root_n * (r0-sigma);
+       	S_Cn_root_n =	S * exp(-D*root_n2*t)
+	         * (root_n*cos(root_n_r0_s) + h*sin(root_n_r0_s)) / (L*(root_n2 + h*h) + h)
+	         * root_n / (root_n2 + v2Dv2D);
 
-	// store the coefficients in the structure
-	parameters.root_n[n] = root_n;
-	// also store the values for the exponent
-	parameters.S_Cn_root_n[n] = S_Cn_root_n;
+      	// store the coefficients in the structure
+	    parameters.root_n[n] = root_n;
+        // also store the values for the exponent
+        parameters.S_Cn_root_n[n] = S_Cn_root_n;
     }
-    
-    // store the random number for the probability
-    parameters.rnd = rnd;
-    // store the number of terms used
-    parameters.terms = MAX_TERMS;
     
     // also store constant prefactors that appear in the calculation of the
     // r-dependent terms
@@ -667,12 +704,15 @@ GreensFunction1DRadAbs::drawR (Real rnd, Real t) const
     parameters.H[2] = h*v2D;		// further constant terms of the sine prefactor
     parameters.H[3] = sigma;
 
-
-    // find the intersection on the y-axis between the random number and
-    // the function
+    // define gsl function for rootfinder
     gsl_function F;
     F.function = &GreensFunction1DRadAbs::drawR_f;
     F.params = &parameters;
+
+    // store the random number for the probability
+    parameters.rnd = rnd;
+    // store the number of terms used
+    parameters.terms = MAX_TERMS;
 
     // define a new solver type brent
     const gsl_root_fsolver_type* solverType( gsl_root_fsolver_brent );

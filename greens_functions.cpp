@@ -26,12 +26,16 @@ BOOST_PYTHON_MODULE( _greens_functions )
     def( "p_survival_irr", p_survival_irr );
     def( "p_theta_free", p_theta_free );
     def( "ip_theta_free", ip_theta_free );
-    def( "g_bd", g_bd );
-    def( "I_bd", I_bd );
-    def( "I_bd_r", I_bd_r );
-    def( "drawR_gbd", drawR_gbd );
     def( "p_reaction_irr", __p_reaction_irr );
     def( "p_reaction_irr_t_inf", __p_reaction_irr_t_inf );
+    def( "g_bd_1D", g_bd_1D );
+    def( "I_bd_1D", I_bd_1D );
+    def( "I_bd_r_1D", I_bd_r_1D );
+    def( "drawR_gbd_1D", drawR_gbd_1D );
+    def( "g_bd_3D", g_bd_3D );
+    def( "I_bd_3D", I_bd_3D );
+    def( "I_bd_r_3D", I_bd_r_3D );
+    def( "drawR_gbd_3D", drawR_gbd_3D );
 
     class_<GreensFunction1DAbsAbs>("GreensFunction1DAbsAbs",
                                    init<Real, Real, Real, Real>() )
@@ -50,7 +54,7 @@ BOOST_PYTHON_MODULE( _greens_functions )
         .def( "leavea", &GreensFunction1DAbsAbs::leavea )
         .def( "p_survival", &GreensFunction1DAbsAbs::p_survival )
         .def( "calcpcum", &GreensFunction1DAbsAbs::calcpcum )
-        .def( "dump", &GreensFunction1DRadAbs::dump )
+        .def( "dump", &GreensFunction1DAbsAbs::dump )
         ;
 
     class_<GreensFunction1DRadAbs>("GreensFunction1DRadAbs",
@@ -134,6 +138,7 @@ BOOST_PYTHON_MODULE( _greens_functions )
         .def( "p_int_r", &GreensFunction3DAbsSym::p_int_r )
         .def( "p_int_r_free", &GreensFunction3DAbsSym::p_int_r_free )
         //.def( "p_r_fourier", &GreensFunction3DAbsSym::p_r_fourier )
+	    .def( "dump", &GreensFunction3DAbsSym::dump )
         ;
 
     class_<GreensFunction3DRadInf>("GreensFunction3DRadInf",

@@ -10,6 +10,7 @@
 #include <boost/range/const_iterator.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <boost/shared_ptr.hpp>
 #include "Defs.hpp"
 #include "generator.hpp"
 #include "exceptions.hpp"
@@ -160,7 +161,7 @@ public:
 private:
     position_type drawR_free(species_type const& species)
     {
-        return tx_.get_structure(species.structure_id())->bd_displacement(std::sqrt(2.0 * species.D() * dt_), rng_);
+        return tx_.get_structure(species.structure_id())->bd_displacement(species.v() * dt_, std::sqrt(2.0 * species.D() * dt_), rng_);
     }
 
     bool attempt_reaction(particle_id_pair const& pp)
@@ -238,14 +239,17 @@ private:
                                 throw propagation_error("no space");
                             }
 
-                            const Real rnd(rng_());
-                            length_type pair_distance(
-                                drawR_gbd(rnd, r01, dt_, D01));
-                            const position_type m(random_unit_vector() * pair_distance);
+                            boost::shared_ptr<structure_type> pp_structure( 
+                                tx_.get_structure( tx_.get_species( pp.second.sid() ).structure_id()) );  
+               
+                            position_type m( pp_structure->
+                                        dissociation_vector( rng_, r01, dt_, D01, s0.v() - s1.v() ) );
+                            
                             np0 = tx_.apply_boundary(pp.second.position()
-                                    + m * (s0.D() / D01));
+                                    - m * (s0.D() / D01));
                             np1 = tx_.apply_boundary(pp.second.position()
-                                    - m * (s1.D() / D01));
+                                    + m * (s1.D() / D01));
+                           
                             boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped_s0(
                                 tx_.check_overlap(
                                     particle_shape_type(np0, s0.radius()),
@@ -300,7 +304,7 @@ private:
 
         const species_type s0(tx_.get_species(pp0.second.sid())),
                 s1(tx_.get_species(pp1.second.sid()));
-        const length_type r01(s0.radius() + s1.radius());
+        length_type r01(s0.radius() + s1.radius());
 
         const Real rnd(rng_());
         Real prob = 0;
@@ -309,7 +313,12 @@ private:
                 i(boost::begin(rules)), e(boost::end(rules)); i != e; ++i)
         {
             reaction_rule_type const& r(*i);
-            const Real p(r.k() * dt_ / ((I_bd(r01, dt_, s0.D()) + I_bd(r01, dt_, s1.D())) * 4.0 * M_PI));
+
+            boost::shared_ptr<structure_type> pp_structure( 
+               tx_.get_structure( tx_.get_species( pp0.second.sid() ).structure_id()) );  
+
+            const Real p(pp_structure->p_acceptance( r.k(), dt_, r01, subtract( pp1.second.position(), 
+                                                pp0.second.position() ), s0.D(), s1.D(), s0.v(), s1.v() ));
             BOOST_ASSERT(p >= 0.);
             prob += p;
             if (prob >= 1.)
