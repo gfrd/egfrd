@@ -39,8 +39,21 @@ m = model.ParticleModel(world_size)
 X = model.Species('X', D, sigma/2)                                   
 m.add_species_type(X) 
 # Reaction rules
-r1 = model.create_binding_reaction_rule(A, B, X, k)
+### Binding: A + B -> C
+r1 = model.create_binding_reaction_rule(A, B, C, k)
 m.network_rules.add_reaction_rule(r1)
+### Unbinding: C -> A + B
+r2 = model.create_unbinding_reaction_rule(C, A, B, k)
+m.network_rules.add_reaction_rule(r2)
+# Unimolecular: A - > B
+r3 = model.create_unimolecular_reaction_rule(A, B, k)
+m.network_rules.add_reaction_rule(r3)
+### Decay: A - > 0
+r4 = model.create_decay_reaction_rule(A, k)
+m.network_rules.add_reaction_rule(r4)
+### Annihilation: A + B - > 0
+r5 = model.create_annihilation_reaction_rule(A, B, k)
+m.network_rules.add_reaction_rule(r5)
 
 # World
 w = gfrdbase.create_world(m, 3)

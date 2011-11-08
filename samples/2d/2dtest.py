@@ -47,10 +47,11 @@ print "(Seed " + str(currenttime) + ")"
 # ===============================
 logging = False
 sigma = 1e-9        # Diameter particle
-D = 1e-12           # Diffusion constant
-N = 200             # Number of steps simulation will last
-world_size = 1e-3   # Lengths of simulation box
-
+D = 1e-13           # Diffusion constant
+N = 10000000        # Number of steps simulation will last
+world_size = 1e-6   # Lengths of simulation box
+NParticles = 50     # Number of particles in the simulation
+k = 2e-14          # Reaction constant
 
 # VTK Logger
 # ===============================
@@ -73,12 +74,17 @@ the_plane = _gfrd.create_planar_surface('the_plane',
 m.add_structure(the_plane)
 
 # Species
-Xp = model.Species('Xp', D, sigma, 'the_plane')                                   
-m.add_species_type(Xp)
+A = model.Species('A', D, sigma, 'the_plane')                                   
+m.add_species_type(A)
+B = model.Species('B', D, 3*sigma, 'the_plane')                                   
+m.add_species_type(B)
+C = model.Species('C', D, 3*sigma, 'the_plane')                                   
+m.add_species_type(C)
 # Reaction rules
-#r1 = model.create_binding_reaction_rule(A, B, X, k)
-#m.network_rules.add_reaction_rule(r1)
-
+r1 = model.create_binding_reaction_rule(A, B, C, k)
+m.network_rules.add_reaction_rule(r1)
+r1 = model.create_unbinding_reaction_rule(C, A, B, (1/10))
+m.network_rules.add_reaction_rule(r1)
 
 
 # World
@@ -91,7 +97,8 @@ if (logging == True):
     l = vtklogger.VTKLogger(s, vtk_output_directory, extra_particle_step=True) 
 
 # Throw in particles
-throw_in_particles(w, Xp, 5)
+throw_in_particles(w, A, NParticles)
+throw_in_particles(w, B, int(NParticles/2))
 
 # Running 2
 # ===============================

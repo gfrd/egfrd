@@ -111,10 +111,10 @@ BOOST_PYTHON_MODULE( _greens_functions )
 	.def( "drawR", &GreensFunction2DRadAbs::drawR )
 	.def( "drawTheta", &GreensFunction2DRadAbs::drawTheta )
 	.def( "getAlpha", &GreensFunction2DRadAbs::getAlpha )
-	.def( "getAlpha0", &GreensFunction2DRadAbs::getAlpha0 )
+//	.def( "getAlpha0", &GreensFunction2DRadAbs::getAlpha0 ) // LEGACY; TODO REMOVE
 	.def( "f_alpha", &GreensFunction2DRadAbs::f_alpha )
 	.def( "f_alpha0", &GreensFunction2DRadAbs::f_alpha0 )
-	.def( "alpha_i", &GreensFunction2DRadAbs::alpha_i )
+//	.def( "alpha_i", &GreensFunction2DRadAbs::alpha_i ) // LEGACY; TODO REMOVE
 	.def( "p_survival", &GreensFunction2DRadAbs::p_survival )
 	.def( "leaves", &GreensFunction2DRadAbs::leaves )
 	.def( "leavea", &GreensFunction2DRadAbs::leavea )

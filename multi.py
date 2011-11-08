@@ -78,7 +78,7 @@ class Multi(Domain):
                     main = self.outer_.main()
                     if self.outer_.last_event == None:
                         self.outer_.last_event = EventType.MULTI_ESCAPE
-                    main.clear_volume(shape.position, shape.radius, 
+                    main.burst_volume(shape.position, shape.radius, 
                                       ignore=[self.outer_.domain_id, ])
                     if ignore1 is None:
                         return not main.world.check_overlap(

@@ -6,12 +6,12 @@
 """
 # Root directory of the eGFRD algorithm files:
 # Use the full path (e.g. NOT a tilde)
-egfrd_directory ='/storage1/wehrens/GF2D_implementation/'
+egfrd_directory ='/storage1/wehrens/sep2011_eGFRD'
 # Output directory of the VTK logger 
 # (This was defined when calling the logger in your
 # script.)
 simulation_data_directory =\
-    '/storage1/wehrens/2d/VTK_out' # egfrd_directory + \
+    '/storage1/wehrens/sep2011_eGFRD/samples/2d/VTK_out' # egfrd_directory + \
 """
 
 2. Start ParaView. Make sure you give Paraview the PYTHONPATH 

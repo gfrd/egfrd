@@ -1,6 +1,19 @@
+#!/usr/env python
+
+import numpy
+import myrandom
+
+__all__ = [
+    'Domain',
+    'ProtectiveDomain',
+    ]
+
+
 class Domain(object):
 # The domain is the main unit of eGFRD. Single, Pairs and Multis are all domains
 # with an own domain_id
+
+    SINGLE_SHELL_FACTOR = 2.0
 
     def __init__(self, domain_id):
 	self.domain_id = domain_id	# identifier for this domain object
@@ -23,6 +36,26 @@ class Domain(object):
 	at a different time.
         '''
 	pass
+
+    def calc_ktot(self, reactionrules):
+	# calculates the total rate for a list of reaction rules
+        # The probability for the reaction to happen is proportional to 
+        # the sum of the rates of all the possible reaction types.
+	k_tot = 0
+        for rr in reactionrules:
+            k_tot += rr.k
+	return k_tot
+
+    def draw_reaction_rule(self, reactionrules):
+	# draws a reaction rules out of a list of reaction rules based on their
+	# relative rates
+        k_array = numpy.add.accumulate([rr.k for rr in reactionrules])
+        k_max = k_array[-1]
+
+        rnd = myrandom.uniform()
+        i = numpy.searchsorted(k_array, rnd * k_max)
+
+        return reactionrules[i]
 
     def create_new_shell(self):		# needs to be overloaded in subclasses
 	pass				# creates an appropriate shell object

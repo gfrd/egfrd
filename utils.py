@@ -143,8 +143,12 @@ def cartesian_to_spherical(c):
     return numpy.array([r, theta, phi])
 
 def spherical_to_cartesian(s):
-    #FIXME: it's possible that the below is a source of some bias.
+    #FIXME: it's possible that the below is a source of some bias. (why??)
     r, theta, phi = s
+    # theta is the angle with zenith axis z, phi is the angle with the azimuthal axis x in the direction of the y axis
+    # -Pi < theta < Pi
+    # -Pi/2 < phi < Pi/2 although since phi is usually a free parameter and drawn from a uniform distribution
+    #                    it can also be 0 < phi < 2Pi or 0 < phi < Pi
     sintheta = math.sin(theta)
     return numpy.array([r * math.cos(phi) * sintheta,
                         r * math.sin(phi) * sintheta,
@@ -194,6 +198,8 @@ def normalize(a, l=1):
     return _gfrd.normalize(a, l)
 
 def vector_angle(a, b):
+    # returns the angle tussen vector a en b
+    # the range of the angle is (0 - Pi)
     cosangle = numpy.dot(a, b) / (length(a) * length(b))
     return math.acos(cosangle)
 
@@ -208,6 +214,7 @@ def crossproduct(a, b):
     return numpy.dot(M, b)
 
 def crossproduct_against_z_axis(a):
+    # this is crossproduct (a, z-axis)
     return numpy.array([- a[1], a[0], 0.0])
 
 def rotate_vector(v, r, alpha):

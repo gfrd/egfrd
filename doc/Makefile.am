@@ -9,7 +9,9 @@ if HAVE_PDFLATEX
 pdf_DATA = \
 	implementation_notes.pdf\
 	p1_fp.pdf\
-    interface_functions.pdf
+	interface_functions.pdf\
+	shell_making.pdf\
+	event_processing.pdf
 endif
 
 

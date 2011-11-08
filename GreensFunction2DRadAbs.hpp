@@ -1,6 +1,16 @@
+// Greens function class for 2d Green's Function for 2d annulus with radial and
+// axial dependence. Inner boundary is radiative (rad) (reaction event), outer 
+// boundary is absorbing (abs) (escape event). Different "draw" functions 
+// provide a way to draw certain values from the Green's Function, e.g. an
+// escape angle theta ("drawTheta" function).
+// 
+// Written by Laurens Bossen. Adapted by Martijn Wehrens.
+// FOM Institute AMOLF.
+
 #if !defined( __FIRSTPASSAGEPAIRGREENSFUNCTION2D_HPP )
 #define __FIRSTPASSAGEPAIRGREENSFUNCTION2D_HPP 
 
+#include <vector>
 #include <boost/tuple/tuple.hpp>
 #include <boost/function.hpp>
 #include <boost/array.hpp>
@@ -15,7 +25,9 @@ class GreensFunction2DRadAbs
     public PairGreensFunction
 {
 
-public: 
+public:
+    // defines vector from template defined in standard template library,
+    // gives it's membervalues type Real. std:: clarifies the std namespace.
     typedef std::vector<Real> RealVector;
 
 private:
@@ -27,12 +39,34 @@ private:
 
     static const Real MIN_T_FACTOR = 1e-8;
 
-    static const Real L_TYPICAL = 1E-7;
-    static const Real T_TYPICAL = 1E-5;
-    static const Real EPSILON = 1E-12;
+    static const Real L_TYPICAL = 1E-7; // typical length scale
+    static const Real T_TYPICAL = 1E-5; // typical time scale
+    static const Real EPSILON = 1E-12;  // relative numeric error
 
-    static const unsigned int MAX_ORDER = 30;		// The maximum number of m terms
-    static const unsigned int MAX_ALPHA_SEQ = 2000;	// The maximum number of n terms
+    static const unsigned int MAX_ORDER = 30;		// The maximum number of m 
+                                                    // terms
+    static const unsigned int MAX_ALPHA_SEQ = 2000;	// The maximum number of n 
+                                                    // terms
+    
+    // Parameters for alpha-root finding
+    // ======
+    // Could be tweaked for better performance!
+    //
+    // If we've switched from over- to underestimating the root for 
+    // EXPECTED_OVER_UNDER_SWITCHING times, we'll assume we're in regime where the 
+    // period of the roots converges to the pi/(sigma-a) estimate.
+    //      Hence, if the value of the root lies within INTERVAL_MARGIN 
+    // times the estimated interval, we assume all next roots subsequently have 
+    // the same or less deviation from the estimated pi/(sigma-a) interval. The 
+    // maximum INTERVAL_MARGIN is 0.33, since underestimating >33% twice
+    // in a row will result in two roots in the same sign-change scanning 
+    // domain.
+    static const Real CONVERGENCE_ASSUMED = 25;
+    static const Real INTERVAL_MARGIN = .33; 
+    static const Real FRACTION_SCAN_INTERVAL = .5; // Distance between subsequent roots should always > this    
+    // Percentage of estimated interval where root finding should start:
+    static const Real SCAN_START = 0.001; 
+
 
 public:
 
@@ -57,6 +91,11 @@ public:
     const Real geta() const
     {
 	return this->a;
+    }
+
+    const Real getestimated_alpha_root_distance_() const
+    {
+    return this->estimated_alpha_root_distance_;
     }
 
     virtual Real drawTime( const Real rnd) const;
@@ -107,9 +146,40 @@ public:
 
     const Real alphaOffset( const unsigned int n ) const;
 
-    const Real alpha0_i( const Real previous ) const;
+//    const Real alpha0_i( const Real previous ) const;
 
-    const Real alpha_i( const Real offset, const Integer n ) const;
+//    const Real alpha_i( const Real offset, const Integer n ) const;
+
+                                                          
+    const void GiveRootInterval(  Real& low,          
+                                  Real& high,         
+                                  const Integer n
+                               ) const;
+                                                                    
+
+    const void GiveRootIntervalSimple(  Real& low, Real& high, 
+                                        const Integer n, const Real i
+                                     ) const;
+
+    const Real getAlphaRoot0( const Real low,
+                              const Real high
+                            ) const;
+                                    
+    const Real getAlphaRootN( const Real low,  
+                              const Real high,  
+                              const Integer n  
+                            ) const;                                 
+                                                            
+    const Real getAlphaRoot(  const Real high, const Real low, const Integer n
+                           ) const;
+                                                    
+    const void decideOnMethod2(size_t n, RealVector::size_type i) const;
+
+    const void 
+        needToSwitchBackMethod1( size_t n, RealVector::size_type i ) const;
+
+    const Real getAlpha( size_t n, RealVector::size_type i ) const; 
+    
 
     const Real p_survival_i( const Real alpha) const;
 
@@ -120,59 +190,9 @@ public:
     const boost::tuple<Real,Real,Real> Y0J0J1_constants ( const Real alpha,
                                                           const Real t) const;
 
-    const Real getAlpha( const size_t n, const RealVector::size_type i ) const
-    {
-	RealVector& alphaTable( this->alphaTable[n] );		// get the ref to the roots of order n
-        const RealVector::size_type oldSize( alphaTable.size() );	// get it's size
+//    const Real getAlpha( const size_t n, const RealVector::size_type i ) const;
 
-	if( i >= oldSize )
-	{
-	    alphaTable.resize( i+1, 0 );	// resize the vector and fill the empty slots with 0
-	}
-
-	if (alphaTable[i] == 0)		// if the requested root was not calculated yet
-	{
-		if (i==0)		// if the requested root is the first one
-		{	const Real offset (alphaOffset(n));	// The offset is the first root
-			alphaTable[i]= offset;
-		}
-		else			// the requested root is dependent on the previous one
-		{
-			const Real previous (getAlpha(n, i-1));		// get the previous root
-			alphaTable[i] = this->alpha_i( previous , n );	// find the requested root based on
-									// the previous one
-		}
-	}
-	return alphaTable[i];
-
-    }
-
-    const Real getAlpha0( const RealVector::size_type i ) const
-    {
-	RealVector& alphaTable( this->alphaTable[0] );
-        const RealVector::size_type oldSize( alphaTable.size() );
-
-	if( i >= oldSize )
-	{
-	    alphaTable.resize( i+1, 0 );// fill the empty spaces with zeros
-	}
-
-	if (alphaTable[i] == 0)         // if the requested root was not calculated yet
-	{
-                if (i==0)               // if the requested root is the first one
-                {       const Real offset (alphaOffset(0));     // The offset is the first root
-                        alphaTable[i]= offset;
-                }
-                else                    // the requested root is dependent on the previous one
-                {
-                        const Real previous (getAlpha0(i-1));		// get the previous root
-                        alphaTable[i] = this->alpha0_i( previous );	// find the requested root based on
-                                                                        // the previous one
-                }
-	}
-
-	return alphaTable[i];
-    }
+//    const Real getAlpha0( const RealVector::size_type i ) const;
 
 protected:
 
@@ -228,21 +248,21 @@ protected:
     const unsigned int guess_maxi( const Real t ) const;
 
     struct f_alpha0_aux_params
-    { 
-	const GreensFunction2DRadAbs* const gf;
-	const Real value;
+    {
+        const GreensFunction2DRadAbs* const gf;
+        const Real value;
     };
 
-    static const Real 
-    f_alpha0_aux_F( const Real alpha,
-		    const f_alpha0_aux_params* const params );
+    static const Real
+        f_alpha0_aux_F( const Real alpha,
+                const f_alpha0_aux_params* const params );
 
 
     struct f_alpha_aux_params
-    { 
-	const GreensFunction2DRadAbs* const gf;
-	const Integer n;
-	Real value;
+    {
+        const GreensFunction2DRadAbs* const gf;
+        const Integer n;
+        Real value;
     };
 
     static const Real 
@@ -293,11 +313,40 @@ protected:
 private:
     
     const Real h;
+    const Real a;
 
+    // Tables that hold calculated roots (y=0) of "alpha" function for each    
+    // order n.
+    //      The alphaOffsetTable will be filled with 1st roots for all n. The 
+    // alphaTable will also be filled with these 1st roots, but also the mth 
+    // roots for all n.
+    //      Note that number of elements is MAX_ORDER+1 as the order n can range
+    // from n=0 to n=MAX_ORDER.
+    //      Initial values are set by constructor.
     mutable boost::array<Real,MAX_ORDER+1> alphaOffsetTable;
     mutable boost::array<RealVector,MAX_ORDER+1> alphaTable;
-
-    Real a;
+    
+    const Real estimated_alpha_root_distance_;    
+    
+    // LEGACY
+    // Table which for each order n tells if we're in regime where next root
+    // will lie in [x_previous_root-INTERVAL_ALLOWED_ERROR, x_previous_root
+    // +INTERVAL_ALLOWED_ERROR]. In that case value n of table will be true, 
+    // if we still have to scan for a sign-change, than value n in table will
+    // be false.
+    // mutable boost::array<bool,MAX_ORDER+1> alphaRootsConverged;
+    
+    // Table which tells us at which x we're left with scanning the alpha 
+    // function for a sign change, for a given order n. (A sign change would 
+    // indicate a root (y=0) lies between the boundaries of the "scanned" 
+    // interval.) 
+    //      If x_scan[n] == -1, this indicates scanning is no longer required
+    // because the distance between the roots is converging and within 
+    // boundaries that allow the direct use of the estimate interval width 
+    // pi/(sigma-a).
+    //      Initial values are set by constructor.
+    mutable boost::array<Real,MAX_ORDER+1> alpha_x_scan_table_;     
+    mutable boost::array<int,MAX_ORDER+1> alpha_correctly_estimated_;
 
 };
 

@@ -3,7 +3,10 @@ from _greens_functions import *
 from greens_function_wrapper import *
 from constants import EventType
 import utils
-from domain import *
+
+from domain import (
+    Domain,
+    ProtectiveDomain)
 
 __all__ = [
     'CylindricalSurfaceSingle',
@@ -36,14 +39,19 @@ class Single(ProtectiveDomain):
         self.structure = structure			# the structure in/on which the particle lives
 
         self.reactionrules = reactionrules		# the reaction rules for mono molecular reactions
-	self.reactionrule = None			# with this particle as the reactant
-        self.k_tot = 0
-        self.updatek_tot()				# RENAME to calc_ktot and MOVE to ProtectiveDomain
+	self.rrule = None				# the reaction rule of the actual reaction (property reactionrule)
+        self.k_tot = self.calc_ktot(reactionrules)
+        #self.updatek_tot()				# RENAME to calc_ktot and MOVE to ProtectiveDomain
 
     def getD(self):
         return self.pid_particle_pair[1].D
     D = property(getD)
 
+    def get_reaction_rule(self):
+	if self.rrule == None:
+	    self.rrule = self.draw_reaction_rule(self.reactionrules)
+	return self.rrule
+    reactionrule = property(get_reaction_rule)
 
     def get_inner_a(self):
 	# inner_a is the outer radius of the 'inner shell', which demarkates
@@ -105,27 +113,27 @@ class Single(ProtectiveDomain):
         event_type = EventType.SINGLE_ESCAPE	# TODO Event is not an ESCAPE when in 1D there is drift
         return dt, event_type
 
-    def updatek_tot(self):
-	# MOVE to ProtectiveDomain class. See also reasoning above for
-	# draw_reaction_time_tuple
-        self.k_tot = 0
-
-        if not self.reactionrules:
-            return
-
-        for rr in self.reactionrules:
-            self.k_tot += rr.k
-
-    def draw_reaction_rule(self):
-	# MOVE to ProtectiveDomain class
-        k_array = [rr.k for rr in self.reactionrules]
-        k_array = numpy.add.accumulate(k_array)
-        k_max = k_array[-1]
-
-        rnd = myrandom.uniform()
-        i = numpy.searchsorted(k_array, rnd * k_max)
-
-        return self.reactionrules[i]
+#    def updatek_tot(self):
+#	# MOVE to ProtectiveDomain class. See also reasoning above for
+#	# draw_reaction_time_tuple
+#        self.k_tot = 0
+#
+#        if not self.reactionrules:
+#            return
+#
+#        for rr in self.reactionrules:
+#            self.k_tot += rr.k
+#
+#    def draw_reaction_rule(self):
+#	# MOVE to ProtectiveDomain class
+#        k_array = [rr.k for rr in self.reactionrules]
+#        k_array = numpy.add.accumulate(k_array)
+#        k_max = k_array[-1]
+#
+#        rnd = myrandom.uniform()
+#        i = numpy.searchsorted(k_array, rnd * k_max)
+#
+#        return self.reactionrules[i]
 
     def check(self):
         pass
@@ -168,6 +176,7 @@ class NonInteractionSingle(Single):
 	# only be sized in one direction
 	# This is predominantly used when making Interaction domains
         return self.shell.shape.radius
+
 
     def initialize(self, t):
 	# self.shell.shape.radius = self.pid_particle_pair[1].radius
@@ -226,6 +235,65 @@ class NonInteractionSingle(Single):
 	    newpos = self.shell.shape.position + displacement
 
         return newpos
+
+    def calculate_shell_size_to_single(self, closest, distance_to_shell, geometrycontainer):
+        # only if the closest shell is also a 'simple' Single
+        assert isinstance(closest, NonInteractionSingle)
+
+        min_radius1 = self.get_min_shell_size()
+
+        D1 = self.getD()
+        if D1 == 0:
+            return min_radius1
+
+        min_radius2 = closest.pid_particle_pair[1].radius
+        D2 = closest.getD()
+        min_radius12 = min_radius1 + min_radius2
+        sqrtD1 = math.sqrt(D1)
+
+
+	singlepos = self.pid_particle_pair[1].position
+        closestpos = closest.shell.shape.position
+        distance = geometrycontainer.distance(singlepos, closestpos)
+
+        shell_size = min(sqrtD1 / (sqrtD1 + math.sqrt(D2))
+                        * (distance - min_radius12) + min_radius1,
+                        distance_to_shell / SAFETY)
+        if shell_size < min_radius1:
+            shell_size = min_radius1
+
+        return shell_size
+
+    def get_min_shell_size(self):
+	return self.pid_particle_pair[1].radius
+
+    def get_max_shell_size(self, geometrycontainer, domains):
+	# This calculates the maximum shell size that the single can have in the current
+	# situation.
+	# TODO This is now general for all NonInteractionSingles and should be different
+	# for the different dimensions since they have different domains (spheres vs cylinders)
+	# and scale the domains in different directions (r or z).
+
+	# 1. Calculate the maximal dimensions of the shell
+	# TODO We now just check in a sphere around the particle and size accordingly. For
+	# NonInteractionSingles on the dna and membrane this is quite inefficient-> want to
+	# size in the appropriate coordinate (r or z).
+	singlepos = self.pid_particle_pair[1].position
+        closest, distance_to_shell = \
+            geometrycontainer.get_closest_obj(singlepos, domains, ignore=[self.domain_id],
+                                              ignores=[self.structure.id])
+
+	# 2. In case the nearest neighbor was a NonInteractionSingle we need to tweak the size
+	# TODO shell size has no real meaning for cylinderical domains
+        if isinstance(closest, NonInteractionSingle):
+            new_shell_size = self.calculate_shell_size_to_single(closest, distance_to_shell,
+						                 geometrycontainer)
+	# TODO This is incorrect. The closest can be a Pair but still NonInteractionSingles may need
+	# more space
+        else:  # Pair or Multi or Surface
+            new_shell_size = distance_to_shell / SAFETY
+
+	return min(new_shell_size, geometrycontainer.get_max_shell_size())
 
 
 class SphericalSingle(NonInteractionSingle):
@@ -376,10 +444,20 @@ class InteractionSingle(Single):
 
 	self.shell_id = shell_id
         self.interactionrules = interactionrules	# the surface interaction 'reactions'
+	self.intrule = None
+	self.interaction_ktot = self.calc_ktot(interactionrules)
 	self.surface = surface				# The surface with which the particle is
 							# trying to interact
 
+    def get_interaction_rule(self):
+	if self.intrule == None:
+	    self.intrule = self.draw_reaction_rule(self.interactionrules)
+	return self.intrule
+    interactionrule = property(get_interaction_rule)
+
 	# There are defined here but are overloaded later
+	# These ProtectiveDomains have a Cylindrical shell that is scaled in r and z
+	# Below methods go together with this property
     def get_inner_dz_left(self):
 	pass
 
@@ -479,10 +557,10 @@ class PlanarSurfaceInteraction(InteractionSingle):
 	# The green's function that also modelles the association of the particle
 	# with the planar surface.
 	# TODO choose interactionrule
-#        return GreensFunction1DRadAbs(self.D, self.interactionrule.k, self.z0,
-#				      -self.get_inner_dz_left(), self.get_inner_dz_right())
-        return GreensFunction1DRadAbs(self.D, 0, self.z0,
+        return GreensFunction1DRadAbs(self.D, self.interaction_ktot, self.z0,
 				      -self.get_inner_dz_left(), self.get_inner_dz_right())
+#        return GreensFunction1DRadAbs(self.D, 0, self.z0,
+#				      -self.get_inner_dz_left(), self.get_inner_dz_right())
 
     def draw_new_position(self, dt, event_type):
 	"""Draws a new position for the particle for a given event type at a given time
@@ -516,16 +594,17 @@ class PlanarSurfaceInteraction(InteractionSingle):
 
 	    # If the event was not yet fully specified
 	    if event_type == EventType.IV_EVENT:	
-		event_type = self.draw_iv_event_type()
+		self.event_type = self.draw_iv_event_type()
+		event_type = self.event_type
 
 
 	    if event_type == EventType.IV_INTERACTION:
-		z = z_surface
+		z = z_surface 
 	    elif event_type == EventType.IV_ESCAPE:
 		z = z_not_surface
 	    else:
 	        gf_iv = self.iv_greens_function()
-        	z = draw_r_wrapper(gf_iv, dt, z_not_surface, z_surface)
+        	z = draw_r_wrapper(gf_iv, dt, z_not_surface, z_surface)	# last two args= a, sigma
 
 	    vector_z = z * self.shell.shape.unit_z
 
@@ -533,6 +612,7 @@ class PlanarSurfaceInteraction(InteractionSingle):
 	    newpos = self.shell.shape.position + vector_r + vector_z
 
         return newpos
+
 
     def get_shell_size(self):
 	# REMOVE this method, it doesn't mean anything here.
@@ -590,11 +670,8 @@ class CylindricalSurfaceInteraction(InteractionSingle):
     def iv_greens_function(self):
 	# Green's function used for the interaction
         # Interaction possible in r direction.
-        # TODO.
-        #k = self.interaction_rule.k
-        k = 0
         # TODO 2D.
-        return GreensFunction3DRadAbs(self.D, k, self.r0, self.get_inner_sigma(),
+        return GreensFunction3DRadAbs(self.D, self.interaction_ktot, self.r0, self.get_inner_sigma(),
 				      self.get_inner_a())
 
     def draw_new_position(self, dt, event_type):
@@ -624,7 +701,8 @@ class CylindricalSurfaceInteraction(InteractionSingle):
             # 2) Draw r and theta.
 	    # If the event was not yet fully specified
 	    if event_type == EventType.IV_EVENT:	
-		event_type = self.draw_iv_event_type()
+		self.event_type = self.draw_iv_event_type()
+		event_type = self.event_type
 
             sigma = self.get_inner_sigma()
             a_r = self.get_inner_a()

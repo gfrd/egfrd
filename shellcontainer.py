@@ -62,6 +62,10 @@ class ShellContainer(object):
 	container = self.get_container(shell)
 	del container[shell_id]
 
+    def distance(self, pos1, pos2):
+	# Export the distance calculation
+	return self.world.distance(pos1, pos2)
+
     def get_intruders(self, position, radius, ignore):
         # gets the intruders in a spherical volume of radius 'radius'?
         # TODO make this surface specific -> in 2D only need to check in cylinder,

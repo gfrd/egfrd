@@ -1,0 +1,142 @@
+\documentclass[a4paper, 11pt]{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+
+\title{Realization of the main eGFRD algorithm in the current python code}
+\author{Laurens Bossen}
+
+\begin{document}
+\maketitle
+
+A number of independent processes or 'coordinates' take place inside a Domain. Independent processes are:
+-Diffusion in a number of dimensions
+-Decay reactions
+
+When one of the processes in the domain has produced the current event, then a fire\_domain is executed. However, when an other
+event external to the domain is the current event but the processes need to be propagated anyhow (a burst), then a burst\_domain
+is executed.
+Fire happens when the domain produced the top event of the scheduler. A burst event happens when the event associated with the
+domain is still in the scheduler.
+Fire->Event is no longer in scheduler
+Burst->Event is is still in scheduler
+
+
+Fire\_Single
+-process event causing coordinate (a coordinate is an independent process in a domain, eg diffusion, decay)
+-process all other coordinates
+
+Burst\_Single
+-process all coordinates (event was external)
+
+After a fire or burst the domain is 'reduced' to a default NonInteractionSingle and a new domain (Pair, Interaction,
+NonInteractionSingle) should be made.
+
+Then reschedule the event
+
+
+Note that from a Pair, Interaction (Multi) after a Fire or Burst you always 'go back' to a NonInteractionSingle. This means
+that you change domain.
+A speedup trick for this is to 'save' the original single in the Pair or Interaction domain so that we can potentially reuse
+them when a fire or burst event takes place
+
+In the old code, the processing of the coordinates is dealt with differently. When possible the particles in the domain are
+first 'propagated'. This means that the particles in the domain are propagated to their new positions and that then new
+zero shells are made for the particles. The putative decay reaction is then handled separately after the 'propagation'. In this
+way the processes are modular. Similarly we could perform an interaction reaction after performing the propagation of the particle
+towards the surface.
+Doing a pair reaction however requires a different procedure since the two particles cannot be propagated on top of eachother.
+
+Since the procedures of firing and bursting are similar, the current approach leads to a lot of code duplication. Since we also
+intoduced a great number of new domains with different interactions, the number of combination grow introducing even more code
+duplication.
+To keep the code clear, we chose to generalize the procedure and perform the 'propagation' and 'reaction' steps in one step. In
+this way also the pair reaction fits in the same framework.
+This means that we first calculate the new position(s) of the particle(s) and directly perform the putative identity change. So,
+we do not make new domains after calculating the new positions, but only do this after the putative reaction has taken place.
+
+It is important to note that the reaction can fail because there is no space for the product particles. Currently this is caught
+by an exception (the procedure for the decay reaction fails) and no changes are made to the system. In the new framework we will
+have to handle it differently. We will need to make sure that the positional change still gets processed (the propagation) whereas
+the identity change (the reaction) is not, the identity of the particle(s) stays the same.
+
+A lot of the procedures have to be generalized anyway to facilitate the different dimensions. Also the fire\_pair method needs to
+facilitate a mixed pair and therefore needs to be generalized to avoid code duplication.
+Also the procedures are all very similar and should be easily generalized. This will make the code clearer and easier to understand.
+
+Originally, the pair consists of two singles. These are also used after the propagation and are only removed when a reaction takes
+place. There is in a sence a sort of a cache of the domains from which the pair domain was formed. When the event of the pair is then
+processed we can make use of the cached singles to make the domains for the product particles. In the old structure, the singles
+are also used to draw the decay times for single particles.
+In the new framework we can reuse the singles if the particle identity has not changed, otherwise reuse is not possible. The domains
+are coupled to the particles (their size, structure and reactionrules).
+
+
+
+Processing the event means:
+if Single && zero-shell && D != 0 then
+  the single was a 'special' single (zero shell) -> make\_new\_domain
+else
+  the single was a 'normal' domain and event should be processed
+
+  (calculate new position(s))
+  if (D != 0) && dt>0 (time has passed)
+    (there was actual relevant diffusion)
+    determine new position(s) of particle(s)
+    apply boundary conditions
+    -check if still in shell
+  else
+    (no diffusion has taken place)
+    positions are old position(s)
+
+
+  (determine identitie(s))
+  remove old domain (domain should be removed because otherwise it interferes with
+  bursting during the 'reaction process'
+
+  if event is Single\_Reaction, IV\_Reaction, IV\_Interaction
+    get new identity for the resulting particle
+    calculate new position for particles (for example Interaction, Decay reactions)
+    apply boundary conditions to new position(s)
+    actually move/remove/add the particle (update\_world)
+
+  else
+    (event was Burst or one of the possible Escape events)
+    positions are 'old' positions
+    particle identities are old identities
+    particle number is old number
+
+    apply boundary conditions to position(s)
+    check that particles do not leave domain and do not overlap with other particles
+    move particles to new positions (make change in the world)
+
+  (we now have n particles in the world with certain identity and position)
+  (In principle all particles should still be in the domain)
+
+  for all particles
+    if particle\_id is old\_particle\_id
+      NonInteractionSingle = cached NonInteractionSingle
+      re-initialize time and size of NonInteractionSingle(s)
+      add to shell container and domain hash
+      log reused NonInteractionSingle
+    else
+      create default NonInteractionSingle for particle
+      log newly created NonInteractionSingle
+    schedule domain
+
+
+
+Note that when a Pair or Interaction is made, the shells and domain\_id are removed from the shell container and
+domain hash respectively. This doesn't mean that the objects too have gone. The NonInteractionSingles are subsequently
+cached in the made domain (Pair, Interaction, Multi?). When the made domain is now fired --the event produced by the
+domain is processed-- and the resulting particle has not changed its identity, then the cached domain can be used. The
+shell of the cached domain will recreated in the shell container and its domain\_id will be added to the domains hash.
+
+
+
+Create a Protective Domain:
+-generate identifiers for domain and shell
+-make domain object (instantiate with particle, shell dimensions, structure/surface, reaction\_rules, misc info)
+ -make appropriate shell (done by constructor or later in case of Multi)
+-place shell in container (move\_shell)
+-
+\end{document}

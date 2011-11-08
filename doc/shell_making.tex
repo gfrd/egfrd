@@ -1,0 +1,269 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+
+\title{Algorithm for deciding on, and dimensioning a new shell}
+\author{Laurens Bossen}
+
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+The eGFRD algorithm works with protective domains. In each domain one or two partcles can exist. Also a surface can be
+involved and the particles can live on different structures or surfaces. The domains produde event that are organized
+in the scheduler.
+
+When an event from the scheduler is processes, the changed position (and potentially its identity) of the particles is
+processed and a new domain for the particles has to be formed. The processing of the event
+namely leaves the particles in the old domain as NonInteractionSingles with a size equal to the size of the particle
+(they are zero-dt domains). The system will now decide what domain to make next.
+
+There are a number of different domains that can be created from a NonInteractionSingle, and we need to decide which one is
+the most appropriate. The options for a domain in descending order of computational cost per unit clock time are:
+\begin{itemize}
+ \item A NonInteractionSingle (a single particle in a symmetric domain modeling diffusion and potential decay of the
+			       particle)
+ \item An InteractionSingle (a single particle in the 3D space in a cylindrical domain modeling the diffusion of the particle
+			     and non-specific binding of the particle to a surface).
+ \item A Pair (two particles potentially on two different structures in a domain modeling diffusion and reaction between
+	       the particles).
+ \item A Multi (any number of particles in a collection of connected shells performing Brownian Dynamics)
+\end{itemize}
+
+\paragraph{Goal of algorithm}
+The goal of the algorithm is to minimize the total time spent on computations while still allowing for reactions between
+particles and non-specific association of a particle with a surface such as the membrane or DNA. This means in practice
+that we want to make NonInteractionSingles for as long as possible and that only when a reaction or interaction becomes
+probable switch to
+making Pairs and InteractionSingles. We also want to defer the creation of a Multi a long a possible, since this really
+takes up a lot of computation time.
+
+Also we don't want to waste investments. This means that when we have just made a new
+shell, we don't want it to be bursted right away. In short:
+\begin{itemize}
+ \item allow reactions and interactions
+ \item spend CPU time well
+ \item don't waste CPU time
+\end{itemize}
+
+There two different classes of domains, NonInteractionSingles and the rest. The rest is composed of
+Pairs, Interactions and Multis. The separation in these two classes is caused by the fact that the NonInteractionSingle
+is the default domain since they are the most efficient, and from the NonInteractionSingles we can go to other domains.
+Also, the most appararent property of the NonInteractionSingle is then that it can 'burst' other domains to initiate the
+creation of a more complex domain, typically a Pair or Interaction.
+The making of a new Domain such as a Pair/Interaction/Multi is therefore initiated by a NonInteractionSingle, and it is
+not possible to go from an Interaction domain directly to a Pair domain, we first need to 'go back' to the
+NonInteractionSingle.
+
+\section{Algorithm}
+\subsection{Burst or reaction volume}
+First, we define a $burst volume$ or $reaction volume$. The
+$reaction volume$ effectively defines the threshold for when the algorithm should stop trying to make NonInteractionSingles and
+should start trying to do Interactions or Pairs.
+More specifically, it defines a domain in which the particle can move, and when other shells enter into this space it is a
+signal that a reaction or interaction between the particle and the intruding object is probable and that a Pair or Interaction
+should be attempted.
+
+This also means that the algorithm will make NonInteractionSingles as long as no other object intrude into its
+$reaction volume$. Making the $reaction volume$ small, therefore makes sure that we use the efficient NonInteractionSingles
+for as long as possible and that the algorithm will only attempt a Pair or Interaction when the particles get 'close'.
+
+For three dimensionally diffusing particles, the threshold is simply a $burst radius$, since the diffusoin is in three
+dimensions, and the protective domain is spherical.
+For particles that only diffuse in two or one dimension, there is a certain direction in which the reaction takes place.
+For these particles we define the $reaction volume$ in the same shape as its appropriate protective domain, where the
+$reaction radius$ is in the same dimension as we would size its domain.
+
+Note that since overlap calculation between spheres and cylinders are annoying, we approximate the $reaction volume$ using
+a sphere. The approximation introduces some inefficiency, since space that is not relevant for the particle is also covered
+by the spherical $reaction volume$. However, when the size of the $reaction radius$ is small (typically 1.1 times the radius
+of the particle), then the effect should be only small.
+Note also that although the approximation could in principle allow two shell to overlap, since the corners of the cylinders
+are not covered by the sphere, it still makes sure that no particles
+overlap because the particle cannot leave the sphere. In this sence, the approximation does not introduce any errors.
+
+
+\subsection{Bursting and finding potential partners for domains}
+When objects intrude into the $reaction volume$, the algorithm will burst the objects and will start to try
+to make a more complex domain than a NonInterationSingle. Bursting of domains should not be indiscriminatively though.
+When an intruding domain has just been made (no time has passed since the making of the domain), then the domain should not
+be bursted.
+This prevents us from going back to the situation before the domain was made, eliminating the potential for a cycle. A newly
+made Pair, Interaction or Mixed Pair domain is always sized such that it will not directly be bursted (see below),
+however, a NonInteractionSingle could be made in the $reaction volume$ of another NonInteractionSingle. In this case the
+NonInteractionSingle will not be bursted when no time has passed since its creation.
+
+However, when sizing a NonInteractionSingle we will burst intruding domains in which time has passed. This means that if the
+domain is just freshly made, we assume that it has been done with some wisdom (socially), and we shouldn't throw away the
+investment.
+
+Also note that object such as surfaces and Multi cannot be bursted.
+
+We can only partner up with objects whose position is exactly known. Objects whose position is exactly known are:
+\begin{itemize}
+ \item surfaces
+ \item particles in Multis
+ \item just bursted (initialized) NonInteractionSingles ($dt=0$ shells)
+ \item 'dead' NonInteractionSingles (note that $dt=\infty$ for these shells)
+\end{itemize}
+The position of a surface or particles in a Multi is always known, so we can use them directly as partners in domain making.
+The position of particles in a non-zero shell ($dt \neq 0$) is not exactly known, and therefore we first have to burst the
+domain if we want to use its contents as partners. A burst will propagate the particles in the domain and make a
+NonInteractionSingle domain for each particle.
+In the same way we can burst 'dead' NonInteractionSingles, although little would change. The particle will stay in the
+same position, just the $dt$ for the domain will be reset to zero, and a new event time will be drawn ($dt=\infty$) if the
+particle was not used in the new domain.
+
+
+\subsection{Deciding what domain to try, defining the horizon}
+To define a threshold to determine if a reaction or interaction with an other object is a good idea, we define the $horizon$.
+To form a new domain that includes an other particle or surface than the current one, the current particle 'looks around' in
+its $horizon$ after bursting the domains in its $reaction volume$. Since partners can
+not only be found in the same structure, but also in other structures, we look around in 3D. This means that the horizon
+defines a sphere with $horizon$ radius.
+
+The $horizon$ is different for different partners, but in general
+is the distance between two objects (two particles for example) that is the sum of their $reaction radii$. The
+reasoning is
+that if the two particles are so far away from each other that two NonInteractionSingles can be made with sizes larger than the
+$reaction volume$, then a reaction is no longer probable between the objects and making one (or two) NonInteractionSingles
+would be better. However, if the $reaction radii$ still overlap, a reaction is deamed probably and a Pair, Interaction or Multi
+should be attempted.
+
+When we would make the $horizon$ smaller, the algorithm would still make NonInteractionSingles when the $reaction volumes$
+overlap. After an event of one of the domains, this would also lead to a burst of the other domain without attempting a more
+complex domain. This is inefficient use the domain. Making the $horizon$ larger would result in larger Pair or Interaction
+domains which have a lower probability of success.
+
+The $horizon$ varies for different partners. For the interaction of a 3D diffusing particle with a membrane for
+example, a different threshold is used than for a reaction between two particles in 3D.
+For a Pair in the same structure, we define the $horizon$
+as the sum of the $reaction radii$, although this is possibly slightly different for a MixedPair domain.
+The $horizon$ for an Interaction on the other hand, is defined as the $reaction radius$ of the particle since the surface is
+immobile and the domain making decision lies solely with the particle.
+
+Note that when a Pair or Interaction is not possible, the algorithm will fall back to making NonInteractionSingles.
+However, when also NonInteractionSingles become inefficient and no Pair or Interaction can be made, the algorithm will need to
+decide to swith to a Multi. The threshold for a Multi can also be regarded as a horizon since a Multi is only efficient when
+the two objects are close enough.
+The $horizon$ for a Multi therefore denotes when NonInteractionSingles are no longer efficient and a Multi should be
+made to propagate the particle. In general the Multi horizon is really small reflecting the efficiency of the Green's functions
+over brute force Brownian Dynamics.
+
+
+\subsection{Sizing up different domains}
+Above we discussed how we try to make certain domains.
+When we try to make a certain domain, such as an Interaction, we need to know if the domain will fit in the current configuration
+of domains in the system.
+The different domain such as a 2D Pair, an Interaction or 3D NonInteractionSingle have different shapes and requirements, and
+can be sized in different directions. The currently possible domains and their shapes are:
+\begin{itemize}
+ \item 1D NonInteractionSingle -> cylinder, scale in 1D ($z$)
+ \item 2D NonInteractionSingle -> cylinder, scale in 2D ($r$)
+ \item 3D NonInteractionSingle -> sphere, scale in 3D ($r$)
+ \item Pairs -> same shape as NonInteractionSingle, minimal size
+ \item Interaction -> cylinder, scale in 3D ($r$ and $z$), minimal size, stick to membrane or rod
+ \item Mixed Pair -> cylinder, scale in 3D ($r$ and $z$), minimal size, stick to membrane
+ \item Multi -> same as NonInteractionSingle but fixed in scalable coordinate
+\end{itemize}
+
+\paragraph{Sizing up an Interaction, Pair or Mixed Pair}
+Although the shapes and requirements for the domains are all quite different, there are some fixed rules for the maximum size
+of the domains.
+When we are making a Pair, Interaction or Mixed Pair, we want to make it such that NonInteractionSingles do not have the
+tendency to burst this domain. The reasoning is that we are making the current domain because a reaction or interaction
+between the object is probable and other particles should be kept at a distance. Sizing such a domain into the $reaction
+volume$ of a NonInteractionSingle suggests that this NonInteractionSingle should attempt to make a reaction with the contents
+of the current domain, which is against making the domain in the first place.
+
+So, since we don't want to throw away the investment in the current shell, and we decided that it was a good idea to make this
+domain in the first place, we leave all NonInteractionSingles at a distance such that the $reaction volume$ of the
+NonInteractionSingle in question does not overlap with the new domain. This way these Single won't immediately try to
+interfere and burst the newly made domain.
+Note that domains on a surface are only sized in the coordinates 'in' the surface and that NonInteractionSingles in the bulk
+are mostly irrelevant.
+
+As an approximation, the $reaction volume$ of the NonInteractionSingle is chosen to be spherical also in the case of a 1D or
+2D diffusing particle
+(see above). This means that also when making a Pair, Interaction or Mixed Pair, the particles in a NonInteractionSingle will
+be kept at a distance of $reaction radius$.
+
+When the nearest relevant object is an object other than a NonInteractionSingle, such as a surface (or 'dead'
+NonInteractionSingle), a
+Pair, Interaction or Multi domain, then the maximum size of the domain is the distance to the object, since these objects do
+not have a $reaction volume$ and cannot burst the domain directly.
+
+\paragraph{Sizing up NonInteractionSingles}
+To size up a NonInteractionSingle, the rules are similar.
+The maximum size of a NonInteractionSingle is the distance to the nearest relevant object when the nearest relevant object is
+a surface (or 'dead' NonInteractionSingle), Pair, Interaction or Multi.
+In the case the nearest relevant neighbor is another NonInteractionSingle we should be more careful
+and leave enough space for the other one (the maximum size is then for example half-way), especially if the $reaction volumes$
+of the two NonInteractionSingles overlap.
+This is to prevent unnecessary mutual bursting of the two NonInteractionSingles.
+
+Note again that the nearest relevant object is the object
+that is met first when scaling the domain in its coordinate. This is for example the $r$ coordinate for a 2D
+NonInteractionSingle and the $z$ coordinate for a 1D NonInteractionSingle.
+Note also that when the closest relevant Pair or Interaction domain was just made (no time has passed since its creation), it is
+trivial for a NonInteractionSingle to make a domain of at least the $reaction volume$, since the $reaction volume$ was taken
+into account when the Pair or Interaction was made (see above).
+
+\paragraph{Sizing up Multis}
+The shell for a particle participating in a Multi should be at least the size of the Multi horizon. The reasoning is that
+when the particle leaves its shell it is at least horizon away from the multi. Making the shell smaller that the horizon,
+will cause repeated re-creation of the Multi, since the particle can leave its domain but is not yet $horizon$ away from the
+Multi. Making the shells bigger than the horizon will cause more Multi-ing than necessary to get out of the Multi horizon.
+Making the shell exactly the size of the Multi horizon will then make sure that the Multi is not used longer than strictly
+necessary.
+
+Note that the shape of the shells for the particles in the Multi depends on the dimensions in which the particle can diffuse,
+similarly as the domains for NonInteractionSingles and Pairs. This means that for a particle in
+the bulk the shell is a sphere, for a particle in 2D and 1D it is a cylinder. As an approximation, however, we currently use
+spheres as shells for all particles in a Multi.
+
+
+\subsection{The algorithm in short}
+From a NonInteractionSingle that has just been processed we will make a new domain. The NonInteractionSingle is the default
+domain from which other domains can be formed. To decide what domain to make we use the following algorithm.
+\begin{enumerate}
+ \item First we check if there are any intruders in our $reaction volume$. The $reaction volume$ has in principle the same
+       shape as the shell of the NonInteractionSingle, but we approximate it with a sphere. Note that these can be Singles,
+       Pairs, Multis and even surfaces. If there are intruders, then this means that an other particle or surface so close
+       in the relevant direction that a reaction or
+       interaction is probable and that we should start thinking about making Interactions, Pairs or Multis.
+ \item burst the 'burstable' intruders within the $burstradius=reaction volume$ with the exception of domains in which no
+       time has passed yet (not burstable are: Multi, Surface, zero-shell NonInteractionSingles ($dt=0$ or 'dead')).
+ \item compile a list of neighboring potential partners in all three dimensions (Multis, surface, zero-shell
+       NonInteractionSingles).
+ \item get the closest potential partner and decide on the domain to make. Note that the closest potential partner does not
+       always leads to an allowed
+       interaction. A combination of a 1D diffusing particle and a 3D diffusing particle is for example not possible.
+ \begin{itemize}
+  \item if the closest potential partner is a surface AND is within the $surface horizon$, then try an Interaction.
+  \item elseif the closest potential partner is a NonInteractionSingle AND within the Pair horizon, then try a Pair
+  \item if the above fails, then the closest partner is a surface AND outside the surface horizon OR a NonInteractionSingle
+        AND outside the Pair horizon OR the domain could not be made.
+  \item If the closest potential partner is further than the Multi horizon, then make a NonInteractionSingle.
+  \item else make/join a Multi.
+ \end{itemize}
+ \item Make sure that the domain has the proper size.
+\end{enumerate}
+
+
+
+\section{Notes on special domains}
+Note that a surface behaves similarly to a stationary (D=0), non-decaying particle. It doens't produce any events and is
+therefore never fired and never bursts other domains. Since it is stationary it also doesn't contribute to the horizon.
+
+A zero shell is made in a number of situations. They are made when a new particle is introduced in the simulation system
+(for example at the beginning of a simulation run), or when a shell is bursted and is reduced to a collection of zero-dt
+NonInteractionSingles.
+Since zero shells have a dt of zero their events are all at the top of the
+scheduler, and consequently these events will be processed before and other events. Note that these shells always produce
+an $ESCAPE$ event, and that there can be only other zero shells in the simulation system if the shell that is associated with
+the currently event is also a zero shell.
+
+
+\end{document}
