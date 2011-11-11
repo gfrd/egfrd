@@ -563,7 +563,7 @@ class PlanarSurfacePair(SimplePair):
 
     def iv_greens_function(self, r0):
 	    # TODO still doesn't work with 2D Green's functions
-        return GreensFunction3DRadAbs(self.D_r, self.interparticle_ktot, r0,
+        return GreensFunction2DRadAbs(self.D_r, self.interparticle_ktot, r0,
                                       self.sigma, self.a_r)
 
     def create_new_shell(self, position, radius, domain_id):
