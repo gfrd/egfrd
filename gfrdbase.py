@@ -94,11 +94,11 @@ def get_closest_surface(world, pos, ignore=[]):
         if isinstance(surface, _gfrd.Surface) and surface.id not in ignore:
             pos_transposed = \
                 world.cyclic_transpose(pos, surface.shape.position)
-	    distance = world.distance(surface.shape, pos_transposed)
+            distance = world.distance(surface.shape, pos_transposed)
             distances_and_surfaces.append((distance, surface))
 
     if distances_and_surfaces:
-	distance, surface = min(distances_and_surfaces)
+        distance, surface = min(distances_and_surfaces)
         return surface, distance
     else:
         return None, numpy.inf

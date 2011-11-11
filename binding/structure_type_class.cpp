@@ -42,7 +42,7 @@ struct structure_type_to_structure_id_converter
 void register_structure_type_class()
 {
     structure_type_class = register_structure_type_class<StructureType>("StructureType");
-    peer::util::to_native_converter<StructureID, structure_type_to_structure_id_converter<StructureID, StructureType> >();
+    peer::util::to_native_converter<StructureTypeID, structure_type_to_structure_id_converter<StructureTypeID, StructureType> >();
 }
 
 } // namespace binding

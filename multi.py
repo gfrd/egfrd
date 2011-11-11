@@ -14,11 +14,11 @@ import os
 
 class Multi(Domain):
     def __init__(self, domain_id, main, dt_factor):
-	Domain.__init__(self, domain_id)
+        Domain.__init__(self, domain_id)
 
         self.main = ref(main)
         self.last_event = None
-	self.event_Type = EventType.MULTI_DIFFUSION
+        self.event_Type = EventType.MULTI_DIFFUSION
 
         self.sphere_container = _gfrd.SphericalShellContainer(main.world.world_size, 3)
         self.particle_container = _gfrd.MultiParticleContainer(main.world)

@@ -20,6 +20,17 @@ inline boost::python::objects::class_base register_structure_class(char const *n
         .add_property("id", 
             make_function(&impl_type::id,
                           return_value_policy<return_by_value>()))
+        .add_property("sid",
+            make_function(
+                &peer::util::reference_accessor_wrapper<
+                    impl_type, typename impl_type::species_id_type,
+                    &impl_type::sid,
+                    &impl_type::sid>::get,
+                return_value_policy<return_by_value>()),
+            &peer::util::reference_accessor_wrapper<
+                impl_type, typename impl_type::species_id_type,
+                &impl_type::sid,
+                &impl_type::sid>::set)
         .def("random_position", &impl_type::random_position)
         .def("random_vector", &impl_type::random_vector)
         .def("bd_displacement", &impl_type::bd_displacement)

@@ -10,6 +10,7 @@
 
 #include "exceptions.hpp"
 #include "utils/get_mapper_mf.hpp"
+#include "SpeciesTypeID.hpp"
 
 class ParticleModel;
 
@@ -20,7 +21,8 @@ private:
     typedef get_mapper_mf<std::string, std::string>::type string_map_type;
 
 public:
-    typedef std::string identifier_type;
+    // typedef std::string identifier_type;
+    typedef SpeciesTypeID identifier_type;
     typedef string_map_type::const_iterator string_map_iterator;
     typedef boost::iterator_range<string_map_iterator> attributes_range;
 

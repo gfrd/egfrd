@@ -21,6 +21,7 @@ SAFETY = 1.0 + 1e-5
 # Tolerance used for float comparison functions. Oversimplifying: two floats a 
 # and b are considered to be equal if abs(a - b) < TOLERANCE * abs(a).
 TOLERANCE = 1e-7
+TIME_TOLERANCE = 1e-10
 
 # Multiplication factor used for seperating 2 particles or a particle and a 
 # surface after unbinding.
@@ -198,7 +199,7 @@ def normalize(a, l=1):
     return _gfrd.normalize(a, l)
 
 def vector_angle(a, b):
-    # returns the angle tussen vector a en b
+    # returns the angle between vector a en b
     # the range of the angle is (0 - Pi)
     cosangle = numpy.dot(a, b) / (length(a) * length(b))
     return math.acos(cosangle)

@@ -37,6 +37,7 @@ struct WorldTraitsBase
     typedef SpeciesTypeID species_id_type;
     typedef Particle<length_type, D_type, species_id_type> particle_type;
     typedef std::string structure_id_type;
+    // typedef SpeciesTypeID structure_id_type;
     typedef SpeciesInfo<species_id_type, D_type, length_type, structure_id_type> species_type;
     typedef Vector3<length_type> point_type;
     typedef typename particle_type::shape_type::position_type position_type;

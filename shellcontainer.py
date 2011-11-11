@@ -17,7 +17,7 @@ class ShellContainer(object):
 
     def __init__(self, world):
 
-	# the containers hold the spherical and cylindrical shells respectively 
+        # the containers hold the spherical and cylindrical shells respectively 
         # the containers is a cache for the shell objects in the domain and is mostly
         # read only. The only method that writes the containers is self.move_shell
         self.containers = [SphericalShellContainer(world.world_size,
@@ -25,11 +25,11 @@ class ShellContainer(object):
                            CylindricalShellContainer(world.world_size,
                                                      world.matrix_size)]
 
-	self.world = world
-        self.user_max_shell_size = numpy.inf	# Note: shell_size is actually the RADIUS of the shell
+        self.world = world
+        self.user_max_shell_size = numpy.inf    # Note: shell_size is actually the RADIUS of the shell
 
     def get_matrix_cell_size(self):
-	return self.containers[0].cell_size     # cell_size is the width of the (cubic) cell
+        return self.containers[0].cell_size     # cell_size is the width of the (cubic) cell
 
     # Here shell_size is actually the shell radius (and not shell diameter)
     def set_user_max_shell_size(self, size):
@@ -57,14 +57,14 @@ class ShellContainer(object):
         container.update(shell_id_shell_pair)
 
     def remove_shell(self, shell_id_shell_pair):
-	shell_id = shell_id_shell_pair[0]
-	shell = shell_id_shell_pair[1]
-	container = self.get_container(shell)
-	del container[shell_id]
+        shell_id = shell_id_shell_pair[0]
+        shell = shell_id_shell_pair[1]
+        container = self.get_container(shell)
+        del container[shell_id]
 
     def distance(self, pos1, pos2):
-	# Export the distance calculation
-	return self.world.distance(pos1, pos2)
+        # Export the distance calculation
+        return self.world.distance(pos1, pos2)
 
     def get_intruders(self, position, radius, ignore):
         # gets the intruders in a spherical volume of radius 'radius'?
@@ -105,8 +105,8 @@ class ShellContainer(object):
 
     def get_closest_obj(self, pos, domains, ignore=[], ignores=[]):
         # ignore: domain ids.
-	# TODO It's bad to pass the domains to this function, but is currently
-	# only way to be able to return a domain object (instead of domain_id)
+        # TODO It's bad to pass the domains to this function, but is currently
+        # only way to be able to return a domain object (instead of domain_id)
         closest_domain = None
         closest_distance = numpy.inf
 
@@ -117,7 +117,7 @@ class ShellContainer(object):
                 domain_id = shell_id_shell_pair[1].did
 
                 if domain_id not in ignore and distance < closest_distance:
-		    domain = domains[domain_id]
+                    domain = domains[domain_id]
                     closest_domain, closest_distance = domain, distance
                     # Found yet a closer domain. Break out of inner for 
                     # loop and check other containers.
@@ -132,7 +132,7 @@ class ShellContainer(object):
 
     def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):
         # Get neighbor domains within given radius.
-	# Note that the function returns a generator
+        # Note that the function returns a generator
         #
         # ignore: domain ids.
         #
@@ -165,8 +165,8 @@ class ShellContainer(object):
                 did_map.setdefault(shell.did, []).append(shell_id)
                 shell_map[shell_id] = shell
 
-	return did_map, shell_map
+        return did_map, shell_map
 
     def get_total_num_shells(self):
-	return sum(len(container) for container in self.containers)
+        return sum(len(container) for container in self.containers)
 
