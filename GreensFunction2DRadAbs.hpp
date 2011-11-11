@@ -26,7 +26,7 @@ class GreensFunction2DRadAbs
 {
 
 public:
-    // defines vector from template defined in standard template library,
+    // Defines vector from template defined in standard template library,
     // gives it's membervalues type Real. std:: clarifies the std namespace.
     typedef std::vector<Real> RealVector;
 
@@ -50,22 +50,23 @@ private:
     
     // Parameters for alpha-root finding
     // ======
-    // Could be tweaked for better performance!
+    // See getAlpha() in cpp file for more information. 
     //
-    // If we've switched from over- to underestimating the root for 
-    // EXPECTED_OVER_UNDER_SWITCHING times, we'll assume we're in regime where the 
-    // period of the roots converges to the pi/(sigma-a) estimate.
-    //      Hence, if the value of the root lies within INTERVAL_MARGIN 
-    // times the estimated interval, we assume all next roots subsequently have 
-    // the same or less deviation from the estimated pi/(sigma-a) interval. The 
-    // maximum INTERVAL_MARGIN is 0.33, since underestimating >33% twice
-    // in a row will result in two roots in the same sign-change scanning 
-    // domain.
+    // Parameters for scanning method
+    // Left boundary of 1st search interval 1st root
+    static const Real SCAN_START = 0.001;     
+    // Length of the scanning interval relative to estimated interval
+    static const Real FRACTION_SCAN_INTERVAL = .5;    
+    
+    // Other paramters
+    // After CONVERGENCE_ASSUMED subsequent roots that lay within +/- 
+    // INTERVAL_MARGIN from the distance to which the distance is known to 
+    // converge, it is assumed all following roots have a distances inbetween
+    // that don't deviate for more than INTERVAL_MARGIN from the distance to 
+    // which the roots are known to converge (Pi/(a-sigma)).
     static const Real CONVERGENCE_ASSUMED = 25;
     static const Real INTERVAL_MARGIN = .33; 
-    static const Real FRACTION_SCAN_INTERVAL = .5; // Distance between subsequent roots should always > this    
-    // Percentage of estimated interval where root finding should start:
-    static const Real SCAN_START = 0.001; 
+
 
 
 public:
@@ -144,7 +145,7 @@ public:
 
     std::string dump() const;
 
-    const Real alphaOffset( const unsigned int n ) const;
+//    const Real alphaOffset( const unsigned int n ) const; // TODO Really can be thrown away?
 
 //    const Real alpha0_i( const Real previous ) const;
 
@@ -317,35 +318,29 @@ private:
 
     // Tables that hold calculated roots (y=0) of "alpha" function for each    
     // order n.
-    //      The alphaOffsetTable will be filled with 1st roots for all n. The 
-    // alphaTable will also be filled with these 1st roots, but also the mth 
-    // roots for all n.
-    //      Note that number of elements is MAX_ORDER+1 as the order n can range
-    // from n=0 to n=MAX_ORDER.
-    //      Initial values are set by constructor.
-    mutable boost::array<Real,MAX_ORDER+1> alphaOffsetTable;
     mutable boost::array<RealVector,MAX_ORDER+1> alphaTable;
-    
-    const Real estimated_alpha_root_distance_;    
-    
-    // LEGACY
-    // Table which for each order n tells if we're in regime where next root
-    // will lie in [x_previous_root-INTERVAL_ALLOWED_ERROR, x_previous_root
-    // +INTERVAL_ALLOWED_ERROR]. In that case value n of table will be true, 
-    // if we still have to scan for a sign-change, than value n in table will
-    // be false.
-    // mutable boost::array<bool,MAX_ORDER+1> alphaRootsConverged;
-    
+
+    // Constants used in the roots of f_alpha() finding algorithm.
+    // ====
+    //
+    // This constant will simply be M_PI/(a-Sigma), the value to which the 
+    // distance between roots of f_alpha() should converge.
+    const Real estimated_alpha_root_distance_;        
+    //
     // Table which tells us at which x we're left with scanning the alpha 
     // function for a sign change, for a given order n. (A sign change would 
     // indicate a root (y=0) lies between the boundaries of the "scanned" 
     // interval.) 
-    //      If x_scan[n] == -1, this indicates scanning is no longer required
+    //      If x_scan[n] < 0, this indicates scanning is no longer required
     // because the distance between the roots is converging and within 
     // boundaries that allow the direct use of the estimate interval width 
     // pi/(sigma-a).
     //      Initial values are set by constructor.
     mutable boost::array<Real,MAX_ORDER+1> alpha_x_scan_table_;     
+    //
+    // Table that keeps track of the number of previous subsequent roots that 
+    // we're within margin of the distance to which they're expected to 
+    // converge.
     mutable boost::array<int,MAX_ORDER+1> alpha_correctly_estimated_;
 
 };

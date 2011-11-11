@@ -138,7 +138,7 @@ funcSum(boost::function<Real(unsigned int i)> f, size_t max_i, Real tolerance)
 
         if (fabs(sum) * tolerance >= fabs(p_i)) // '=' is important
         {
-            ++convergenceCounter;
+            ++convergenceCounter;          
         }
         /*
         // this screws it up; why?

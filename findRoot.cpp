@@ -12,19 +12,15 @@
 #include <stdexcept>
 #include <gsl/gsl_errno.h>
 
-#include <iostream> // ONLY FOR DEBUG PURPOSES TODO
-
 #include "Logger.hpp"
 #include "findRoot.hpp"
 
+// Iterates the solver until desired precision has been reached or a maximum
+// number of iterations have been performed.
 Real findRoot(gsl_function const& F, gsl_root_fsolver* solver, Real low,
               Real high, Real tol_abs, Real tol_rel, char const* funcName)
 {
-
-    // TODO DEBUG REMOVE!!!    
-    // std::cout << "Starting root finding. Initiated by: " << funcName << ";\n";
-    // END TODO DEBUG REMOVE
-
+    // low and high should constitute an interval that straddles a root.
     Real l(low);
     Real h(high);
 
@@ -36,20 +32,18 @@ Real findRoot(gsl_function const& F, gsl_root_fsolver* solver, Real low,
     for (;;)
     {
     
-        
+        // iterate        
         gsl_root_fsolver_iterate(solver);
                
+        // get found bracketing interval
         l = gsl_root_fsolver_x_lower(solver);
-        h = gsl_root_fsolver_x_upper(solver);
+        h = gsl_root_fsolver_x_upper(solver);     
 
-        // TODO DEBUG REMOVE!!!
-        // std::cout << "Current search: [" << l << ", " << h << "];\n";
-        // END TODO DEBUG REMOVE
-        
-
+        // see if this is acceptable
         const int status(gsl_root_test_interval(l, h, tol_abs,
                                                   tol_rel));
 
+        // stop finder if convergence or too much iterations
         if (status == GSL_CONTINUE)
         {
             if (i >= maxIter)
@@ -68,10 +62,6 @@ Real findRoot(gsl_function const& F, gsl_root_fsolver* solver, Real low,
   
 
     const Real root(gsl_root_fsolver_root(solver));
-
-    // TODO DEBUG REMOVE!!!    
-    // std::cout << "Final output: [" << root << "];\n";
-    // END TODO DEBUG REMOVE
         
     return root;    
 }
