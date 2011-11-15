@@ -669,8 +669,7 @@ class CylindricalSurfaceInteraction(InteractionSingle):
     def iv_greens_function(self):
         # Green's function used for the interaction
         # Interaction possible in r direction.
-        # TODO 2D.
-        return GreensFunction3DRadAbs(self.D, self.interaction_ktot, self.r0, self.get_inner_sigma(),
+        return GreensFunction2DRadAbs(self.D, self.interaction_ktot, self.r0, self.get_inner_sigma(),
                                       self.get_inner_a())
 
     def draw_new_position(self, dt, event_type):

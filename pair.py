@@ -562,7 +562,6 @@ class PlanarSurfacePair(SimplePair):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
 
     def iv_greens_function(self, r0):
-	    # TODO still doesn't work with 2D Green's functions
         return GreensFunction2DRadAbs(self.D_r, self.interparticle_ktot, r0,
                                       self.sigma, self.a_r)
 
@@ -592,12 +591,12 @@ class PlanarSurfacePair(SimplePair):
         
             if distance_from_shell < threshold_distance:
                 # near both a and sigma;
-                # use GreensFunction3DRadAbs
+                # use GreensFunction2DRadAbs
                 if __debug__:
                     log.debug('GF2D: normal')
                 return self.iv_greens_function(r0)
             else:
-                # near sigma; use GreensFunction3DRadInf
+                # near sigma; use GreensFunction2DRadInf
                 if __debug__:
                     log.debug('GF2D: only sigma')
                 return self.iv_greens_function(r0)
@@ -750,19 +749,17 @@ class MixedPair(Pair):
         z_right1 = iv_z + radius2 * Domain.SINGLE_SHELL_FACTOR
         r1       = cls.r_right(single1, single2, r0, z_right1)
 
-        len_iv_projected = math.sqrt(iv_x*iv_x + iv_y*iv_y)
-        dist_r_from_com1 = len_iv_projected * D1 / D12
-        dist_r_from_com2 = len_iv_projected * D2 / D12
-        iv_shell_radius1 = dist_r_from_com1 + radius1
-        iv_shell_radius2 = dist_r_from_com2 + radius2
+        len_iv = r0
+        iv_shell_radius1 = len_iv * D1 / D12 
+        iv_shell_radius2 = len_iv * D2 / D12 
 
         # fix the minimum shell size for the CoM domain
         com_shell_radius = max(radius1, radius2)
 
         # calculate the minimal dimensions of the protective domain including space for the
         # burst volumes of the particles
-        r2 = max(iv_shell_radius1 + com_shell_radius + radius1 * (1 - Domain.SINGLE_SHELL_FACTOR),
-                 iv_shell_radius2 + com_shell_radius + radius2 * (1 - Domain.SINGLE_SHELL_FACTOR))
+        r2 = max(iv_shell_radius1 + com_shell_radius + radius1 * Domain.SINGLE_SHELL_FACTOR,
+                 iv_shell_radius2 + com_shell_radius + radius2 * Domain.SINGLE_SHELL_FACTOR)
         z_right2 = cls.z_right(single1, single2, r0, r2)
 
         # of both alternatives pick the largest one
@@ -928,17 +925,17 @@ class MixedPair(Pair):
             raise RuntimeError('Error: psi was not in valid range. psi = %s, phi = %s, theta = %s' %
                                (FORMAT_DOUBLE % psi, FORMAT_DOUBLE % phi, FORMAT_DOUBLE % theta))
 
-        log.debug('situation = %s' % (situation))
-        print "h0", scalecenter_h0
-        print "scale_center" , scale_center
-        print "theta = " ,theta
-        print "phi= ", phi
-        print "psi= ", psi
-        print "shell_scale_center= ", shell_scale_center
-        print "shell_scalecenter_r= ", shell_scalecenter_r
-        print "shell_scalecenter_z= ", shell_scalecenter_z
-#        print "a_thres=", a_thres
-        print "shell_size=", shell_size
+        if __debug__:
+            log.debug('situation = %s' % (situation))
+    #        print "h0", scalecenter_h0
+    #        print "scale_center" , scale_center
+    #        print "theta = " ,theta
+    #        print "phi= ", phi
+    #        print "psi= ", psi
+    #        print "shell_scale_center= ", shell_scale_center
+    #        print "shell_scalecenter_r= ", shell_scalecenter_r
+    #        print "shell_scalecenter_z= ", shell_scalecenter_z
+    #        print "shell_size=", shell_size
 
 
         ### Get the right values for z and r for the given situation
@@ -977,12 +974,13 @@ class MixedPair(Pair):
             raise RuntimeError('Bad situation for MixedPair shell making')
 
         ## DEBUGGING
-        h_l = (z1_new + z2_new)/2.0
-        print "h_l = ", h_l
-        g = z1_new - h_l - scalecenter_h0
-        print "g = ", g
-        x = length(shell_scale_center) 
-        print "distance = ", math.sqrt(g*g + x*x - 2.0*g*x*math.cos(theta))
+        if __debug__:
+            h_l = (z1_new + z2_new)/2.0
+#            print "h_l = ", h_l
+#            g = z1_new - h_l - scalecenter_h0
+#            print "g = ", g
+#            x = length(shell_scale_center) 
+#            print "distance = ", math.sqrt(g*g + x*x - 2.0*g*x*math.cos(theta))
 
 
         # switch the z values in case it's necessary. r doesn't have to be switched.
@@ -995,9 +993,10 @@ class MixedPair(Pair):
             z_left  = z1_new
 
         ## DEBUGGING
-        print "r = " , r
-        print "z_left = ", z_left
-        print "z_right = ", z_right
+        if __debug__:
+            print "r = " , r
+#            print "z_left = ", z_left
+#            print "z_right = ", z_right
 
         return r, z_left, z_right
 
@@ -1113,7 +1112,7 @@ class MixedPair(Pair):
         if r_check > radius:
             # radius should have been larger, adjust z_right instead
             if __debug__:
-                log.debug('MixedPair: half_length was too high for radius:'
+                log.debug('MixedPair: half_length was too high for radius. '
                           'radius = %.3g, r_check = %.3g, 2half_length = %.3g, 2hl_check = %.3g' %
                           (radius, r_check, half_length*2, hl2_check))
 
@@ -1122,7 +1121,7 @@ class MixedPair(Pair):
         elif hl2_check > (half_length*2):
             # half_length should have been larger, adjust radius instead
             if __debug__:
-                log.debug('MixedPair: radius was too high for half_length:'
+                log.debug('MixedPair: radius was too high for half_length. '
                           'radius = %.3g, r_check = %.3g, 2half_length = %.3g, 2hl_check = %.3g' %
                           (radius, r_check, half_length*2, hl2_check))
             radius = r_check
@@ -1134,7 +1133,9 @@ class MixedPair(Pair):
         D2 = self.pid_particle_pair2[1].D
         D12 = D1 + D2
 
-        a_r = ((half_length * 2) - radius1 - (radius2)) * self.z_scaling_factor
+        z_left  = radius1
+        z_right = half_length * 2 - z_left
+        a_r = (z_right - radius2) * self.z_scaling_factor
 
         # calculate the maximal displacement of a particle given an a_r. Also include its radius
         space_for_iv = max( (D1/D12) * a_r + radius1,
