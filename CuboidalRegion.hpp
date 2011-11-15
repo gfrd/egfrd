@@ -4,7 +4,7 @@
 #include <boost/bind.hpp>
 #include "Region.hpp"
 #include "Box.hpp"
-//#include "freeFunctions.hpp"
+#include "freeFunctions.hpp"
 
 template<typename Ttraits_>
 class CuboidalRegion
@@ -18,6 +18,8 @@ public:
     typedef typename base_type::rng_type rng_type;
     typedef typename base_type::position_type position_type;
     typedef typename base_type::length_type length_type;
+    typedef typename Ttraits_::world_type::species_type species_type;
+    typedef std::pair<position_type, position_type> position_pair_type;
 
     identifier_type const& id() const
     {
@@ -64,7 +66,61 @@ public:
     {
         return random_vector( drawR_gbd(rng.uniform(0., 1.), r01, dt, D01, v ), rng );
     }
+    
+    virtual Real get_1D_rate_geminate( Real const& k, length_type const& r01 ) const
+    {
+        return k / ( 4 * M_PI * r01 * r01 );    
+    }
+    
+    virtual Real get_1D_rate_surface( Real const& k ) const
+    {
+        return Real(); //No reaction rates with bulk;    
+    }
 
+    virtual Real particle_reaction_volume( length_type const& r01, length_type const& rl ) const
+    {
+        length_type const r01l( r01 + rl );
+        length_type const r01l_cb( r01l * r01l * r01l );
+        length_type const r01_cb( r01 * r01 * r01 );
+
+        return 4.0/3.0 * M_PI * ( r01l_cb - r01_cb );
+    }
+    
+    virtual Real surface_reaction_volume( length_type const& r0, length_type const& rl ) const
+    {
+        return Real(); //No surface interaction with the bulk
+    }
+
+    virtual position_type surface_dissociation_vector( rng_type& rng, length_type const& r0, length_type const& rl ) const
+    {
+        return position_type(); //No surface dissociation 'from' the bulk
+    }
+
+    virtual position_pair_type geminate_dissociation_positions( rng_type& rng, species_type const& s0, species_type const& s1, position_type const& op, 
+        length_type const& rl ) const
+    {
+        length_type const r01( s0.radius() + s1.radius() );
+        Real const D01( s0.D() + s1.D() );
+
+        Real const X( rng.uniform(0.,1.) );
+
+        length_type const r01l( r01 + rl );
+        length_type const r01l_cb( r01l * r01l * r01l );
+        length_type const r01_cb( r01 * r01 * r01 );
+        
+        length_type const diss_vec_length( cbrt( X * (r01l_cb - r01_cb ) + r01_cb ) );
+
+        position_type const m( random_vector( diss_vec_length, rng ) );
+        
+        return position_pair_type( op - m * s0.D() / D01,
+                                    op + m * s1.D() / D01 );
+    }
+    
+    virtual position_pair_type special_geminate_dissociation_positions( rng_type& rng, species_type const& s_surf, species_type const& s_bulk, 
+        position_type const& op_surf, length_type const& rl ) const
+    {
+        return position_pair_type(); //No special geminate dissociation 'from' the bulk
+    }
 
     virtual void accept(ImmutativeStructureVisitor<traits_type> const& visitor) const
     {

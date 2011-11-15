@@ -28,6 +28,7 @@
 #include "../ParticleSimulator.hpp"
 #include "../EGFRDSimulator.hpp"
 #include "../BDPropagator.hpp"
+#include "../newBDPropagator.hpp"
 #include "../BDSimulator.hpp"
 #include "../StructureUtils.hpp"
 #include "../AnalyticalSingle.hpp"
@@ -71,6 +72,7 @@ typedef EGFRDSimulator::sphere_type Sphere;
 typedef EGFRDSimulator::cylinder_type Cylinder;
 typedef EGFRDSimulator::plane_type Plane;
 typedef ::BDPropagator<EGFRDSimulatorTraits> BDPropagator;
+typedef ::newBDPropagator<EGFRDSimulatorTraits> newBDPropagator;
 typedef EGFRDSimulatorTraits::shell_id_type ShellID;
 typedef EGFRDSimulatorTraits::domain_id_type DomainID;
 typedef EGFRDSimulatorTraits::reaction_rule_type ReactionRuleInfo;

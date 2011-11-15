@@ -60,6 +60,7 @@ public:
     typedef typename traits_type::structure_id_type structure_id_type;
     typedef typename traits_type::structure_type structure_type;
     typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
+    typedef std::pair<structure_id_type, length_type> structure_id_and_distance_pair;
     typedef abstract_limited_generator<particle_id_pair> particle_id_pair_generator;
     typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
     typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
@@ -68,8 +69,15 @@ private:
     typedef std::map<typename particle_id_pair::first_type,
             typename particle_id_pair::second_type> particle_id_pair_set_type;
     typedef sorted_list<std::vector<particle_id_type> > particle_id_list_type;
+    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;
+    typedef select_second<typename structure_map::value_type> surface_second_selector_type;
 
-public:
+public:    
+    typedef boost::transform_iterator<surface_second_selector_type,
+            typename structure_map::const_iterator> surface_iterator;
+    typedef sized_iterator_range<surface_iterator> structures_range;
+
+
     virtual particle_id_pair new_particle(species_id_type const& sid,
             position_type const& pos)
     {
@@ -153,6 +161,16 @@ public:
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
         return pc_.get_structure(id);
+    }
+    
+    virtual structures_range get_structures() const
+    {
+        return pc_.get_structures();
+    }    
+        
+    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
+    {
+        return pc_.get_closest_surface( pos, ignore );
     }
 
     virtual species_type const& get_species(species_id_type const& id) const

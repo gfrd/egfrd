@@ -3,6 +3,7 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/foreach.hpp>
 
 #include "exceptions.hpp"
 #include "Domain.hpp"
@@ -13,9 +14,11 @@
 #include "BDPropagator.hpp"
 #include "Logger.hpp"
 #include "PairGreensFunction.hpp"
+#include "Transaction.hpp"
 #include "VolumeClearer.hpp"
 #include "utils/array_helper.hpp"
 #include "utils/range.hpp"
+
 
 template<typename Ttraits_>
 class MultiParticleContainer
@@ -35,6 +38,10 @@ public:
     typedef typename traits_type::size_type size_type;
     typedef typename traits_type::structure_id_type structure_id_type;
     typedef typename traits_type::structure_type structure_type;
+    typedef typename Ttraits_::network_rules_type network_rules_type;
+    typedef typename Ttraits_::reaction_rule_type reaction_rule_type;
+    typedef typename network_rules_type::reaction_rules reaction_rules;      
+    typedef typename Ttraits_::world_type::particle_container_type::structure_id_and_distance_pair structure_id_and_distance_pair;
     typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
     typedef Transaction<traits_type> transaction_type;
     typedef abstract_limited_generator<particle_id_pair> particle_id_pair_generator;
@@ -42,6 +49,22 @@ public:
     typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
     typedef std::map<particle_id_type, particle_type> particle_map;
     typedef sized_iterator_range<typename particle_map::const_iterator> particle_id_pair_range;
+    typedef std::pair<const Real, const Real> real_pair;
+
+private:
+    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;
+    typedef select_second<typename structure_map::value_type> surface_second_selector_type;
+    typedef std::map<species_id_type, species_type> species_map;
+    typedef select_second<typename species_map::value_type> species_second_selector_type;
+
+public:    
+    typedef boost::transform_iterator<surface_second_selector_type,
+            typename structure_map::const_iterator> surface_iterator;
+    typedef sized_iterator_range<surface_iterator> structures_range;
+    typedef boost::transform_iterator<species_second_selector_type,
+        typename species_map::const_iterator> species_iterator;
+    typedef sized_iterator_range<species_iterator> species_range;
+
 
     virtual ~MultiParticleContainer() {}
 
@@ -54,7 +77,7 @@ public:
     {
         return world_.world_size();
     }
-
+    
     virtual species_type const& get_species(species_id_type const& id) const
     {
         return world_.get_species(id);
@@ -64,12 +87,23 @@ public:
     {
         return world_.get_structure(id);
     }
-
+    
+    virtual structures_range get_structures() const
+    {
+        return world_.get_structures();
+    }
+    
+    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
+    {        
+        return world_.get_closest_surface( pos, ignore );
+    }
+        
     virtual particle_id_pair new_particle(species_id_type const& sid,
             position_type const& pos)
     {
         particle_id_pair const retval(world_.new_particle(sid, pos));
         particles_.insert(retval);
+	    add_species_to_multi(sid);
         return retval;
     }
 
@@ -80,19 +114,22 @@ public:
         if (i != particles_.end())
         {
             (*i).second = pi_pair.second;
+	        add_species_to_multi(pi_pair.second.sid());
             return false;
         }
         else
         {
-            particles_.insert(i, pi_pair);
+	        particles_.insert(i, pi_pair);
+	        add_species_to_multi(pi_pair.second.sid());
             return true;
         }
     }
 
     virtual bool remove_particle(particle_id_type const& id)
     {
+        species_.erase( get_particle(id).second.sid() );
         world_.remove_particle(id);
-        return particles_.erase(id);
+	    return particles_.erase(id);
     }
 
     virtual particle_id_pair get_particle(particle_id_type const& id) const
@@ -185,11 +222,150 @@ public:
                                       particles_.size());
     }
 
+    void add_species_to_multi(species_id_type const& sid)
+    {   
+        typename species_map::const_iterator i(species_.find( sid ));
+	    if (species_.end() == i)
+	    {
+	        species_[sid] = world_.get_species( sid );
+        }
+    }
+    
+    species_range get_species_in_multi() const
+    {     
+        return species_range(
+            species_iterator(species_.begin(), species_second_selector_type()),
+            species_iterator(species_.end(), species_second_selector_type()),
+            species_.size());
+    }
+    
+    /* Returns largest diffusion constant en smallest particle radius inside the mpc. */
+    real_pair maxD_minsigma() const
+    {
+        Real D_max(0.), radius_min(std::numeric_limits<Real>::max());
+
+        BOOST_FOREACH(species_type s, get_species_in_multi())
+        {
+            if (D_max < s.D())
+                D_max = s.D();
+            if (radius_min > s.radius())
+                radius_min = s.radius();
+        }
+        
+        return real_pair(D_max, radius_min);
+    }
+    
+    /* Functions returns largest _1D_ intrinsic reaction rate in the multi. */
+    Real get_max_rate(network_rules_type const& rules) const
+    {
+        Real k_max(0.);
+        int i = 0, j= 0;
+        
+        BOOST_FOREACH(particle_id_pair pp, get_particles_range())
+        {
+            species_type const s( pp.second.sid() );
+            structure_id_and_distance_pair const strc_id_and_dist( 
+                get_closest_surface( pp.second.position(), s.structure_id() ) );
+                
+            if( strc_id_and_dist.second < s.radius() && s.structure_id() == "world" )
+            {
+                species_id_type const strc_sid( get_structure( strc_id_and_dist.first )->sid() );
+                reaction_rules const& rrules(rules.query_reaction_rule( s.id(), strc_sid ));
+                if (::size(rrules) == 0)
+                    continue;
+
+                for (typename boost::range_const_iterator<reaction_rules>::type
+                it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
+                {
+                    Real const k( get_structure( strc_id_and_dist.first )->get_1D_rate_surface( (*it).k() ) ); 
+
+                    if ( k_max < k )
+                        k_max = k;
+                }
+            }            
+            
+        }
+        
+        BOOST_FOREACH(species_type s0, get_species_in_multi())
+        {
+            j = 0;
+            BOOST_FOREACH(species_type s1, get_species_in_multi())
+            {
+                if( j++ < i )
+                    continue;
+                
+                reaction_rules const& rrules(rules.query_reaction_rule( s0.id(), s1.id() ));
+                if (::size(rrules) == 0)
+                    continue;
+                                            
+                for (typename boost::range_const_iterator<reaction_rules>::type
+                it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
+                {
+                    const length_type r01( s0.radius() + s1.radius() );
+                    Real k;
+                    
+                    if(s0.structure_id() != s1.structure_id())
+                    {
+                        if(s0.structure_id() == "world")
+                            k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                        else
+                            k = get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                    }
+                    else
+                    {
+                        k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
+                    }
+                
+                    if ( k_max < k )
+                        k_max = k;
+                }          
+            }
+            i++;
+        }
+        
+        return k_max;
+    }
+    
+    /* Function returns the timestep and reaction length (rl) for BD propegator. 
+       
+       --dt is calulated with the constraints:
+       (1) The reaction length is equal to step_size_factor (ssf) * r_min,
+       where r_min is the radius of the smallest particle in the multi.
+       (2) The largest acceptance probability in the multi is smaller than Pacc_max (.01).
+       (3) particles escape the multi with a maximum step size in the order of the 
+           reaction length. (Dmax * dt ~ (ssf * r_min)**2 ).
+       
+       TODO:This function should be a method of the Multi Class, but I put it in the mpc such that we can use it in python.
+       
+       PROBLEM: for certain parameters (large k) dt can be very small and the simulation will slow down.
+    */    
+    real_pair determine_dt_and_reaction_length(network_rules_type const& rules, Real const& step_size_factor) const
+    {               
+        const real_pair maxD_minr( maxD_minsigma() );
+        const Real k_max( get_max_rate(rules) );
+        const Real D_max( maxD_minr.first );
+        const Real r_min( maxD_minr.second );
+        const Real Pacc_max( 0.01 ); //Maximum allowed value of the acceptance probability.
+        const Real tau_D( 2 * gsl_pow_2(step_size_factor * r_min) / D_max );
+        Real dt;
+        
+        if( k_max > 0)
+        {
+            Real dt_temp( 2 * Pacc_max * step_size_factor * r_min / k_max );
+            dt = std::min( dt_temp, tau_D ); // tau_D is upper limit of dt.
+        }
+        else
+            dt = tau_D;
+
+        return real_pair(dt, step_size_factor * r_min);
+    }
+
     MultiParticleContainer(world_type& world): world_(world) {}
 
 private:
     world_type& world_;
     particle_map particles_;
+    species_map species_;
 };
 
 template<typename Tsim_>
@@ -209,6 +385,9 @@ public:
     typedef typename traits_type::world_type::size_type size_type;
     typedef typename traits_type::world_type::structure_type structure_type;
     typedef typename traits_type::world_type::particle_id_pair particle_id_pair;
+    typedef typename traits_type::network_rules_type network_rules_type;
+    typedef typename traits_type::reaction_rule_type reaction_rule_type;
+    typedef typename network_rules_type::reaction_rules reaction_rules;   
     typedef typename traits_type::shell_id_type shell_id_type;
     typedef typename traits_type::domain_id_type identifier_type;
     typedef typename traits_type::template shell_generator<
@@ -217,11 +396,21 @@ public:
     typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
     typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
     typedef typename traits_type::reaction_record_type reaction_record_type;
+    typedef std::pair<const Real, const Real> real_pair;
 
+private:
+    typedef std::map<species_id_type, species_type> species_map;
+    typedef select_second<typename species_map::value_type> species_second_selector_type;
+            
+public:
     typedef std::map<shell_id_type, spherical_shell_type> spherical_shell_map;
     typedef sized_iterator_range<typename spherical_shell_map::const_iterator> spherical_shell_id_pair_range;
     typedef MultiParticleContainer<traits_type> multi_particle_container_type;
-
+    typedef typename traits_type::world_type world_type;
+    typedef boost::transform_iterator<species_second_selector_type,
+        typename species_map::const_iterator> species_iterator;
+    typedef sized_iterator_range<species_iterator> species_range;
+    
     enum event_kind
     {
         NONE,
@@ -301,6 +490,7 @@ public:
         : base_type(id), main_(main), pc_(*main.world()), dt_factor_(dt_factor),
           shells_(), last_event_(NONE)
     {
+        //TODO Do not base dt and rl on all particles in the world but only those in the multi.
         BOOST_ASSERT(dt_factor > 0.);
         base_type::dt_ = dt_factor_ * BDSimulator<traits_type>::determine_dt(*main_.world());
     }
@@ -364,6 +554,7 @@ public:
         {
             spherical_shell_id_pair const& sp(*i);
             position_type ppos(main_.world()->cyclic_transpose(sphere.position(), (sp).second.position()));
+            //TODO for newBD scheme, add reaction length to sphere.radius().
             if (distance(ppos, (sp).second.shape().position()) < (sp).second.shape().radius() - sphere.radius())
             {
                 return true;
@@ -403,7 +594,7 @@ public:
     {
         return pc_.get_particles_range();
     }
-
+       
     void step()
     {
         boost::scoped_ptr<
@@ -413,6 +604,7 @@ public:
         typedef typename multi_particle_container_type::transaction_type::particle_id_pair_and_distance_list particle_id_pair_and_distance_list;
         last_reaction_setter rs(*this);
         volume_clearer vc(*this);
+        
         BDPropagator<traits_type> ppg(
             *tx, *main_.network_rules(), main_.rng(),
             base_type::dt_,

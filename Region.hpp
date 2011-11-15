@@ -75,10 +75,24 @@ public:
         return out.str();
     }
 
-    std::pair<position_type, length_type>
-    projected_point(position_type const& pos) const
+    virtual std::pair<position_type, length_type> projected_point(position_type const& pos) const
     {
         return ::projected_point(shape(), pos);
+    }
+    
+    virtual std::pair<position_type, length_type> projected_point_on_surface(position_type const& pos) const
+    {
+        return ::projected_point(shape(), pos);
+    }
+    
+    virtual length_type distance(position_type const& pos) const
+    {
+        return ::distance(shape(), pos);
+    }
+    
+    virtual position_type const& structure_position() const
+    {
+        return shape_.position();
     }
 
     BasicRegionImpl(identifier_type const& id, shape_type const& shape)

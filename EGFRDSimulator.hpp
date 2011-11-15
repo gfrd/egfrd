@@ -62,6 +62,7 @@ struct EGFRDSimulatorTraitsBase: public ParticleSimulatorTraitsBase<Tworld_>
 
     static const Real SAFETY = 1. + 1e-5;
     static const Real SINGLE_SHELL_FACTOR = .1;
+    static const Real MULTI_SHELL_FACTOR = .05;
     static const Real DEFAULT_DT_FACTOR = 1e-5;
     static const Real CUTOFF_FACTOR = 5.6;
 };

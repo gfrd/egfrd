@@ -28,6 +28,8 @@ __all__ = [
     'create_world',
     'ParticleSimulatorBase',
     'get_closest_surface',
+    'create_network_rules_wrapper',
+    'place_particle'
     ]
 
 World = _gfrd.World

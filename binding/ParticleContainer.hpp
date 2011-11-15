@@ -1,11 +1,24 @@
 #ifndef BINDING_PARTICLE_CONTAINER_HPP
 #define BINDING_PARTICLE_CONTAINER_HPP
 
+#include <utility>
+#include <map>
+
 #include <boost/python.hpp>
 #include <boost/python/tuple.hpp>
 #include <boost/python/override.hpp>
 #include <boost/python/wrapper.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/array.hpp>
+#include <boost/utility/enable_if.hpp>
+#include <boost/type_traits/is_same.hpp>
+
 #include "../exceptions.hpp"
+#include "../utils/get_default_impl.hpp"
+#include "../generator.hpp"
+#include "../utils/pair.hpp"
+
 #include "peer/compat.h"
 #include "peer/wrappers/generator/pyiterator_generator.hpp"
 #include "peer/wrappers/generator/generator_wrapper.hpp"
@@ -179,8 +192,17 @@ public:
     typedef typename wrapped_type::transaction_type transaction_type;
     typedef typename wrapped_type::particle_id_pair_generator particle_id_pair_generator;
     typedef typename wrapped_type::particle_id_pair_and_distance_list particle_id_pair_and_distance_list;
+    typedef typename wrapped_type::structure_id_and_distance_pair structure_id_and_distance_pair;
 
-public:
+private:
+    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;
+    typedef select_second<typename structure_map::value_type> surface_second_selector_type;
+
+public:    
+    typedef boost::transform_iterator<surface_second_selector_type,
+            typename structure_map::const_iterator> surface_iterator;
+    typedef sized_iterator_range<surface_iterator> structures_range;
+
     virtual ~ParticleContainerWrapper() {}
 
     virtual size_type num_particles() const
@@ -211,6 +233,16 @@ public:
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
         return py_wrapper_type::get_override("get_structure")(id);
+    }
+    
+    virtual structures_range get_structures() const
+    {
+        return py_wrapper_type::get_override("get_structures")();
+    }
+
+    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
+    {
+        return py_wrapper_type::get_override("get_closest_surface")(pos, ignore);
     }
 
     virtual particle_id_pair new_particle(species_id_type const& sid,
@@ -313,6 +345,7 @@ inline boost::python::objects::class_base register_particle_container_class(
     using namespace boost::python;
     typedef Timpl impl_type;
     peer::converters::register_tuple_converter<typename impl_type::particle_id_pair>();
+    peer::converters::register_tuple_converter<typename impl_type::structure_id_and_distance_pair>();
     peer::converters::register_tuple_converter<typename impl_type::particle_id_pair_and_distance>();
 
     particle_id_pair_and_distance_list_converter<typename impl_type::particle_id_pair_and_distance_list>::__register();
@@ -325,6 +358,8 @@ inline boost::python::objects::class_base register_particle_container_class(
             pure_virtual((typename impl_type::species_type const&(impl_type::*)(typename impl_type::species_id_type const&) const)&impl_type::get_species),
             return_internal_reference<>())
         .def("get_structure", pure_virtual(&impl_type::get_structure))
+        .def("get_structures", pure_virtual(&impl_type::get_structures))
+        .def("get_closest_surface", pure_virtual(&impl_type::get_closest_surface))
         .def("new_particle", pure_virtual(&impl_type::new_particle))
         .def("update_particle", pure_virtual(&impl_type::update_particle))
         .def("remove_particle", pure_virtual(&impl_type::remove_particle))

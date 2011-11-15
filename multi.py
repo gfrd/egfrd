@@ -1,4 +1,3 @@
-import bd
 from weakref import ref
 
 from gfrdbase import *
@@ -13,7 +12,7 @@ from domain import Domain
 import os
 
 class Multi(Domain):
-    def __init__(self, domain_id, main, dt_factor):
+    def __init__(self, domain_id, main, step_size_factor):
         Domain.__init__(self, domain_id)
 
         self.main = ref(main)
@@ -23,14 +22,28 @@ class Multi(Domain):
         self.sphere_container = _gfrd.SphericalShellContainer(main.world.world_size, 3)
         self.particle_container = _gfrd.MultiParticleContainer(main.world)
         self.escaped = False
-        self.dt_factor = dt_factor
+        self.step_size_factor = step_size_factor
         self.last_reaction = None
+        self.reaction_length = 0
 
     def initialize(self, t):
         self.last_time = t
         self.start_time = t
         main = self.main()
-        self.dt = self.dt_factor * bd.calculate_bd_dt(main.world.get_species(sid) for sid in main.world.species)
+        self.set_dt_and_reaction_length()
+        #self.dt = self.dt_factor * self.calculate_bd_dt(main.world.get_species(sid) for sid in main.world.species)
+
+    def calculate_bd_dt(species_list):
+        D_list = []
+        radius_list = []
+        D_max = 0.
+        radius_min = numpy.inf
+        for species in species_list:
+            if D_max < species.D:
+                D_max = species.D
+            if radius_min > species.radius:
+                radius_min = species.radius
+        return (radius_min * 2) ** 2 / (D_max * 2)
 
     def get_multiplicity(self):
         return self.particle_container.num_particles
@@ -40,7 +53,7 @@ class Multi(Domain):
         return SphericalShell(self.domain_id, Sphere(position, radius))
 
     def within_shell(self, pp):
-        return bool(self.sphere_container.get_neighbors_within_radius(pp[1].position, -pp[1].radius))
+        return bool(self.sphere_container.get_neighbors_within_radius(pp[1].position, -(pp[1].radius + self.reaction_length)))
 
     def add_shell(self, shell_id_shell_pair):
         if __debug__:
@@ -53,6 +66,11 @@ class Multi(Domain):
             log.info("add particle to multi:\n  (%s,\n   %s)" % 
                      (pid_particle_pair[0], pid_particle_pair[1]))
         self.particle_container.update_particle(pid_particle_pair)
+        
+    def set_dt_and_reaction_length(self):
+        main = self.main()
+        self.dt, self.reaction_length = \
+            self.particle_container.determine_dt_and_reaction_length(main.network_rules, self.step_size_factor)
 
     def step(self):
         self.escaped = False
@@ -73,7 +91,7 @@ class Multi(Domain):
             def __call__(self, shape, ignore0, ignore1=None):
                 within_radius = bool(
                     self.outer_.sphere_container.get_neighbors_within_radius(
-                        shape.position, -shape.radius))
+                        shape.position, -(shape.radius + self.outer_.reaction_length) ))
                 if not within_radius:
                     main = self.outer_.main()
                     if self.outer_.last_event == None:
@@ -91,11 +109,11 @@ class Multi(Domain):
         cr = check_reaction()
         vc = clear_volume(self)
 
-        ppg = _gfrd.BDPropagator(tx, main.network_rules,
-                     myrandom.rng, self.dt, main.dissociation_retry_moves,
+        ppg = _gfrd.newBDPropagator(tx, main.network_rules,
+                     myrandom.rng, self.dt, main.dissociation_retry_moves, self.reaction_length,
                      cr, vc, [pid for pid, _ in self.particle_container])
 
-        self.last_event = None
+        self.last_event = None        
         while ppg():
             if cr.reactions:
                 self.last_reaction = cr.reactions[-1]
@@ -104,7 +122,7 @@ class Multi(Domain):
                 else:
                     self.last_event = EventType.MULTI_BIMOLECULAR_REACTION
                 break
-
+                
         # for pid_particle_pair in itertools.chain(
         #         tx.modified_particles, tx.added_particles):
         #     overlapped = main.world.check_overlap(pid_particle_pair[1].shape, pid_particle_pair[0])

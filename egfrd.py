@@ -36,8 +36,6 @@ from shellcontainer import ShellContainer
 import logging
 import os
 
-from bd import DEFAULT_DT_FACTOR
-
 log = logging.getLogger('ecell')
 
 if __debug__:
@@ -116,7 +114,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.shell_id_generator = ShellIDGenerator(0)
 
         # some constants
-        self.MULTI_SHELL_FACTOR = 1.05          # This is the threshold for when the algorithm switches from
+        self.MULTI_SHELL_FACTOR = 1.2           # This is the threshold for when the algorithm switches from
                                                 # NonInteractionSingles to a Multi and also defines the Multi
                                                 # shell size.
         self.SINGLE_SHELL_FACTOR = 2.0          # This is the threshold for when the algorithm switches from
@@ -125,6 +123,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.MAX_NUM_DT0_STEPS = 10000
 
         self.MAX_TIME_STEP = 10
+
+        self.DEFAULT_DT_FACTOR = 1e-5           # Diffusion time prefactor in oldBD algortithm to determine time step.
+        
+        self.DEFAULT_STEP_SIZE_FACTOR = 0.05    # The maximum step size in the newBD algorithm is determined as DSSF * sigma_min.
+                                                # Make sure that DEFAULT_STEP_SIZE_FACTOR < MULTI_SHELL_FACTOR, or else the 
+                                                # reaction volume sticks out of the multi.
 
         # used datastructrures
         self.scheduler = EventScheduler()       # contains the events. Note that every domains has exactly one event
@@ -342,7 +346,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # assert if not too many successive dt=0 steps occur.
         if __debug__:
             if self.dt == 0:
-                log.warning('dt=zero step, working in s.t >> dt~0 Python limit.')
+                log.debug('dt=zero step, working in s.t >> dt~0 Python limit.')
                 self.zero_steps += 1
                 # TODO Changed from 10 to 10000, because only a problem 
                 # when reaching certain magnitude.
@@ -501,17 +505,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 1. generate necessary id's
         domain_id = self.domain_id_generator()
 
-        if __debug__:
-            try:
-                # Option to make multis run faster for nicer visualization.
-                dt_factor = DEFAULT_DT_FACTOR * self.bd_dt_factor
-            except AttributeError:
-                dt_factor = DEFAULT_DT_FACTOR 
-        else:
-            dt_factor = DEFAULT_DT_FACTOR
-
         # 2. Create and register domain object
-        multi = Multi(domain_id, self, dt_factor)
+        multi = Multi(domain_id, self, self.DEFAULT_STEP_SIZE_FACTOR)
         self.domains[domain_id] = multi
 
         # 3. no shells are yet made, since these are added later

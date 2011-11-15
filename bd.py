@@ -82,7 +82,7 @@ class BDSimulatorCore(object):
         def dummy(shape, ignore0, ignore1=None):
             return True
 
-        ppg = _gfrd.BDPropagator(self.world, self.network_rules,
+        ppg = _gfrd.newBDPropagator(self.world, self.network_rules,
                      self.rng, self.dt, self.dissociation_retry_moves,
                      increment_reaction_events, dummy, self.world.particle_ids)
         ppg.propagate_all()

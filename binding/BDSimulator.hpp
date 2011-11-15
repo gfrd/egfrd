@@ -27,6 +27,8 @@ void register_bd_simulator_class(char const* name)
         .def(init<boost::shared_ptr<typename impl_type::world_type>,
                  boost::shared_ptr<typename impl_type::network_rules_type const>,
                  typename impl_type::rng_type&, double, int>())
+        .def("get_reaction_length", &impl_type::get_reaction_length)
+        .def("set_reaction_length_factor",&impl_type::set_reaction_length_factor)
 //        .def("check", &impl_type::check)
 //        .def("__len__", &impl_type::num_domains)
 //        .def("__getitem__", &impl_type::get_domain)

@@ -1,6 +1,8 @@
 #ifndef WORLD_HPP
 #define WORLD_HPP
 
+#include <iostream>
+
 #include "ParticleContainerBase.hpp"
 
 #include <map>
@@ -8,6 +10,8 @@
 #include <boost/array.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_same.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/foreach.hpp>
 #include "exceptions.hpp"
 #include "generator.hpp"
 #include "filters.hpp"
@@ -24,6 +28,7 @@
 #include "GSLRandomNumberGenerator.hpp"
 #include "Point.hpp" // XXX: workaround. should be removed later.
 #include "utils/pair.hpp"
+#include "utils/range.hpp"
 
 template<typename Tderived_, typename Tlen_, typename TD_>
 struct WorldTraitsBase
@@ -172,6 +177,8 @@ public:
     typedef typename traits_type::structure_id_type structure_id_type;
     typedef typename traits_type::structure_type structure_type;
     typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
+    typedef std::pair<position_type, length_type> projected_type;
+    typedef typename particle_container_type::structure_id_and_distance_pair structure_id_and_distance_pair;
 
 protected:
     typedef std::map<species_id_type, species_type> species_map;
@@ -276,14 +283,38 @@ public:
         return (*i).second;
     }
 
-    structures_range get_structures() const
+    virtual structures_range get_structures() const
     {
         return structures_range(
             surface_iterator(structure_map_.begin(), surface_second_selector_type()),
             surface_iterator(structure_map_.end(), surface_second_selector_type()),
             structure_map_.size());
     }
+    
+    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
+    {       
+        length_type const world_size( base_type::world_size() );
+        length_type ret_dist( std::numeric_limits<length_type>::max() );
+        structure_id_type ret_id( ignore );
 
+        BOOST_FOREACH(boost::shared_ptr<structure_type> const structure, get_structures())
+        {
+            if( structure->id() == ignore )
+                continue;
+            
+            position_type const cyc_pos(cyclic_transpose(pos, structure->structure_position(), world_size));
+            length_type const dist( fabs( structure->projected_point_on_surface( cyc_pos ).second ) );
+                
+            if( dist < ret_dist )
+            {
+                ret_dist = dist;
+                ret_id = structure->id();
+            }  
+        }
+        
+        return structure_id_and_distance_pair( ret_id , ret_dist );
+    }
+   
     particle_id_set get_particle_ids(species_id_type const& sid) const
     {
         typename per_species_particle_id_set::const_iterator i(

@@ -8,8 +8,10 @@ AM_CPPFLAGS = @CPPFLAGS@ -DNO_IMPORT
 noinst_LTLIBRARIES = libbinding_utils.la
 
 noinst_HEADERS = \
-	bd_propagator_class.hpp \
+    bd_propagator_class.hpp \
+	new_bd_propagator_class.hpp \
 	BDPropagator.hpp \
+    newBDPropagator.hpp \
 	binding_common.hpp \
 	box_class.hpp \
 	Box.hpp \
@@ -90,6 +92,7 @@ noinst_HEADERS = \
 
 libbinding_utils_la_SOURCES = \
 	bd_propagator_class.cpp \
+    new_bd_propagator_class.cpp \
 	box_class.cpp \
 	ConsoleAppender.cpp \
 	cylinder_class.cpp \

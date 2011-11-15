@@ -130,6 +130,24 @@ projected_point(Cylinder<T_> const& obj,
         r_z.first);
 }
 
+//Allmost equal to projected point method, but for the substraction of the cylinder radius from the radial distance r.
+//And projected point now lies on the surface, not on the central axis.
+template<typename T_>
+inline std::pair<typename Cylinder<T_>::position_type,
+                 typename Cylinder<T_>::length_type>
+projected_point_on_surface(Cylinder<T_> const& obj,
+                typename Cylinder<T_>::position_type const& pos)
+{
+    typedef typename Cylinder<T_>::length_type length_type;
+    typedef typename Cylinder<T_>::position_type position_type;
+
+    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    position_type within_surface( add(obj.position(), multiply(obj.unit_z(), r_z.second)) );
+
+    return std::make_pair( add(within_surface, multiply( normalize( subtract( pos, within_surface ) ), obj.radius() )),
+        r_z.first - obj.radius() );
+}
+
 template<typename T_>
 inline typename Cylinder<T_>::length_type
 distance(Cylinder<T_> const& obj,

@@ -47,6 +47,7 @@ noinst_HEADERS = \
 	BasicNetworkRulesImpl.hpp\
 	GreensFunction3DRadInf.hpp\
 	BDPropagator.hpp\
+    newBDPropagator.hpp\
 	BDSimulator.hpp\
 	bessel.hpp\
 	Box.hpp\
