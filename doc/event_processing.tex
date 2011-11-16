@@ -73,13 +73,13 @@ are coupled to the particles (their size, structure and reactionrules).
 
 
 Processing the event means:
-if Single && zero-shell && D != 0 then
+%if Single && zero-shell && D != 0 then
   the single was a 'special' single (zero shell) -> make\_new\_domain
 else
   the single was a 'normal' domain and event should be processed
 
   (calculate new position(s))
-  if (D != 0) && dt>0 (time has passed)
+%  if (D != 0) && dt>0 (time has passed)
     (there was actual relevant diffusion)
     determine new position(s) of particle(s)
     apply boundary conditions

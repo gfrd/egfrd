@@ -681,7 +681,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             
         elif len(rr.products) == 1:
-        # TODO product particle can live on different structure
             
             # 1. get product info
             product_species = self.world.get_species(rr.products[0])
@@ -715,39 +714,43 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 product_pos_list = [reactant_pos]               # no change of position is required if structure doesn't change
 
 
-            # TODO try alternatives if surrounding is crowded
-            product_pos = product_pos_list[0]
-            product_pos = self.world.apply_boundary(product_pos)
+            for product_pos in product_pos_list:
+                product_pos = self.world.apply_boundary(product_pos)
 
-            # 2. make space for the products.
-#            if product_pos != reactant_pos or product_radius > reactant_radius:
-            self.burst_volume(product_pos, product_radius)
+                # 2. make space for the products.
+#                if product_pos != reactant_pos or product_radius > reactant_radius:
+                self.burst_volume(product_pos, product_radius)
 
-            # 3. check that there is space for the products 
-            if self.world.check_overlap((product_pos, product_radius), reactant[0]):
-                # 4. Process (the lack of) change
-                moved_reactant = self.move_particle(reactant, reactant_pos)
-                products = [moved_reactant]     # no change
+                # 3. check that there is space for the products 
+                if (not self.world.check_overlap((product_pos, product_radius), reactant[0])):
 
-                # 5. update counters
-                self.rejected_moves += 1
+                    # 4. process the changes (remove particle, make new ones)
+                    self.world.remove_particle(reactant[0])
+                    newparticle = self.world.new_particle(product_species.id, product_pos)
+                    products = [newparticle]
 
-                # 6. Log the event
-                if __debug__:
-                    log.info('single reaction; placing product failed.')
+                    # 5. update counters
+                    self.reaction_events += 1
+                    self.last_reaction = (rr, (reactant[1], None), products)
+
+                    # 6. Log the change
+                    if __debug__:
+                        log.info('product (%s) = %s' % (len(products), products))
+
+                    # exit the loop, we have found a new position
+                    break
+
             else:
-                # 4. process the changes (remove particle, make new ones)
-                self.world.remove_particle(reactant[0])
-                newparticle = self.world.new_particle(product_species.id, product_pos)
-                products = [newparticle]
+                    # 4. Process (the lack of) change
+                    moved_reactant = self.move_particle(reactant, reactant_pos)
+                    products = [moved_reactant]     # no change
 
-                # 5. update counters
-                self.reaction_events += 1
-                self.last_reaction = (rr, (reactant[1], None), products)
+                    # 5. update counters
+                    self.rejected_moves += 1
 
-                # 6. Log the change
-                if __debug__:
-                     log.info('product (%s) = %s' % (len(products), products))
+                    # 6. Log the event
+                    if __debug__:
+                        log.info('single reaction; placing product failed.')
 
             
         elif len(rr.products) == 2:
@@ -790,6 +793,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     # product2 goes to 3D and is now particleB (product1 is particleA)
                     productA_displacement = product1_displacement
                     productB_displacement = product2_displacement
+                    productA_radius = product1_radius
                     productB_radius = product2_radius
                     DA = D1
                     DB = D2
@@ -798,6 +802,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     # product1 goes to 3D and is now particleB (product2 is particleA)
                     productA_displacement = product2_displacement
                     productB_displacement = product1_displacement
+                    productA_radius = product2_radius
                     productB_radius = product1_radius
                     DA = D2
                     DB = D1
@@ -808,8 +813,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                     # draw a number of new positions for the two product particles
                     # TODO make this into a generator
-#                    phi_min = math.asin (productB_radius / particle_radius12)   # we assume the membrane to have zero thickness
-#                    phi_min *= MINIMAL_SEPARATION_FACTOR        # make sure that there's some distance from the membrane
 
                     product_pos_list = []
                     for _ in range(self.dissociation_retry_moves):
@@ -843,25 +846,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                         newposA = reactant_pos - weightA * (iv_x + iv_y)
                         newposB = reactant_pos + weightB * (iv_x + iv_y) + iv_z
-
-
-#                        phi = myrandom.uniform(phi_min, Pi - phi_min)
-#
-#                        cos_phi = math.cos(phi) 
-#                        sin_phi = math.sin(phi)
-#
-#                        productA_displacement_xy = productA_displacement * cos_phi
-#                        productB_displacement_xy = productB_displacement * cos_phi
-#                        productB_displacement_z  = particle_radius12 * sin_phi
-#
-#                        # pick a random orientation
-#                        orientation_vector_xy = _random_vector(reactant_structure, 1.0, self.rng)
-#                        # pick a random side of the membrane
-#                        orientation_vector_z  = reactant_structure.shape.unit_z * myrandom.choice(-1, 1)
-#
-#                        newposA = reactant_pos + productA_displacement_xy * orientation_vector_xy
-#                        newposB = reactant_pos - productB_displacement_xy * orientation_vector_xy + \
-#                                                 productB_displacement_z  * orientation_vector_z
                         newposA = self.world.apply_boundary(newposA)
                         newposB = self.world.apply_boundary(newposB)
 
@@ -877,8 +861,27 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                 elif isinstance(reactant_structure, CylindricalSurface):
 
-                    # TODO insert reverse transformation for 3D/1D here
-                    surface_displace = product3D_radius + reactant_structure.shape.radius
+                    product_pos_list = []
+                    for _ in range(self.dissociation_retry_moves):
+
+                        iv = random_vector(particle_radius12 * MixedPair3D1D.calc_r_scaling_factor(DA, DB))
+                        iv *= MINIMAL_SEPARATION_FACTOR
+
+                        newposA, newposB = MixedPair3D1D.do_back_transform(reactant_pos, iv, DA, DB,
+                                                                           productA_radius, productB_radius, reactant_structure)
+
+                        newposA = self.world.apply_boundary(newposA)
+                        newposB = self.world.apply_boundary(newposB)
+
+                        assert (self.world.distance(newposA, newposB) >= particle_radius12)
+                        assert (self.world.distance(reactant_structure.shape, newposB) >= productB_radius)
+
+                        if default:
+                            newpos1, newpos2 = newposA, newposB
+                        else:
+                            newpos1, newpos2 = newposB, newposA
+
+                        product_pos_list.append((newpos1, newpos2))
 
                 else:
                     # cannot decay from 3D to other structure
@@ -913,6 +916,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # 3. check that there is space for the products (try different positions if possible)
             # accept the new positions if there is enough space.
             for newpos1, newpos2 in product_pos_list:
+
                 if (not self.world.check_overlap((newpos1, product1_radius), reactant[0])
                    and
                    not self.world.check_overlap((newpos2, product2_radius), reactant[0])):

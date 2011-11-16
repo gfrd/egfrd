@@ -19,6 +19,7 @@ __all__ = [
     'Pair',
     'SimplePair',
     'MixedPair',
+    'MixedPair3D1D',
     ]
 
 if __debug__:
@@ -1310,4 +1311,40 @@ class MixedPair(Pair):
 
     def __str__(self):
         return 'Mixed' + Pair.__str__(self)
+
+class MixedPair3D1D(Pair):
+
+    @classmethod
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, surface):
+        D_tot = D1 + D2
+        weight1 = D1 / D_tot
+        weight2 = D2 / D_tot
+
+        min_iv_r_length = radius2 + surface.shape.radius
+
+        # get the coordinates of the iv relative to the system of the surface (or actually the shell)
+        iv_z = surface.shape.unit_z * numpy.dot(iv, surface.shape.unit_z)
+        iv_r = iv - iv_z
+
+        # reflect the coordinates in the unit_z direction back to the side of the membrane
+        # where the domain is. Note that it's implied that the origin of the coordinate system lies in the
+        # plane of the membrane
+        iv_r_length = length(iv_r)
+        # do the reverse scaling
+        iv_r_length_new = iv_r_length / cls.calc_r_scaling_factor(D1, D2)
+
+        # if the particle is overlapping with the cylinder, make sure it doesn't
+        if iv_r_length_new < min_iv_r_length:
+            iv_r_length_new = min_iv_r_length * MINIMAL_SEPARATION_FACTOR
+
+        iv_r =  (iv_r_length_new/iv_r_length) * iv_r
+
+        pos1 = com - weight1 * iv_z
+        pos2 = com + weight2 * iv_z + iv_r
+
+        return pos1, pos2
+
+    @classmethod
+    def calc_r_scaling_factor(cls, D1, D2):
+        return math.sqrt((D1 + D2)/D2)
 
