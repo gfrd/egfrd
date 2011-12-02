@@ -45,7 +45,7 @@ private:
 
     static const unsigned int MAX_ORDER = 30;		// The maximum number of m 
                                                     // terms
-    static const unsigned int MAX_ALPHA_SEQ = 2000;	// The maximum number of n 
+    static const unsigned int MAX_ALPHA_SEQ = 500;	// The maximum number of n 
                                                     // terms
     
     // Parameters for alpha-root finding

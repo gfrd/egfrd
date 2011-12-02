@@ -9,6 +9,8 @@ from _gfrd import (
     CylindricalShellContainer
     )
 from utils import *
+from single import NonInteractionSingle
+from multi import Multi
 from gfrdbase import (
     get_closest_surface
     )
@@ -116,12 +118,12 @@ class ShellContainer(object):
             for shell_id_shell_pair, distance in result:
                 domain_id = shell_id_shell_pair[1].did
 
-                if domain_id not in ignore and distance < closest_distance:
+                if ((domain_id not in ignore) and (distance < closest_distance)):
                     domain = domains[domain_id]
                     closest_domain, closest_distance = domain, distance
                     # Found yet a closer domain. Break out of inner for 
                     # loop and check other containers.
-                    break
+#                    break
 
         surface, distance = get_closest_surface(self.world, pos, ignores)
 
@@ -129,6 +131,51 @@ class ShellContainer(object):
             return surface, distance
         else:
             return closest_domain, closest_distance
+
+    def get_neighbor_domains(self, position, domains, ignore=[]):
+    # returns the neighboring domains and the distance to their nearest shell (Multi's can have multiple)
+
+        dists = {}
+
+        for container in self.containers:
+            neighbors = container.get_neighbors(position)
+
+            for shell_id_shell_pair, distance in neighbors:
+                domain_id = shell_id_shell_pair[1].did
+
+                if (domain_id not in ignore) and \
+                   ((domain_id not in dists) or (distance < dists[domain_id])):
+
+                    dists[domain_id] = distance
+
+        neighbor_domains = [(domains[domain_id], distance) for domain_id, distance in dists.iteritems()]
+        return neighbor_domains
+
+
+    def filter_distance(self, neighbor_domains, radius):
+        # returns all the domains that are less than 'radius' distance away
+        intruders = [(domain, distance) for (domain, distance) in neighbor_domains if distance < radius]
+        return intruders        
+
+    def filter_partners(self, neighbor_domains):
+
+        partners = []
+        for domain, distance in neighbor_domains:
+            if (isinstance (domain, NonInteractionSingle) and domain.is_reset()) or \
+               isinstance (domain, Multi):
+                partners.append((domain, distance))
+
+        return partners
+
+    def sort_domain_distance(self, neighbor_domains):
+        return sorted(neighbor_domains, key=lambda domain_dist: domain_dist[1])
+
+    def get_neighbor_surfaces(self, position, ignores=[]):
+        # analogous to get_neighbor domains, this returns a list of (surface, distance) tuples
+
+        # TODO return a list of neighboring surfaces
+        surface, distance = get_closest_surface(self.world, position, ignores)
+        return [(surface, distance), ]
 
     def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):
         # Get neighbor domains within given radius.

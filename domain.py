@@ -2,6 +2,7 @@
 
 import numpy
 import myrandom
+import math
 
 __all__ = [
     'Domain',
@@ -14,6 +15,7 @@ class Domain(object):
 # with an own domain_id
 
     SINGLE_SHELL_FACTOR = 2.0
+    MULTI_SHELL_FACTOR = math.sqrt(2)
 
     def __init__(self, domain_id):
         self.domain_id = domain_id      # identifier for this domain object

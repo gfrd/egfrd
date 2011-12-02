@@ -41,7 +41,6 @@ class Single(ProtectiveDomain):
         self.reactionrules = reactionrules              # the reaction rules for mono molecular reactions
         self.rrule = None                               # the reaction rule of the actual reaction (property reactionrule)
         self.k_tot = self.calc_ktot(reactionrules)
-        #self.updatek_tot()                             # RENAME to calc_ktot and MOVE to ProtectiveDomain
 
     def getD(self):
         return self.pid_particle_pair[1].D
@@ -113,29 +112,8 @@ class Single(ProtectiveDomain):
         event_type = EventType.SINGLE_ESCAPE    # TODO Event is not an ESCAPE when in 1D there is drift
         return dt, event_type
 
-#    def updatek_tot(self):
-#       # MOVE to ProtectiveDomain class. See also reasoning above for
-#       # draw_reaction_time_tuple
-#        self.k_tot = 0
-#
-#        if not self.reactionrules:
-#            return
-#
-#        for rr in self.reactionrules:
-#            self.k_tot += rr.k
-#
-#    def draw_reaction_rule(self):
-#       # MOVE to ProtectiveDomain class
-#        k_array = [rr.k for rr in self.reactionrules]
-#        k_array = numpy.add.accumulate(k_array)
-#        k_max = k_array[-1]
-#
-#        rnd = myrandom.uniform()
-#        i = numpy.searchsorted(k_array, rnd * k_max)
-#
-#        return self.reactionrules[i]
-
     def check(self):
+    # performs an internal consistency check
         pass
 
     def __str__(self):
@@ -232,6 +210,9 @@ class NonInteractionSingle(Single):
             # asymmetric 1D domain (r0 != 0, or drift), since draw_r always 
             # returns a distance relative to the centre of the shell (r=0), 
             # not relative to r0.
+
+            # note that we need to make sure that the shell.shape.position and displacement vector
+            # are in the structure to prevent the particle leaving the structure due to numerical errors
             newpos = self.shell.shape.position + displacement
 
         return newpos
@@ -279,17 +260,37 @@ class NonInteractionSingle(Single):
         # NonInteractionSingles on the dna and membrane this is quite inefficient-> want to
         # size in the appropriate coordinate (r or z).
         singlepos = self.pid_particle_pair[1].position
-        closest, distance_to_shell = \
-            geometrycontainer.get_closest_obj(singlepos, domains, ignore=[self.domain_id],
-                                              ignores=[self.structure.id])
+#        closest, distance_to_shell = \
+#            geometrycontainer.get_closest_obj(singlepos, domains, ignore=[self.domain_id],
+#                                              ignores=[self.structure.id])
 
-        # 2. In case the nearest neighbor was a NonInteractionSingle we need to tweak the size
+        neighbor_domains = geometrycontainer.get_neighbor_domains(singlepos, domains, ignore=[self.domain_id, ])
+        neighbor_surfaces = geometrycontainer.get_neighbor_surfaces(singlepos, ignores=[self.structure.id])
+        neighbors = neighbor_domains + neighbor_surfaces
+
+        # 2. Calculate the maximum allowed radius of the spherical domain
+        # check ALL domains, not just nearest neighbor but also next nearest etc, and get the nearest one.
+        # In case the neighbor was a NonInteractionSingle we may need to tweak the distance
+        distance_domain_closest = (numpy.inf, None)
+        for domain, distance in neighbors:
+            if isinstance(domain, NonInteractionSingle):
+                # leave at least MULTI_SHELL_FACTOR space for another NonInteractionSingle (to make sure that
+                # the other single will not have an overlapping multi shell when starting to multi
+                distance_max = geometrycontainer.world.distance(singlepos, domain.pid_particle_pair[1].position)
+                distance = min(distance, distance_max - domain.pid_particle_pair[1].radius * Domain.MULTI_SHELL_FACTOR)
+                # TODO check this!
+
+            # get the minimum of currect and previous minimum
+            distance_domain = (distance, domain)
+            distance_domain_closest = min(distance_domain_closest, distance_domain)
+
+        distance_to_shell, closest = distance_domain_closest
+
+        # 3. Apply still other rules if the nearest is another NonInteractionSingle (optimization)
         # TODO shell size has no real meaning for cylinderical domains
         if isinstance(closest, NonInteractionSingle):
             new_shell_size = self.calculate_shell_size_to_single(closest, distance_to_shell,
                                                                  geometrycontainer)
-        # TODO This is incorrect. The closest can be a Pair but still NonInteractionSingles may need
-        # more space
         else:  # Pair or Multi or Surface
             new_shell_size = distance_to_shell / SAFETY
 
@@ -350,14 +351,21 @@ class PlanarSurfaceSingle(NonInteractionSingle):
         # particle undergoes an unbinding reaction we still have to 
         # clear the target volume and the move may be rejected (NoSpace 
         # error).
-        orientation = normalize(
-            utils.crossproduct(self.structure.shape.unit_x,
-                               self.structure.shape.unit_y))
+
+        # Note that the calculateion of the position of the shell needs to make sure that the
+        # coordinates are in the surface
+        position = position - self.structure.shape.position     # TODO this can go wrong if either positions are near the boundaries
+        pos_x = self.structure.shape.unit_x * numpy.dot (position, self.structure.shape.unit_x)
+        pos_y = self.structure.shape.unit_y * numpy.dot (position, self.structure.shape.unit_y)
+
+        position = self.structure.shape.position + pos_x + pos_y
+        orientation = self.structure.shape.unit_z
         half_length = self.pid_particle_pair[1].radius
         return CylindricalShell(self.domain_id, Cylinder(position, radius, 
                                                     orientation, half_length))
 
     def create_position_vector(self, r):
+        # project the vector onto the surface unit vectors to make sure that the coordinates are in the surface
         x, y = random_vector2D(r)
         return x * self.structure.shape.unit_x + y * self.structure.shape.unit_y
 
@@ -403,9 +411,17 @@ class CylindricalSurfaceSingle(NonInteractionSingle):
         # The radius of a rod is not more than it has to be (namely the 
         # radius of the particle), so if the particle undergoes an 
         # unbinding reaction we still have to clear the target volume 
-        # and the move may be rejected (NoSpace error).
+        # and the move may be rejected.
+
+        # Note that the calculation of the position of the shell has to make sure that the
+        # coordinates are in the surface
+        unit_z = self.structure.shape.unit_z
+        position = position - self.structure.shape.position     # TODO this can go wrong if either positions are near the boundaries
+        pos_z = unit_z * numpy.dot (position, unit_z)
+
+        position = self.structure.shape.position + pos_z
         radius = self.pid_particle_pair[1].radius
-        orientation = self.structure.shape.unit_z
+        orientation = unit_z
         return CylindricalShell(self.domain_id, Cylinder(position, radius, 
                                                     orientation, half_length))
 
@@ -416,6 +432,8 @@ class CylindricalSurfaceSingle(NonInteractionSingle):
             # both boundaries at the escape time
             # TODO, include drift
             z = myrandom.choice(-1, 1) * z 
+
+        # project the com onto the surface unit vectors to make sure that the coordinates are in the surface
         return z * self.shell.shape.unit_z
 
     def __str__(self):
@@ -555,11 +573,8 @@ class PlanarSurfaceInteraction(InteractionSingle):
     def iv_greens_function(self):
         # The green's function that also modelles the association of the particle
         # with the planar surface.
-        # TODO choose interactionrule
         return GreensFunction1DRadAbs(self.D, self.interaction_ktot, self.z0,
                                       -self.get_inner_dz_left(), self.get_inner_dz_right())
-#        return GreensFunction1DRadAbs(self.D, 0, self.z0,
-#                                     -self.get_inner_dz_left(), self.get_inner_dz_right())
 
     def draw_new_position(self, dt, event_type):
         """Draws a new position for the particle for a given event type at a given time
@@ -581,13 +596,11 @@ class PlanarSurfaceInteraction(InteractionSingle):
                 r = draw_r_wrapper(gf, dt, a)
 
             x, y = random_vector2D(r)
+            # express the r vector in the unit vectors of the surface to make sure the particle is
+            # parallel to the surface (due to numerical problem)
             vector_r = x * self.surface.shape.unit_x + y * self.surface.shape.unit_y
 
             # calculate z vector
-            # Todo. Cartesian coordinate will return absolute position.
-            # Heads up. size_of_domain is different from the half_length of 
-            # the cylinder, because the domain ends where the surface 
-            # starts, while the cylinder is continuing into the surface.
             z_surface = -self.get_inner_dz_left()       # left side of the inner domain
             z_not_surface = self.get_inner_dz_right()   # right side of the inner domain (away from the surface)
 
@@ -605,9 +618,13 @@ class PlanarSurfaceInteraction(InteractionSingle):
                 gf_iv = self.iv_greens_function()
                 z = draw_r_wrapper(gf_iv, dt, z_not_surface, z_surface) # last two args= a, sigma
 
+            # express the vector_z in the unit vectors of the surface to prevent the particle from
+            # leaving the surface due to numerical problem
             vector_z = z * self.shell.shape.unit_z
 
             # The new position is relative to the center of the shell
+            # note that we need to make sure that the shell.shape.position and vector_r and vector_z
+            # are correct (in the structure) to prevent the particle leaving the structure due to numerical errors
             newpos = self.shell.shape.position + vector_r + vector_z
 
         return newpos
@@ -691,9 +708,11 @@ class CylindricalSurfaceInteraction(InteractionSingle):
                 gf = self.greens_function()
                 z = draw_r_wrapper(gf, dt, self.get_inner_dz_left())
 
-            # Direction matters, so use shell.shape.unit_z instead of 
-            # structure.shape.unit_z.
-            z_vector = z * self.shell.shape.unit_z
+            # Direction matters, so determine the direction of the shell relative to the surface
+            # first
+            direction = cmp(numpy.dot(self.shell.shape.unit_z, self.structure.shape.unit_z), 0)
+            # express the z_vector into the surface unit vectors to make sure that the coordinates are in the surface
+            z_vector = z * direction * self.structure.shape.unit_z
 
 
             # 2) Draw r and theta.
