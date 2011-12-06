@@ -21,6 +21,8 @@
 #include "findRoot.hpp"
 #include "Defs.hpp"
 #include "OldDefs.hpp"			// TODO: this must be removed at some point!
+#include "funcSum.hpp"
+#include "freeFunctions.hpp"
 
 #include "GreensFunction.hpp"
 #include "PairGreensFunction.hpp"	// needed to declare EventType
@@ -28,6 +30,10 @@
 
 class GreensFunction1DAbsAbs: public GreensFunction
 {
+public:
+    typedef std::vector<Real> RealVector;
+    typedef unsigned int uint;
+
 private:
     // This is a typical length scale of the system, may not be true!
     static const Real L_TYPICAL = 1E-8;
@@ -38,9 +44,9 @@ private:
     //E3; Is 1E3 a good measure for the probability density?!
     static const Real PDENS_TYPICAL = 1;
     // The maximum number of terms in the sum
-    static const int MAX_TERMS = 500;
+    static const uint MAX_TERMS = 500;
     // The minimum
-    static const int MIN_TERMS = 20;
+    static const uint MIN_TERMS = 20;
     // Cutoff distance: When H * sqrt(2Dt) < 1/2*L, use free greensfunction instead of absorbing.
     static const Real CUTOFF_H = 6.0;
 
@@ -167,17 +173,22 @@ public:
 private:
     struct drawT_params
     {
-        // use 10 terms in the summation for now
-        Real exponent[MAX_TERMS];
-        Real Xn[MAX_TERMS];
-        Real prefactor;
-        int    terms;
-        Real tscale;
-        // random number
+        GreensFunction1DAbsAbs const* gf;
+        RealVector& psurvTable;
         Real rnd;
     };
 
     static double drawT_f (double t, void *p);
+
+    Real p_survival_table( Real  t, RealVector& psurvTable ) const;
+
+    Real p_survival_i(uint i, Real const& t, RealVector const& table ) const;
+
+    Real p_survival_table_i_v( uint const& i ) const;
+
+    Real p_survival_table_i_nov( uint const& i ) const;
+
+    void createPsurvTable( uint const& maxi, RealVector& table) const;
 
     struct drawR_params
     {
@@ -185,10 +196,12 @@ private:
         Real n_L[MAX_TERMS];
         // variables H: for additional terms appearing as multiplicative factors etc.
         Real H[5];
-        int terms;
+        uint terms;
         // random number
         Real rnd;
     };
+
+    uint guess_maxi(Real const& t ) const;
 
     static Real drawR_f (Real z, drawR_params const* params);
     static Real drawR_free_f (Real z, drawR_params const* params);
