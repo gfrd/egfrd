@@ -175,7 +175,10 @@ class ShellContainer(object):
 
         # TODO return a list of neighboring surfaces
         surface, distance = get_closest_surface(self.world, position, ignores)
-        return [(surface, distance), ]
+        if surface:
+            return [(surface, distance), ]
+        else:
+            return []
 
     def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):
         # Get neighbor domains within given radius.

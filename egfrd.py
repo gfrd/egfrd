@@ -639,42 +639,34 @@ class EGFRDSimulator(ParticleSimulatorBase):
         neighbors = [self.domains[domain_id] for domain_id in neighbor_ids]
         return self.burst_objs(neighbors)
 
-    def burst_non_multis(self, domains):
-        # bursts the domains in 'domains' if appropriate
-        # -doesn't burst multi's
-        # -doesn't burst domains in which no time has passed
-        # -doesn't burst domains that were already a burst NonInteractionSingle
-        # Returns the list of burst (zero-dt) NonInteractionSingles and Multi's, and the list of domains
-        # unaffected by the procedure
+    def burst_non_multis(self, domain_distances, burstradius):
+        # Bursts the domains in 'domains' if within burstradius
+        # Returns the updated list of domains with their distances
 
-        bursted = []
-        unbursted = []
+        domain_distances_updated = []
 
-#        for domain in domains:
-#            if not isinstance(domain, Multi):
-#                # domain is Single or Pair of some subclass
-#                single_list = self.burst_domain(domain)
-#                bursted.extend(single_list)
-#            else:
-#                # domain is a Multi
-#                bursted.append(domain)
-
-        for domain in domains:
-            if isinstance(domain, Multi):
-                # domain is a Multi
-                bursted.append(domain)
-            elif (isinstance(domain, NonInteractionSingle) and domain.is_reset()):
-                bursted.append(domain)
-            elif self.t != domain.last_time:
-                # domain is some subclass of Single or Pair in which time has passed
+        for domain, distance in domain_distances:
+            if distance <= burstradius and \
+               not isinstance(domain, Multi) and \
+               not (isinstance(domain, NonInteractionSingle) and domain.is_reset()) and \
+               self.t != domain.last_time:
+                # Burst domain only if (AND):
+                # -within radius
+                # -domain is not a multi
+                # -domain is not zero dt NonInteractionSingle
+                # -domain has time passed
                 single_list = self.burst_domain(domain)
-                bursted.extend(single_list)
+                single_distances = [(single, 0) for single in single_list]  # TODO? calculate real distance, now just 0
+                domain_distances_updated.extend(single_distances)
             else:
-                # domain is Single which is just made (no time passed) and is not reset, or
-                # domain is Pair which is just made (no time passed). -> do nothing
-                unbursted.append(domain)
+                # Don't burst domain if (OR):
+                # -domain is farther than burst radius
+                # -domain is a multi
+                # -domain is already a burst NonInteractionSingle (zero dt NonInteractionSingle)
+                # -domain is domain in which no time has passed
+                domain_distances_updated.append((domain, distance))
 
-        return bursted, unbursted
+        return domain_distances_updated
 
     def fire_single_reaction(self, single, reactant_pos):
         # This takes care of the identity change when a single particle decays into
@@ -1139,126 +1131,78 @@ class EGFRDSimulator(ParticleSimulatorBase):
             return single
 
 
+        # 0. Get generic info
         single_pos = single.pid_particle_pair[1].position
         single_radius = single.pid_particle_pair[1].radius
 
-        # 2.1
-        # We prefer to make NonInteractionSingles for efficiency.
-        # But if objects (Shells and surfaces) get close enough (closer than
-        # reaction_threshold) we want to try Interaction and/or Pairs
+        # 1.0 Get neighboring domains and surfaces
+        neighbors = self.geometrycontainer.get_neighbor_domains(single_pos, self.domains, ignore=[single.domain_id, ])
+        # Get also surfaces but only if the particle is in 3D
+        surface_distances = []
+        if isinstance(single, SphericalSingle):
+            surface_distances = self.geometrycontainer.get_neighbor_surfaces(single_pos, ignores=[single.structure.id])
+
 
         # Check if there are shells with the burst radius (reaction_threshold)
         # of the particle (intruders). Note that we approximate the reaction_volume
         # with a sphere (should be cylinder for 2D or 1D particle)
-        reaction_threshold = single.pid_particle_pair[1].radius * \
-                             self.SINGLE_SHELL_FACTOR
+        reaction_threshold = single_radius * self.SINGLE_SHELL_FACTOR
 
-#        intruder_ids, _, _ = \
-#            self.geometrycontainer.get_intruders(single_pos, reaction_threshold,
-#                                                 ignore=[single.domain_id, ])
-#        intruders = [self.domains[domain_id] for domain_id in intruder_ids]
 
-        neighbors = self.geometrycontainer.get_neighbor_domains(single_pos, self.domains, ignore=[single.domain_id, ])
+        # TODO redundant
         intruders = self.geometrycontainer.filter_distance(neighbors, reaction_threshold)
-
         if __debug__:
             log.debug("intruders: %s" %
                       (', '.join(str(i) for i in intruders)))
 
 
         # 2.2 Burst the shells with the following conditions
-        # -shell is in the burst radius (intruder)
+        # -shell is in the reaction_threshold (intruder)
         # -shell is burstable (not Multi)
         # -shell is not newly made
         # -shell is not already a zero shell (just bursted)
-        burst = []
-        if intruders:
-
-            # TODO replace this with burst_non_multis
-            for domain, _ in intruders:
-                if not isinstance(domain, Multi) and \
-                   not self.t == domain.last_time and \
-                   not domain.dt == 0.0:
-                    # domain is Single or Pair of some subclass
-                    single_list = self.burst_domain(domain)
-                    burst.extend(single_list)
-                elif isinstance(domain, Multi):
-                    # domain is a Multi
-                    burst.append(domain)
-
-            # burst now contains all the Domains resulting from the burst.
-            # These are NonInteractionSingles and Multis
+        neighbor_distances = self.burst_non_multis(neighbors, reaction_threshold)
 
 
-        # 2.3 get the closest object (a Domain or surface) which can be a
-        # partner for a new domain. This can be:
-        # zero-shell NonInteractionSingle -> Pair or Multi
-        # Multi -> Multi
-        # Surface -> Interaction
-#        closest_obj, closest_distance = self.geometrycontainer.get_closest_obj(single_pos, self.domains,
-#                                                                        ignore=[single.domain_id],
-#                                                                        ignores=[single.structure.id])
+        # We prefer to make NonInteractionSingles for efficiency.
+        # But if objects (Shells and surfaces) get close enough (closer than
+        # reaction_threshold) we want to try Interaction and/or Pairs
 
-        # New situation -> re-get the neighbors
-        # TODO: modify the existing neighbor list by removing burst domains, and adding the new ones + distance
-        neighbors = self.geometrycontainer.get_neighbor_domains(single_pos, self.domains, ignore=[single.domain_id, ])
-
-        pair_partners = []
-        for domain, _ in neighbors:
+        # 2.3 From the updated list of neighbors, we calculate the thresholds (horizons) for trying to form
+        #     the various domains. The domains can be:
+        # -zero-shell NonInteractionSingle -> Pair or Multi
+        # -Surface -> Interaction
+        # -Multi -> Multi
+        # Note that we do not differentiate between directions. This means that we
+        # look around in a sphere, the horizons are spherical
+        pair_interaction_partners = []
+        for domain, _ in neighbor_distances:
             if (isinstance (domain, NonInteractionSingle) and domain.is_reset()):
                 # distance from the center of the particles/domains
                 pair_distance = self.world.distance(single_pos, domain.shell.shape.position)
                 pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * self.SINGLE_SHELL_FACTOR
-                pair_partners.append((domain, pair_distance - pair_horizon))
-
+                pair_interaction_partners.append((domain, pair_distance - pair_horizon))
         
-        # Potential partners are also surfaces but only if the particle is in 3D
-        interaction_partners = []
-        if isinstance(single, SphericalSingle):
-            # TODO get a list of the surfaces sorted by distance instead of just the closest
-            closest_surface, surface_distance = \
-             get_closest_surface(self.world, single_pos, ignore=[single.structure.id])
-            if closest_surface:
-                surface_horizon = single_radius * self.SINGLE_SHELL_FACTOR
-                interaction_partners = [(closest_surface, surface_distance - surface_horizon), ]
-            # else no interaction is possible
+        for surface, surface_distance in surface_distances:
+            surface_horizon = single_radius * self.SINGLE_SHELL_FACTOR
+            pair_interaction_partners.append((surface, surface_distance - surface_horizon))
 
-        pair_interaction_partners = pair_partners + interaction_partners
         pair_interaction_partners = sorted(pair_interaction_partners, key=lambda domain_overlap: domain_overlap[1])
 
+        log.debug('pair_interaction_partners: %s' % str(pair_interaction_partners))
 
-#        ### START LEGACY
-#        partners = burst
-#        dists = []
-#        if partners:
-##            for domain, _ in partners:
-##            if isinstance(domain, NonInteractionSingle):
-#            # sort partners by distance
-#            dists = self.obj_distance_array(single_pos, partners)
-#            if len(dists) >= 2:
-#                n = dists.argsort()
-#                partners = numpy.take(partners, n)      # sort the potential partners using the index
-#                dists = dists.take(n)                   # sort the distances using the index
-#        ### END LEGACY
-
-
-        # 2.4 calculate the thresholds (horizons) for trying to form the various domains.
-        # Note that we do not differentiate between directions. This means that we
-        # look around in a sphere, the horizons are spherical
-
-        # 2.4 check that the object is a potential partner for an
-        # -Pair         (a zero dt NonInteractionSingle)
-        # -Interaction  (a surface)
-        # -Multi        (a zero dt NonInteractionSingle or Multi)
+        # For each particles/particle or particle/surface pair, check if a pair or interaction can be
+        # made. Note that we check the closest one first and only check if the object are within the horizon
         domain = None
         for obj, hor_overlap in pair_interaction_partners:
 
             if hor_overlap > 0.0 or domain:
-                break       # there are no more potential partners (everything is out of range)
-                            # or a domain was formed successfully previously
+                # there are no more potential partners (everything is out of range)
+                # or a domain was formed successfully previously
+                break
 
             if isinstance(obj, NonInteractionSingle):
-                # try making a Pair (can still be Mixed Pair or Normal Pair)
+                # try making a Pair (can be Mixed Pair or Normal Pair)
                 domain = self.try_pair (single, obj)
 
             elif isinstance(obj, CylindricalSurface) or isinstance(obj, PlanarSurface):
@@ -1267,17 +1211,16 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
 
         if not domain:
-            # No Pair or Interaction could be formed
+            # No Pair or Interaction domain was formed
             # Now choose between NonInteractionSingle and Multi
 
             # make a new list of potential partners
             # Is now zero-dt NonInteractionSingles and Multi's
             # TODO: combine with first selection such that we have to do this loop only once
             multi_partners = []
-            for domain, dist_to_shell in neighbors:
+            for domain, dist_to_shell in neighbor_distances:
                 if (isinstance (domain, NonInteractionSingle) and domain.is_reset()):
                     multi_horizon = (single_radius + domain.pid_particle_pair[1].radius) * self.MULTI_SHELL_FACTOR
-                    # distance from the center of the particles/domains
                     distance = self.world.distance(single_pos, domain.shell.shape.position)
                     multi_partners.append((domain, distance - multi_horizon))
 
@@ -1288,21 +1231,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     multi_horizon = (single_radius * self.MULTI_SHELL_FACTOR)
                     multi_partners.append((domain, dist_to_shell - multi_horizon))
 
-
-            # Potential partners are also surfaces
-            interaction_partners = []
-            if isinstance(single, SphericalSingle):
-                # TODO get a list of the surfaces sorted by distance instead of just the closest
-                closest_surface, surface_distance = \
-                    get_closest_surface(self.world, single_pos, ignore=[single.structure.id])
-                if closest_surface:
-                    surface_horizon = single_radius * self.MULTI_SHELL_FACTOR
-                    interaction_partners = [(closest_surface, surface_distance - surface_horizon), ]
-                # else no interaction is possible
-
-            multi_partners = multi_partners + interaction_partners
+            # Also add surfaces
+            for surface, distance in surface_distances:
+                surface_horizon = single_radius * self.MULTI_SHELL_FACTOR
+                multi_partners.append((surface, distance - surface_horizon))
 
 
+            # get the closest object (if there)
             if multi_partners:
                 multi_partners = sorted(multi_partners, key=lambda domain_overlap: domain_overlap[1])
 #                log.debug('multi_partners: %s' % str(multi_partners))
@@ -1313,6 +1248,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             log.debug('Single or Multi: closest_overlap: %s' % (FORMAT_DOUBLE % closest_overlap))
 
+            # If the closest partner is within the multi horizon we do Multi, otherwise Single
             if closest_overlap > 0.0: 
                 # just make a normal NonInteractionSingle
                 self.update_single(single)
@@ -2236,61 +2172,50 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     log.debug('%s already in multi. skipping.' % domain)
                 return
 
-            dompos = domain.shell.shape.position
             
-            # 1. burst to make space for the multi shell
+            # 1. Get the neighbors of the domain
+            dompos = domain.shell.shape.position
+            neighbor_distances = self.geometrycontainer.get_neighbor_domains(dompos, self.domains,
+                                                                             ignore=[domain.domain_id, multi.domain_id])
+
+            # 2. Burst the domains that interfere with making the multi shell
             burstradius = domain.pid_particle_pair[1].radius * self.MULTI_SHELL_FACTOR
-            neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(
-                    dompos, burstradius, ignore=[domain.domain_id, multi.domain_id])
-            neighbors = [self.domains[domain_id] for domain_id in neighbor_ids]
-
-            # This should only burst domains in which time has passed, it is assumed that other domains
+            neighbor_distances = self.burst_non_multis(neighbor_distances, burstradius)
+            # This bursts only domains in which time has passed, it is assumed that other domains
             # have been made 'socially', meaning that they leave enough space for this particle to make a multi
-            # shell without overlapping. neighbors should therefor contain no domains in which no time has passed
+            # shell without overlapping. 
 
-            burst, non_bursted = self.burst_non_multis(neighbors)
-            # burst contains all the domains in the neighborhood that can be added to the multi
-            # -> zero-dt NonInteractionSingles and Multi's
-            # at this point there should be no domains in the multi_horizon that cannot be bursted
-            assert non_bursted == [], 'add_to_multi_recursive: unburstable domains in multi_horizon. %s' % \
-                                      non_bursted
+            # neighbor_distances has same format as before
+            # It contains the updated list of domains in the neighborhood with distances
 
-            # 2. add domain to the multi
+            # 3. add domain to the multi
             self.add_to_multi(domain, multi)
             self.remove_domain(domain)
             self.remove_event(domain)
 
-            # 3. select neighbors in the 'multi_horizon' for adding to the multi
-            # 3.1 get distances to closest shell of burst neighbors
-            # TODO clean this up! line below is not necessary!!
-            neighbors = [(burst_domain, self.domain_distance(dompos, burst_domain)) for burst_domain in burst]
-
-#            neighbors = [burst[i] for i
-#                                  in (neighbor_dists <= burstradius).nonzero()[0]]
-
-            # 3.2 calculate if the domains are within the multi horizon
-            multi_partners = []
-            for neighbor, dist_to_shell in neighbors:
+            # 4. Add recursively to multi, neighbors that:
+            #    - have overlapping 'multi_horizons'
+            #    - are Multi or
+            #    - are just bursted (initialized) NonInteractionSingles
+            for neighbor, dist_to_shell in neighbor_distances:
                 if (isinstance (neighbor, NonInteractionSingle) and neighbor.is_reset()):
                     multi_horizon = (domain.pid_particle_pair[1].radius + neighbor.pid_particle_pair[1].radius) * \
                                     self.MULTI_SHELL_FACTOR
                     # distance from the center of the particles/domains
                     distance = self.world.distance(dompos, neighbor.shell.shape.position)
-                    multi_partners.append((neighbor, distance - multi_horizon))
+                    overlap = distance - multi_horizon
 
                 elif isinstance(neighbor, Multi):
                     # The dist_to_shell = dist_to_particle - multi_horizon_of_target_particle
                     # So only the horizon and distance of the current single needs to be taken into account
                     # Note: this is built on the assumption that the shell of a Multi has the size of the horizon.
                     multi_horizon = (domain.pid_particle_pair[1].radius * self.MULTI_SHELL_FACTOR)
-                    multi_partners.append((neighbor, dist_to_shell - multi_horizon))
-
+                    overlap = dist_to_shell - multi_horizon
                 else:
-                    if __debug__:
-                        assert False, 'add_to_multi_recursive: burst neighbor is not dt-zero NonInteractionSingle or Multi'
+                    # neighbor is not addible to multi
+                    overlap = numpy.inf
 
-            # 4. if the burst neighbors are still in the horizon -> add to multi
-            for neighbor, overlap in multi_partners:
+                # 4.2 if the domains are within the multi horizon
                 if overlap < 0:
                     self.add_to_multi_recursive(neighbor, multi)
 
@@ -2357,6 +2282,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         del self.domains[multi1.domain_id]
         self.remove_event(multi1)
+
 
     def domain_distance(self, pos, domain):
         # calculates the shortest distance from 'pos' to A shell (a Multi
