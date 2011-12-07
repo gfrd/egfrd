@@ -21,6 +21,9 @@
 #include "findRoot.hpp"
 #include "Defs.hpp"
 #include "OldDefs.hpp"			// TODO: this must be removed at some point!
+#include "funcSum.hpp"
+#include "freeFunctions.hpp"
+#include "Logger.hpp"
 
 #include "GreensFunction.hpp"
 #include "PairGreensFunction.hpp"	// needed to declare EventType
@@ -28,19 +31,23 @@
 
 class GreensFunction1DAbsAbs: public GreensFunction
 {
+public:
+    typedef std::vector<Real> RealVector;
+    typedef unsigned int uint;
+
 private:
     // This is a typical length scale of the system, may not be true!
     static const Real L_TYPICAL = 1E-8;
     // The typical timescale of the system, may also not be true!!
     static const Real T_TYPICAL = 1E-6;
     // measure of 'sameness' when comparing floating points numbers
-    static const Real EPSILON = 1E-12;
+    static const Real EPSILON = 1E-10;
     //E3; Is 1E3 a good measure for the probability density?!
     static const Real PDENS_TYPICAL = 1;
     // The maximum number of terms in the sum
-    static const int MAX_TERMS = 500;
+    static const uint MAX_TERMS = 500;
     // The minimum
-    static const int MIN_TERMS = 20;
+    static const uint MIN_TERMS = 20;
     // Cutoff distance: When H * sqrt(2Dt) < 1/2*L, use free greensfunction instead of absorbing.
     static const Real CUTOFF_H = 6.0;
 
@@ -167,31 +174,42 @@ public:
 private:
     struct drawT_params
     {
-        // use 10 terms in the summation for now
-        Real exponent[MAX_TERMS];
-        Real Xn[MAX_TERMS];
-        Real prefactor;
-        int    terms;
-        Real tscale;
-        // random number
+        GreensFunction1DAbsAbs const* gf;
+        RealVector& psurvTable;
         Real rnd;
     };
 
-    static double drawT_f (double t, void *p);
-
-    struct drawR_params
+   struct drawR_params
     {
-        Real S_Cn_An[MAX_TERMS];
-        Real n_L[MAX_TERMS];
-        // variables H: for additional terms appearing as multiplicative factors etc.
-        Real H[5];
-        int terms;
-        // random number
+        GreensFunction1DAbsAbs const* gf;
+        const Real t;
+        RealVector table;
         Real rnd;
+        Real p_surv;
     };
 
-    static Real drawR_f (Real z, drawR_params const* params);
-    static Real drawR_free_f (Real z, drawR_params const* params);
+    uint guess_maxi(Real const& t ) const;
+
+
+    static Real drawT_f (Real t, void *p);
+
+    Real p_survival_table( Real  t, RealVector& psurvTable ) const;
+
+    Real p_survival_i(uint i, Real const& t, RealVector const& table ) const;
+
+    Real p_survival_table_i_v( uint const& i ) const;
+
+    Real p_survival_table_i_nov( uint const& i ) const;
+
+    void createPsurvTable( uint const& maxi, RealVector& table) const;
+
+
+    static Real drawR_f (Real z, void* p);
+
+    Real p_int_r_table(Real const& r, Real const& t, Real const& p_surv, 
+                       RealVector& table) const;
+
+    void createP_int_r_Table( Real const& t, uint const& maxi, RealVector& table ) const;
 
 private:
     // The diffusion constant and drift velocity
@@ -205,5 +223,7 @@ private:
     Real l_scale;
     // This is the time scale of the system, used by drawTime_f
     Real t_scale;
+
+    static Logger& log_;
 };
 #endif // __GREENSFUNCTION1DABSABS_HPP

@@ -7,6 +7,7 @@
 #include "freeFunctions.hpp"
 #include "GreensFunction1DAbsAbs.hpp"
 #include "GreensFunction1DRadAbs.hpp"
+#include "GreensFunction1DAbsSinkAbs.hpp"
 #include "GreensFunction2DAbsSym.hpp"
 #include "GreensFunction2DRadAbs.hpp"
 #include "GreensFunction3DSym.hpp"
@@ -22,6 +23,18 @@ BOOST_PYTHON_MODULE( _greens_functions )
 
     //import_array();
     // free functions
+    def( "XP030", XP030 );
+    def( "XS030", XS030 );
+    def( "XI030", XI030 );
+    
+    def( "XP30", XP30 );
+    def( "XI30", XI30 );
+    def( "XS30", XS30 );
+    
+    def( "XP10", XP10 );
+    def( "XI10", XI10 );
+    def( "XS10", XS10 );
+    
     def( "p_irr", p_irr );
     def( "p_survival_irr", p_survival_irr );
     def( "p_theta_free", p_theta_free );
@@ -79,6 +92,29 @@ BOOST_PYTHON_MODULE( _greens_functions )
         .def( "p_survival", &GreensFunction1DRadAbs::p_survival )
         .def( "calcpcum", &GreensFunction1DRadAbs::calcpcum )
         .def( "dump", &GreensFunction1DRadAbs::dump )
+        ;
+        
+    class_<GreensFunction1DAbsSinkAbs>("GreensFunction1DAbsSinkAbs",
+                                   init<Real, Real, Real, Real, Real, Real>() )
+        .def( "getName", &GreensFunction1DAbsSinkAbs::getName )
+        .def( "getk", &GreensFunction1DAbsSinkAbs::getk )
+        .def( "getD", &GreensFunction1DAbsSinkAbs::getD )
+        .def( "getsigma", &GreensFunction1DAbsSinkAbs::getsigma )
+        .def( "geta", &GreensFunction1DAbsSinkAbs::geta )
+        .def( "getr0", &GreensFunction1DAbsSinkAbs::getr0 )
+        .def( "getrsink", &GreensFunction1DAbsSinkAbs::getrsink )
+        .def( "drawTime", &GreensFunction1DAbsSinkAbs::drawTime )
+        .def( "drawR", &GreensFunction1DAbsSinkAbs::drawR )
+        .def( "drawEventType", &GreensFunction1DAbsSinkAbs::drawEventType )
+        .def( "flux_tot", &GreensFunction1DAbsSinkAbs::flux_tot )
+        .def( "flux_leaves", &GreensFunction1DAbsSinkAbs::flux_leaves )
+        .def( "flux_leavea", &GreensFunction1DAbsSinkAbs::flux_leavea )
+        .def( "flux_sink", &GreensFunction1DAbsSinkAbs::flux_sink )
+        .def( "prob_r", &GreensFunction1DAbsSinkAbs::prob_r )
+        .def( "p_int_r", &GreensFunction1DAbsSinkAbs::p_int_r )
+        .def( "p_survival", &GreensFunction1DAbsSinkAbs::p_survival )
+        .def( "calcpcum", &GreensFunction1DAbsSinkAbs::calcpcum )
+        .def( "dump", &GreensFunction1DAbsSinkAbs::dump )
         ;
 
     class_<GreensFunction2DAbsSym>( "GreensFunction2DAbsSym",

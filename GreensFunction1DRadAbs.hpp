@@ -19,12 +19,19 @@
 #include <math.h>
 
 #include "findRoot.hpp"
+#include "funcSum.hpp" 
+#include "freeFunctions.hpp"
 #include "Defs.hpp"
 #include "OldDefs.hpp"			// TODO: this must be removed at some point!
 #include "GreensFunction.hpp"
+#include "Logger.hpp"
 
 class GreensFunction1DRadAbs: public GreensFunction
 {
+public:
+    typedef std::vector<Real> RealVector;
+    typedef unsigned int uint;
+
 private:
     // This is a typical length scale of the system, may not be true!
     static const Real L_TYPICAL = 1E-8;
@@ -35,15 +42,19 @@ private:
     // Is 1E3 a good measure for the probability density?!
     static const Real PDENS_TYPICAL = 1;
     // The maximum number of terms used in calculating the sum
-    static const int MAX_TERMS = 500;
+    static const uint MAX_TERMS = 500;
     // The minimum number of terms
-    static const int MIN_TERMS = 20;
+    static const uint MIN_TERMS = 20;
+    /* Cutoff distance: When H * sqrt(2Dt) < a - r0 OR ro - sigma
+       use free greensfunction instead of absorbing. */
+    static const Real CUTOFF_H = 6.0;
 
 public:
     GreensFunction1DRadAbs(Real D, Real k, Real r0, Real sigma, Real a)
 	: GreensFunction(D), v(0.0), k(k), r0(r0), sigma(sigma), a(a), l_scale(L_TYPICAL), t_scale(T_TYPICAL)
     {
-	// do nothing
+        //set first root.
+        calculate_n_roots( 1 );
     }
 
     // The constructor is overloaded and can be called with or without drift v
@@ -51,7 +62,8 @@ public:
     GreensFunction1DRadAbs(Real D, Real v, Real k, Real r0, Real sigma, Real a)
 	: GreensFunction(D), v(v), k(k), r0(r0), sigma(sigma), a(a), l_scale(L_TYPICAL), t_scale(T_TYPICAL)
     {
-	// do nothing
+        //set first root;
+        calculate_n_roots( 1 );
     }
 
     ~GreensFunction1DRadAbs()
@@ -178,9 +190,6 @@ public:
     {
         return "GreensFunction1DRadAbs";
     }
-
-    // Calculates the roots of tan(a*x)=-xk/h
-    Real root_n(int n) const;
     
 private:
 
@@ -192,39 +201,101 @@ private:
 
     struct tan_f_params
     {
-	Real a;
-	Real h;
+        Real a;
+        Real h;
     };
-
-    static double tan_f (double x, void *p);
-    // this is the appropriate definition of the function in gsl
 
     struct drawT_params
     {
-	double exponent[MAX_TERMS];
-	double Xn[MAX_TERMS];
-	double prefactor;
-	int    terms;
-	// the timescale used for convergence
-	Real   tscale;
-	// the random number associated with the time
-	double rnd;
+        GreensFunction1DRadAbs const* gf;
+        RealVector& psurvTable;
+        Real rnd;
     };
+
+   struct drawR_params
+    {
+        GreensFunction1DRadAbs const* gf;
+        const Real t;
+        RealVector table;
+        Real rnd;
+        Real p_surv;
+    };
+
+
+    /* Functions managing the rootList */
+    
+    /* return the rootList size */
+    uint rootList_size() const
+    {
+        return rootList.size();
+    }
+
+    /* returns the last root. */
+    Real get_last_root() const
+    {
+        return rootList.back();
+    }
+
+    /* ad a root to the rootList */
+    void ad_to_rootList( Real const& root_i ) const
+    {
+        rootList.push_back( root_i );
+    }
+
+    /* remove n'th root from rootList */
+    void remove_from_rootList(uint const& n) const
+    {
+        rootList.erase( rootList.begin() + n );
+    }
+
+    /* return the n'th root */
+    Real get_root( uint const& n ) const
+    {
+        if( n < rootList.size() )
+            return rootList[ n ];
+        else
+        {
+            calculate_n_roots( n );
+            return rootList.back();
+        }
+    }
+
+    /* Fills the rootList with the first n roots. */
+    void calculate_n_roots(uint const& n) const;
+
+    /* Guess the number of terms needed for convergence, given t. */
+    uint guess_maxi( Real const& t ) const;
+
+    /* this is the appropriate definition of the function in gsl. */
+    static double tan_f (double x, void *p);
+
+
+    /* functions for drawTime / p_survival */
 
     static double drawT_f (double t, void *p);
 
-    struct drawR_params
-    {
-	double root_n[MAX_TERMS];
-	double S_Cn_root_n[MAX_TERMS];
-	// variables H: for additional terms appearing as multiplicative factors etc.
-	double H[5];
-	int terms;
-	// the random number associated with the time
-	double rnd;
-    };
+    Real p_survival_table( Real  t, RealVector& psurvTable ) const;
 
-    static double drawR_f (double z, void *p);
+    Real p_survival_i(uint i, Real const& t, RealVector const& table ) const;
+
+    Real p_survival_table_i_v( uint const& i ) const;
+
+    Real p_survival_table_i_nov( uint const& i ) const;
+
+    void createPsurvTable( RealVector& table) const;
+
+
+    /* functions for drawR */
+
+    static Real drawR_f (Real z, void* p);
+
+    Real p_int_r_table(Real const& r, Real const& t, Real const& p_surv, 
+                       RealVector& table) const;
+
+    void createP_int_r_Table( Real const& t, uint const& maxi, RealVector& table ) const;
+    
+
+    /* Member variables */
 
     // The diffusion constant and drift velocity
     Real v;
@@ -238,5 +309,10 @@ private:
     Real l_scale;
     // This is the time scale of the system.
     Real t_scale;
+
+    /* vector containing the roots 0f tan_f. */
+    mutable RealVector rootList;
+
+    static Logger& log_;
 };
 #endif // __GREENSFUNCTION1DRADABS_HPP
