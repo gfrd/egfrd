@@ -31,7 +31,7 @@ class Multi(Domain):
         self.start_time = t
         main = self.main()
         self.set_dt_and_reaction_length()
-        #print "BD intit, dt = %s, rl = %s" %(self.dt, self.reaction_length)
+        #print "Multi intit, dt = %s, rl = %s" %(self.dt,self.reaction_length)
         #self.dt = self.dt_factor * self.calculate_bd_dt(main.world.get_species(sid) for sid in main.world.species)
 
     def calculate_bd_dt(species_list):

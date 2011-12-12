@@ -57,7 +57,7 @@ public:
         return Real(); //TODO
     }
     
-    virtual Real get_1D_rate_surface( Real const& k ) const
+    virtual Real get_1D_rate_surface( Real const& k, length_type const& r0 ) const
     {
         return Real(); //TODO
     }
@@ -85,6 +85,17 @@ public:
     virtual position_pair_type special_geminate_dissociation_positions( rng_type& rng, species_type const& s_surf, species_type const& s_bulk, position_type const& op_surf, length_type const& rl ) const
     {
         return position_pair_type(); //TODO
+    }
+    
+    virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
+        length_type const& dist_to_surface, length_type const& particle_radius) const
+    {  
+        return false; //TODO
+    }
+    
+    virtual bool in_reaction_volume( length_type const& dist_to_surface, length_type const& particle_radius, length_type const& rl ) const
+    {
+        return false; //TODO
     }
 
     virtual length_type minimal_distance(length_type const& radius) const

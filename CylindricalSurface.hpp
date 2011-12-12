@@ -5,6 +5,7 @@
 #include "Surface.hpp"
 #include "Cylinder.hpp"
 #include "freeFunctions.hpp"
+#include "geometry.hpp"
 
 template<typename Ttraits_>
 class CylindricalSurface
@@ -80,9 +81,9 @@ public:
         return k;
     }
     
-    virtual Real get_1D_rate_surface( Real const& k ) const
+    virtual Real get_1D_rate_surface( Real const& k, length_type const& r0 ) const
     {
-        return k / ( 2 * M_PI * base_type::shape().radius() );
+        return k / ( 2 * M_PI * (base_type::shape().radius() + r0 ) );
     }
 
     virtual Real particle_reaction_volume( length_type const& r01, length_type const& rl ) const
@@ -92,7 +93,7 @@ public:
 
     virtual Real surface_reaction_volume( length_type const& r0, length_type const& rl ) const
     {
-        length_type rc( base_type::shape().radius() ); 
+        length_type rc( base_type::shape().radius() + r0 ); 
         length_type rcl( rc + rl );
         length_type rcl_sq( rcl * rcl );
         length_type rc_sq( rc * rc );
@@ -106,9 +107,9 @@ public:
         length_type const rod_radius = base_type::shape().radius();
         position_type const unit_z = base_type::shape().unit_z();
 
-        length_type const rrl( rod_radius + rl );
+        length_type const rrl( rod_radius + r0 + rl );
         length_type const rrl_sq( gsl_pow_2(rrl) );
-        length_type const rr_sq( gsl_pow_2(rod_radius) );
+        length_type const rr_sq( gsl_pow_2(rod_radius + r0) );
         
         length_type const diss_vec_length( sqrt( X * (rrl_sq - rr_sq) + rr_sq ) );
 
@@ -137,13 +138,20 @@ public:
     virtual position_pair_type special_geminate_dissociation_positions( rng_type& rng, species_type const& s_surf, species_type const& s_bulk, 
         position_type const& op_surf, length_type const& rl ) const
     {
+        Real const rod_radius( base_type::shape().radius() );
+        
+        //Species living on the rod should have a larger radius than the rod.
+        assert( rod_radius < s_surf.radius() );
+    
         length_type const r01( s_bulk.radius() + s_surf.radius() );
         Real const D01( s_bulk.D() + s_surf.D() );
         Real const D_bulk_D01( s_bulk.D() / D01 );
         Real const D_surf_D01( s_surf.D() / D01 );
-          
-        Real const theta_min( asin(base_type::shape().radius() / r01) );       
-        Real const theta( theta_min + rng.uniform(0.,1.) * (M_PI - 2 * theta_min) );        
+        
+        //Commented code for direct binding case with c.o.m. reaction.
+        //Real const theta_min( asin(rod_radius / r01) );       
+        Real const theta_min( asin( (rod_radius + s_bulk.radius()) / r01) );       
+        Real const theta( theta_min + rng.uniform(0.,1.) * (M_PI - 2 * theta_min) );  
         Real const phi( rng.uniform(0.,1.) * 2 * M_PI );
         
         Real const X( rng.uniform(0.,1.) );
@@ -175,6 +183,24 @@ public:
                                  unit_z * (z * D_bulk_D01) ) ) );
         
         return pp01;
+    }
+
+    /* Determine if particle has bouned from the surface. */
+    virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
+        length_type const& dist_to_surface, length_type const& particle_radius) const
+    {       
+        if( dist_to_surface < particle_radius )
+            return true;
+        else
+            return false;
+    }
+    
+    virtual bool in_reaction_volume( length_type const& dist_to_surface, length_type const& particle_radius, length_type const& rl ) const
+    {
+        if( dist_to_surface - particle_radius <= rl )
+            return true;
+        else
+            return false;
     }
 
     virtual length_type minimal_distance(length_type const& radius) const

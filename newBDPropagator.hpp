@@ -105,6 +105,7 @@ public:
         
         species_type const pp_species(tx_.get_species(pp.second.sid()));
         length_type const r0( pp_species.radius() );
+        position_type const old_pos( pp.second.position() );
         boost::shared_ptr<structure_type> const pp_structure( tx_.get_structure( pp_species.structure_id() ) );
         
         structure_id_and_distance_pair struct_id_distance_pair;
@@ -124,7 +125,7 @@ public:
         }
         else
         {
-            new_pos = pp.second.position();
+            new_pos = old_pos;
         }
         
         /* Use a spherical shape with radius = particle_radius + reaction_length.
@@ -134,8 +135,8 @@ public:
         int particles_in_overlap(overlapped ? overlapped->size(): 0);
 
         /* Check if the particle at new_pos overlaps with any particle cores. */        
-        bool bounced = false;
-        int j = 0;
+        bool bounced( false );
+        int j( 0 );
         while(!bounced && j < particles_in_overlap)
             bounced = overlapped->at(j++).second < r0;
         
@@ -143,17 +144,20 @@ public:
            check for core overlap with a surface. */
         if(!bounced && pp_structure->id() == "world")
         {
-            /* Check for overlap with nearest surface. */
             struct_id_distance_pair = tx_.get_closest_surface( new_pos, pp_structure->id() );
             particle_surface_distance = struct_id_distance_pair.second;
-        
-            bounced = determine_surface_passage(new_pos, pp.second.position(), struct_id_distance_pair, r0);
+
+            /* Check for overlap with nearest surface. */
+            boost::shared_ptr<structure_type> closest_struct( tx_.get_structure( struct_id_distance_pair.first ) );
+            bounced = closest_struct->bounced( tx_.cyclic_transpose( old_pos, closest_struct->structure_position() ), 
+                                               tx_.cyclic_transpose( new_pos, closest_struct->structure_position() ), 
+                                               particle_surface_distance, r0);
         }
          
-        /* If particle is bounced, check reaction_volume for reaction partners at old_pos. */     
+        /* If particle is bounced, check reaction_volume for reaction partners at old_pos. */
         if(bounced)
         {
-            new_pos = pp.second.position();
+            new_pos = old_pos;
             
             boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped_after_bounce( 
                     tx_.check_overlap( particle_shape_type( new_pos, r0 + reaction_length_ ), 
@@ -176,40 +180,45 @@ public:
         Real const rnd( rng_() );
         
         /* First, if a surface is inside the reaction volume, attempt an interaction. */
-        if( particle_surface_distance < reaction_length_ && pp_structure->id() == "world")
-        {        
-            boost::shared_ptr<structure_type> const closest_surf( tx_.get_structure(struct_id_distance_pair.first) );
-            
-            accumulated_prob += k_total( pp.second.sid(), closest_surf->sid() ) * dt_ / 
-                closest_surf->surface_reaction_volume( r0, reaction_length_ );
+        if( pp_structure->id() == "world" )
+        {
+            if( tx_.get_structure( struct_id_distance_pair.first )->
+                in_reaction_volume( particle_surface_distance, r0, reaction_length_ ) )
+            {        
+                boost::shared_ptr<structure_type> const closest_surf( tx_.get_structure( struct_id_distance_pair.first) );
+                
+                accumulated_prob += k_total( pp.second.sid(), closest_surf->sid() ) * dt_ / 
+                    closest_surf->surface_reaction_volume( r0, reaction_length_ );
         
-            if(accumulated_prob >= 1.)
-            {
-                LOG_WARNING((
-                    "the acceptance probability of an interaction exeeded one; %f.",
-                    accumulated_prob));
-            } 
-        
-            if( accumulated_prob > rnd )
-            {            
-                try
+                if(accumulated_prob >= 1.)
                 {
-                    LOG_DEBUG(("fire surface interaction"));
-                    if(fire_interaction(pp, closest_surf ))
-                        return true;
-                }   
-                catch (propagation_error const& reason)
+                    LOG_WARNING((
+                                 "the acceptance probability of an interaction exeeded one; %f.",
+                                 accumulated_prob));
+                } 
+                
+                if( accumulated_prob > rnd )
+                {            
+                    try
+                    {
+                        LOG_DEBUG(("fire surface interaction"));
+                        if(fire_interaction(pp, closest_surf ))
+                            return true;
+                    }   
+                    catch (propagation_error const& reason)
+                    {
+                        log_.info("surface interaction rejected (reason: %s)", reason.what());
+                        ++rejected_move_count_;
+                    }
+                }
+                else                
                 {
-                    log_.info("surface interaction rejected (reason: %s)", reason.what());
+                    LOG_DEBUG(("Particle attempted an interaction with the non-interactive surface %s.", 
+                               boost::lexical_cast<std::string>(closest_surf->id()).c_str()));
                     ++rejected_move_count_;
                 }
             }
-            else                
-            {
-                LOG_DEBUG(("Particle attempted an interaction with the non-interactive surface %s.", 
-                    boost::lexical_cast<std::string>(closest_surf->id()).c_str()));
-                ++rejected_move_count_;
-            }
+
         }
         
         /* Now attempt a reaction with all particles inside the reaction volume. */
@@ -249,7 +258,7 @@ public:
                 LOG_DEBUG(("fire reaction"));
     		    try
                 {
-                    if( fire_reaction(pp, closest.first) )
+                    if( fire_reaction(pp, closest.first, s0, s1) )
                         return true;
                 }
                 catch (propagation_error const& reason)
@@ -267,6 +276,26 @@ public:
             
             j++;
         }
+        
+        
+        /*Debug overlap failed error.
+        std::cerr << " &&&& : " << pp.first << std::endl;
+        
+        j = 0;
+        boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped_last( 
+                    tx_.check_overlap( particle_shape_type( new_pos, 10*r0 ), 
+                            pp.first) );
+                            
+        particles_in_overlap = overlapped_last ? overlapped_last->size(): 0;
+        while(j < particles_in_overlap)
+        {
+            particle_id_pair_and_distance const& closest( overlapped_last->at(j++) );
+            const Real dist( tx_.distance( closest.first.second.position(), pp.second.position() ) );
+            std::cerr << "### pp id: " << pp.first << " ppi id: " << closest.first.first << " ipv length @ old_pos = " << dist << 
+                " dist till shell @ new_pos: " << closest.second << std::endl;
+            std::cerr << "Bounced? " << bounced << ", d (after move) = " << tx_.distance( new_pos, closest.first.second.position() ) << std::endl;
+        }
+        */
                        
         /* If the particle did neither react, interact or bounce, update it to it's new position. */
         if(!bounced)
@@ -366,7 +395,11 @@ private:
                         {
                             structure_id_and_distance_pair const struct_id_distance_pair( tx_.get_closest_surface( new_pos, s0.structure_id()) );
                             
-                            if( determine_surface_passage(new_pos, pp.second.position(), struct_id_distance_pair, s0.radius()) )
+                            boost::shared_ptr<structure_type> closest_struct( tx_.get_structure( struct_id_distance_pair.first ) );
+
+                            if( closest_struct->bounced( tx_.cyclic_transpose( new_pos, closest_struct->structure_position() ), 
+                                                         tx_.cyclic_transpose( new_pos, closest_struct->structure_position() ), 
+                                                         struct_id_distance_pair.second, s0.radius() ) )
                                 throw propagation_error("no space due to near surface");
                         }
 
@@ -434,17 +467,27 @@ private:
                                     pp.first));
                                     
                             /* Only when both products live in the bulk, check for possible overlap with a surface. */
-                            bool surface_overlap = false;
+                            bool surface_bounce0( false );
+                            bool surface_bounce1( false );
                             if( s0.structure_id() == "world" && s1.structure_id() == "world" )
                             {
                                 structure_id_and_distance_pair struct_id_distance_pair( tx_.get_closest_surface( pp01.first, s0.structure_id() ) );
-                                surface_overlap = determine_surface_passage(pp01.first, pp.second.position(), struct_id_distance_pair, s0.radius());
+                                boost::shared_ptr<structure_type> closest_struct( tx_.get_structure( struct_id_distance_pair.first ) );
+
+                                surface_bounce0 = closest_struct->bounced( tx_.cyclic_transpose( pp.second.position(), closest_struct->structure_position() ), 
+                                                                          tx_.cyclic_transpose( pp01.first, closest_struct->structure_position() ), 
+                                                                          struct_id_distance_pair.second, s0.radius() );
 
                                 struct_id_distance_pair = tx_.get_closest_surface( pp01.second, s1.structure_id() );
-                                surface_overlap = determine_surface_passage(pp01.second, pp.second.position(), struct_id_distance_pair, s1.radius());                          
+                                closest_struct = tx_.get_structure( struct_id_distance_pair.first );
+
+                                surface_bounce1 = closest_struct->bounced( tx_.cyclic_transpose( pp.second.position(), closest_struct->structure_position() ), 
+                                                                          tx_.cyclic_transpose( pp01.second, closest_struct->structure_position() ), 
+                                                                          struct_id_distance_pair.second, s1.radius() );
                             }
                                     
-                            if (!(overlapped_s0 && overlapped_s0->size() > 0) && !(overlapped_s1 && overlapped_s1->size() > 0) && !surface_overlap)
+                            if ( !(overlapped_s0 && overlapped_s0->size() > 0) && !(overlapped_s1 && overlapped_s1->size() > 0) 
+                                && !surface_bounce0 && !surface_bounce1 )
                                 break;
                         }
 
@@ -503,14 +546,11 @@ private:
     }
     
     
-    bool fire_reaction(particle_id_pair const& pp0, particle_id_pair const& pp1)
+    bool fire_reaction(particle_id_pair const& pp0, particle_id_pair const& pp1, species_type const& s0, species_type const& s1)
     {
         reaction_rules const& rules(rules_.query_reaction_rule(pp0.second.sid(), pp1.second.sid()));
         if(::size(rules) == 0)
             throw propagation_error("trying to fire a reaction between non-reactive particles");
-
-        species_type s0(tx_.get_species(pp0.second.sid())),
-                s1(tx_.get_species(pp1.second.sid()));
         
         boost::shared_ptr<structure_type> s1_struct( tx_.get_structure( s1.structure_id() ) );
         
@@ -547,7 +587,9 @@ private:
                         if(sp.structure_id() != s1.structure_id())
                         {
                             boost::shared_ptr<structure_type> sp_struct( tx_.get_structure( sp.structure_id() ) );
-                            projected_type const position_on_surface( sp_struct->projected_point(new_pos) );
+                            projected_type const position_on_surface( sp_struct->
+                                                                      projected_point( tx_.cyclic_transpose( new_pos, 
+                                                                                                             sp_struct->structure_position() ) ) );
                             
                             new_pos = tx_.apply_boundary( position_on_surface.first );
                         }
@@ -555,12 +597,12 @@ private:
                         boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(
                             tx_.check_overlap(particle_shape_type(new_pos, sp.radius()),
                                               pp0.first, pp1.first));
-                        if (overlapped && overlapped->size() > 0)
+                        if( overlapped && overlapped->size() > 0 )
                         {
                             throw propagation_error("no space due to particle");
                         }
 
-                        if (vc_)
+                        if( vc_ )
                         {
                             if (!(*vc_)(
                                     particle_shape_type(new_pos, sp.radius()), 
@@ -573,8 +615,11 @@ private:
                         if( sp.structure_id() == "world" )
                         {
                             structure_id_and_distance_pair const struct_id_distance_pair( tx_.get_closest_surface( new_pos, sp.structure_id() ) );
-                            
-                            if( determine_surface_passage(new_pos, pp0.second.position(), struct_id_distance_pair, sp.radius()) )
+                            boost::shared_ptr<structure_type> closest_struct( tx_.get_structure( struct_id_distance_pair.first ) );
+
+                            if( closest_struct->bounced( tx_.cyclic_transpose( pp0.second.position(), closest_struct->structure_position() ), 
+                                                         tx_.cyclic_transpose( pp1.second.position(), closest_struct->structure_position() ), 
+                                                         struct_id_distance_pair.second, sp.radius() ) )
                                 throw propagation_error("no space due to near surface");
                         }
 
@@ -690,23 +735,6 @@ private:
         return false;
     }
     
-    /* Function determines wether old_pos lies on the other side of the surface than new_pos. */
-    bool determine_surface_passage(position_type const& new_pos, position_type const& old_pos, 
-                                    structure_id_and_distance_pair const& struct_id_distance_pair, length_type const& radius)
-    {
-        if( struct_id_distance_pair.second > radius )
-            return false;
-    
-        boost::shared_ptr<structure_type> surface( tx_.get_structure( struct_id_distance_pair.first ) );
-        
-        projected_type const old_projection( surface->projected_point_on_surface( old_pos ) );
-        projected_type const new_projection( surface->projected_point_on_surface( new_pos ) );
-        
-        if( old_projection.second * new_projection.second <= 0 )
-            return true;
-        else
-            return false;
-    }
     
     /* Given a position pair and two species, the function generates two new 
        positions based on two moves drawn from the free propegator. */
@@ -750,7 +778,7 @@ private:
         boost::shared_ptr<structure_type> s0_struct( tx_.get_structure( s0.structure_id() ) );
 
         position_type displacement( s0_struct->
-                                        bd_displacement(s0.v() * dt_, std::sqrt(2.0 * s0.D() * dt_), rng_) );
+                                    bd_displacement(s0.v() * dt_, std::sqrt(2.0 * s0.D() * dt_), rng_) );
 
         position_type new_pos(tx_.apply_boundary( add( old_pos, displacement ) ));
                         
@@ -765,8 +793,11 @@ private:
         if(s0.structure_id() == "world")
         {
             structure_id_and_distance_pair const struct_id_distance_pair( tx_.get_closest_surface( new_pos, s0.structure_id() ) );
-                             
-            if( determine_surface_passage(new_pos, old_pos, struct_id_distance_pair, s0.radius()) )
+            boost::shared_ptr<structure_type> closest_struct( tx_.get_structure( struct_id_distance_pair.first ) );
+
+            if( closest_struct->bounced( tx_.cyclic_transpose( old_pos, closest_struct->structure_position() ), 
+                                         tx_.cyclic_transpose( new_pos, closest_struct->structure_position() ), 
+                                         struct_id_distance_pair.second, s0.radius() ) )    
                 return old_pos;        
         }
             

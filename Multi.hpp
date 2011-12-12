@@ -267,7 +267,7 @@ public:
             structure_id_and_distance_pair const strc_id_and_dist( 
                 get_closest_surface( pp.second.position(), s.structure_id() ) );
                 
-            if( strc_id_and_dist.second < s.radius() && s.structure_id() == "world" )
+            if( strc_id_and_dist.second < 2.0 * s.radius() && s.structure_id() == "world" )
             {
                 species_id_type const strc_sid( get_structure( strc_id_and_dist.first )->sid() );
                 reaction_rules const& rrules(rules.query_reaction_rule( s.id(), strc_sid ));
@@ -277,7 +277,7 @@ public:
                 for (typename boost::range_const_iterator<reaction_rules>::type
                 it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
-                    Real const k( get_structure( strc_id_and_dist.first )->get_1D_rate_surface( (*it).k() ) ); 
+                    Real const k( get_structure( strc_id_and_dist.first )->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
 
                     if ( k_max < k )
                         k_max = k;
@@ -285,6 +285,9 @@ public:
             }            
             
         }
+        
+        //Since surface rates are not devided by 2 to compensate for double reaction attempts.
+        k_max *= 2.0;
         
         BOOST_FOREACH(species_type s0, get_species_in_multi())
         {
@@ -346,12 +349,12 @@ public:
         const Real D_max( maxD_minr.first );
         const Real r_min( maxD_minr.second );
         const Real Pacc_max( 0.01 ); //Maximum allowed value of the acceptance probability.
-        const Real tau_D( 2 * gsl_pow_2(step_size_factor * r_min) / D_max );
         Real dt;
+        const Real tau_D( 2. * gsl_pow_2(step_size_factor * r_min) / D_max );
         
         if( k_max > 0)
         {
-            Real dt_temp( 2 * Pacc_max * step_size_factor * r_min / k_max );
+            Real dt_temp( 2. * Pacc_max * step_size_factor * r_min / k_max );
             dt = std::min( dt_temp, tau_D ); // tau_D is upper limit of dt.
         }
         else

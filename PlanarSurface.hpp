@@ -20,6 +20,7 @@ public:
     typedef typename base_type::length_type length_type;
     typedef typename Ttraits_::world_type::species_type species_type;
     typedef std::pair<position_type, position_type> position_pair_type;
+    typedef std::pair<position_type, length_type> projected_type;
 
     virtual position_type random_position(rng_type& rng) const
     {
@@ -69,7 +70,7 @@ public:
         return k / (2 * M_PI * r01);    
     }
     
-    virtual Real get_1D_rate_surface( Real const& k ) const
+    virtual Real get_1D_rate_surface( Real const& k, length_type const& r0 ) const
     {
         return k;    
     }
@@ -165,6 +166,31 @@ public:
 
         return pp01;
         
+    }
+    
+    /* Determine if particle has bouned from the surface */
+    virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
+        length_type const& dist_to_surface, length_type const& particle_radius) const
+    {       
+         if( dist_to_surface > particle_radius )
+            return false;
+            
+        projected_type const old_projection( base_type::projected_point_on_surface( old_pos ) );
+        projected_type const new_projection( base_type::projected_point_on_surface( new_pos ) );
+        
+        if( old_projection.second * new_projection.second <= 0 )
+            return true;
+        else
+            return false;
+    }
+    
+    /* Determine wether particle lies inside reaction volume. */
+    virtual bool in_reaction_volume( length_type const& dist_to_surface, length_type const& particle_radius, length_type const& rl ) const
+    {
+        if( dist_to_surface <= rl )
+            return true;
+        else
+            return false;
     }
 
     virtual length_type minimal_distance(length_type const& radius) const

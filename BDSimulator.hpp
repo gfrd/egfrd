@@ -53,7 +53,6 @@ public:
           reaction_length_factor_(reaction_length_factor)
     {
         calculate_dt_and_reaction_length();
-        bound_time = 0;
     }
 
     void calculate_dt_and_reaction_length()
@@ -62,8 +61,6 @@ public:
         base_type::dt_ = determine_dt();
         reaction_length_ = determine_reaction_length();
         log_.info( "dt=%e, reaction length=%e", base_type::dt_, reaction_length_ );
-        
-        LOG_DEBUG(("dt=%e, reaction length=%e", base_type::dt_, reaction_length_));
     }
 
     virtual void step()
@@ -85,9 +82,6 @@ public:
             _step(lt);
             base_type::t_ = upto;
         }
-        
-        if(base_type::world_->num_particles() == 1)
-            bound_time += base_type::dt_;
         
         return true;
     }
@@ -170,13 +164,16 @@ public:
                 for (typename boost::range_const_iterator<reaction_rules>::type
                     it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
-                    Real const k( structure->get_1D_rate_surface( (*it).k() ) ); 
+                    Real const k( structure->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
     
                     if ( k_max < k )
                         k_max = k;
                 }
             }
         }
+        
+        //Since surface rates are not devided by 2 to compensate for double reaction attempts.
+        k_max *= 2.0;
         
         BOOST_FOREACH(species_type s0, base_type::world_->get_species())
         {
@@ -225,16 +222,12 @@ public:
         return reaction_length_;    
     }
     
-    double set_reaction_length_factor(length_type new_reaction_length_factor, time_type new_dt_factor)
-    {
-        double old_bound_time = bound_time;
-        bound_time = 0;
-        
+    void set_reaction_length_factor(length_type new_reaction_length_factor, time_type new_dt_factor)
+    {        
         dt_factor_ = new_dt_factor;
         reaction_length_factor_ = new_reaction_length_factor;
-        calculate_dt_and_reaction_length();
-
-        return old_bound_time;        
+        
+        calculate_dt_and_reaction_length();     
     }
 
 protected:
@@ -263,7 +256,6 @@ private:
     length_type reaction_length_factor_;
     length_type reaction_length_;
     static Logger& log_;
-    Real bound_time;
 };
 
 template<typename Ttraits_>
