@@ -350,12 +350,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
             if self.dt == 0:
                 log.debug('dt=zero step, working in s.t >> dt~0 Python limit.')
                 self.zero_steps += 1
-                # TODO Changed from 10 to 10000, because only a problem 
-                # when reaching certain magnitude.
+                # TODO What is best solution here? Usually no prob, -> just let 
+                # user know?
                 if self.zero_steps >= max(self.scheduler.size * 3, self.MAX_NUM_DT0_STEPS): 
-                    raise RuntimeError('too many dt=zero steps. '
-                                       'Simulator halted?'
-                                    'dt= %.10g-%.10g' % (self.scheduler.top[1].time, self.t))
+                    #raise RuntimeError('too many dt=zero steps. '
+                    #                   'Simulator halted?'
+                    #                'dt= %.10g-%.10g' % (self.scheduler.top[1].time, self.t))
+                    log.warning('dt=zero step, working in s.t >> dt~0 Python limit.')
             else:
                 self.zero_steps = 0
 

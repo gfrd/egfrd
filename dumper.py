@@ -157,12 +157,18 @@ def _get_number_of_particles_by_sid(sim, sid):
     #
     #TODO: Added by wehrens@AMOLF.nl; Please revise.
 
-    if isinstance(sim, EGFRDSimulator):
-        return len(sim.world.get_particle_ids(sid))
-    else:
-        # Gillespie.
-        species_index = sim.speciesDict[sid]
-        return sim.stateArray[species_index]
+    # OLD CODE, facilitating Gillespie:
+    #    if isinstance(sim, EGFRDSimulator):
+    #        return len(sim.world.get_particle_ids(sid))
+    #    else:
+    #        if isinstance(sim, BDSimulator):
+    #            return len(sim.world.get_particle_ids(sid))    
+    #        if isinstance(sim, EGFRDSimulator):
+    #            # Gillespie.
+    #            species_index = sim.speciesDict[sid]
+    #            return sim.stateArray[species_index]
+
+    return len(sim.world.get_particle_ids(sid))
 
 def get_number_of_particles(sim, identifier=None):
     """Return the number of particles of a certain Species in the 
