@@ -14,9 +14,6 @@ class Domain(object):
 # The domain is the main unit of eGFRD. Single, Pairs and Multis are all domains
 # with an own domain_id
 
-    SINGLE_SHELL_FACTOR = 2.0
-    MULTI_SHELL_FACTOR = math.sqrt(2)
-
     def __init__(self, domain_id):
         self.domain_id = domain_id      # identifier for this domain object
         self.event_id = None            # identifier for the event coupled to this domain
@@ -59,8 +56,8 @@ class Domain(object):
 
         return reactionrules[i]
 
-    def create_new_shell(self):         # needs to be overloaded in subclasses
-        pass                            # creates an appropriate shell object
+#    def create_new_shell(self):         # needs to be overloaded in subclasses
+#        pass                            # creates an appropriate shell object
 
 
 class ProtectiveDomain(Domain):
@@ -69,11 +66,11 @@ class ProtectiveDomain(Domain):
 # which have only one shell. Multi's on the other hand, have multiple shells and can still leave
 # their shell within a timestep, breaking the principle of a Protective Domain
 
-    def __init__(self, domain_id):
+    def __init__(self, domain_id, shell_id):
         Domain.__init__(self, domain_id)
 
-        self.shell_id = None
-        self.shell = None
+        self.shell_id = shell_id
+#        self.shell = None
         self.num_shells = 1             # all protective domains have only one shell
 
     def get_shell_id_shell_pair(self):

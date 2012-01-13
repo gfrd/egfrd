@@ -16,7 +16,7 @@ INF = numpy.inf
 ZEROPOS = numpy.array([0., 0., 0.])
 NOWHERE = numpy.array((INF, INF, INF))
 
-SAFETY = 1.0 + 1e-5
+SAFETY = 1.0 + 1e-3
 
 # Tolerance used for float comparison functions. Oversimplifying: two floats a 
 # and b are considered to be equal if abs(a - b) < TOLERANCE * abs(a).
@@ -26,7 +26,21 @@ TIME_TOLERANCE = 1e-10
 # Multiplication factor used for seperating 2 particles or a particle and a 
 # surface after unbinding.
 MINIMAL_SEPARATION_FACTOR = 1.0 + TOLERANCE
-  
+
+
+MULTI_SHELL_FACTOR = math.sqrt(2.1) # MULTI_SHELL_FACTOR should be AT LEAST sqrt(2)
+                                    # This stems from the fact that there vacant space in the cylinder
+                                    # NonInteractionSingles to a Multi and also defines the Multi
+                                    # shell size.
+SINGLE_SHELL_FACTOR = 2.0           # This is the threshold for when the algorithm switches from
+                                    # NonInteractionSingles to a Pair or Interaction. It also defines
+                                    # the radius in which the NonInteractionSingle will burst.
+
+if __debug__:
+    PRECISION = 7
+    FORMAT_DOUBLE = '%.' + str(PRECISION) + 'g'
+
+
 # Float comparison functions.
 def feq(a, b, typical=1, tolerance=TOLERANCE):
     """Return True if a and b are equal, subject to given tolerances.  

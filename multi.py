@@ -8,12 +8,15 @@ import _gfrd
 from _gfrd import (SphericalShell, Sphere)
 from constants import EventType
 from domain import Domain
+from shells import (hasSphericalShell, Others)
 
 import os
 
-class Multi(Domain):
+class Multi(Domain, hasSphericalShell, Others):
     def __init__(self, domain_id, main, step_size_factor):
         Domain.__init__(self, domain_id)
+        # note: hasSphericalShell.__init__ is not called and that the Multi has no self.testShell
+        #       Only the methods of the hasSphericalShell class are used
 
         self.main = ref(main)
         self.last_event = None
@@ -50,8 +53,8 @@ class Multi(Domain):
         return self.particle_container.num_particles
     multiplicity = property(get_multiplicity)
 
-    def create_new_shell(self, position, radius):
-        return SphericalShell(self.domain_id, Sphere(position, radius))
+#    def create_new_shell(self, position, radius):
+#        return SphericalShell(self.domain_id, Sphere(position, radius))
 
     def within_shell(self, pp):
         return bool(self.sphere_container.get_neighbors_within_radius(pp[1].position, -(pp[1].radius + self.reaction_length)))
