@@ -115,6 +115,7 @@ GreensFunction2DRadAbs::f_alpha0( const Real alpha ) const
 	const Real h( this->geth() );
 	const Real s_An( sigma * alpha );
 	const Real a_An( a * alpha );
+//	const Real h_s( h * sigma);
 
 	const double J0_s_An (gsl_sf_bessel_J0(s_An));
 	const double J1_s_An (gsl_sf_bessel_J1(s_An));
@@ -123,6 +124,12 @@ GreensFunction2DRadAbs::f_alpha0( const Real alpha ) const
 	const double Y0_s_An (gsl_sf_bessel_Y0(s_An));
 	const double Y1_s_An (gsl_sf_bessel_Y1(s_An));
 	const double Y0_a_An (gsl_sf_bessel_Y0(a_An));	
+
+//  const double rho1 ( ( (h_s * J0_s_An) + (s_An * J1_s_An) ) * Y0_a_An );
+//	const double rho2 ( ( (h_s * Y0_s_An) + (s_An * Y1_s_An) ) * J0_a_An );
+//	return (rho1 - rho2); 
+//
+//  Sigma can be divided out, roots will remain same:
 
 	const double rho1 ( ( (h * J0_s_An) + (alpha * J1_s_An) ) * Y0_a_An );
 	const double rho2 ( ( (h * Y0_s_An) + (alpha * Y1_s_An) ) * J0_a_An );
@@ -155,21 +162,27 @@ const Real GreensFunction2DRadAbs::f_alpha( const Real alpha,
 	const Real sigma( getSigma() );
 	const Real h( this->geth() );
 	const Real s_An( sigma * alpha );
-	const Real a_An( a * alpha );
-	const Real realn( static_cast<Real>( n ) );
+	const Real a_An( a * alpha );	
+    const Real realn( static_cast<Real>( n ) );
 
-	const double Jn_s_An  (gsl_sf_bessel_Jn(n, s_An));
-	const double Jn1_s_An (gsl_sf_bessel_Jn(n+1, s_An));
-	const double Jn_a_An  (gsl_sf_bessel_Jn(n, a_An));
+	const double Jn_s_An (gsl_sf_bessel_Jn(n,s_An));
+	const double Jn1_s_An (gsl_sf_bessel_Jn(n+1,s_An));
+	const double Jn_a_An (gsl_sf_bessel_Jn(n,a_An));
 
-	const double Yn_s_An  (gsl_sf_bessel_Yn(n, s_An));
-	const double Yn1_s_An (gsl_sf_bessel_Yn(n+1, s_An));
-	const double Yn_a_An  (gsl_sf_bessel_Yn(n, a_An));
+	const double Yn_s_An (gsl_sf_bessel_Yn(n,s_An));
+	const double Yn1_s_An (gsl_sf_bessel_Yn(n+1,s_An));
+	const double Yn_a_An (gsl_sf_bessel_Yn(n,a_An));
 
-	const double rho1 ( ( (h*sigma * Jn_s_An) + (s_An * Jn1_s_An) - realn*Jn_s_An ) * Yn_a_An );
+    const double rho1 ( ( (h*sigma * Jn_s_An) + (s_An * Jn1_s_An) - realn*Jn_s_An ) * Yn_a_An );
 	const double rho2 ( ( (h*sigma * Yn_s_An) + (s_An * Yn1_s_An) - realn*Yn_s_An ) * Jn_a_An );
 	return (rho1 - rho2); 
-}
+
+//  Or..? -:	
+//  const double rho1 ( ( ((h*sigma-realn) * Jn_s_An) + (s_An * Jn1_s_An) ) * Yn_a_An );
+//	const double rho2 ( ( ((h*sigma-realn) * Yn_s_An) + (s_An * Yn1_s_An) ) * Jn_a_An );
+//	return (rho1 - rho2); 		
+       
+} 
 
 // Simply a wrapper for f_alpha().
 const Real 
@@ -409,6 +422,7 @@ const void GreensFunction2DRadAbs::GiveRootInterval(
     // Different for n=0 because this results in a simpler function.
     //      (Note: This code could be optimized by duplicating all involved  
     // functions and removing this if-statement. 
+
     if (n == 0) {
         f_low  = f_alpha0(low);	
         f_high = f_alpha0(high);
@@ -419,7 +433,7 @@ const void GreensFunction2DRadAbs::GiveRootInterval(
 
     // Continue shifting the search interval until a sign change is detected.
     while( f_low * f_high > 0 )		
-    {					  
+    {	      				  
         low =  high;			
         f_low = f_high;			
 
@@ -597,6 +611,7 @@ const Real GreensFunction2DRadAbs::getAlpha( size_t n,               // order
                                              RealVector::size_type i // ith root
                                            ) const 
 {
+    const Real sigma(getSigma());
     Real current_root_, low, high;   
     
     // # "Administration"
@@ -1253,10 +1268,12 @@ GreensFunction2DRadAbs::makep_mTable( RealVector& p_mTable,
 		p_m_abs = fabs( p_m );					// take the absolute value
         }
 	while (p_m_abs >= threshold || p_m_prev_abs >= threshold || p_m_abs >= p_m_prev_abs );
+
 	// truncate when converged enough.
 	// if the current term is smaller than threshold
 	// AND the previous term is also smaller than threshold
 	// AND the current term is smaller than the previous
+		
 }
 
 // This method calculates the constants for the drawTheta method when the particle is at the boundary
@@ -1374,11 +1391,11 @@ GreensFunction2DRadAbs::makedp_m_at_aTable( RealVector& p_mTable,
             p_m_prev_abs = p_m_abs;					// store the previous term
             const Real p_m( this->dp_m_at_a( m, t ) / p_0 );	// get the next term
 
-            // DEBUG 
-            if (p_m_abs == 0) {
-                std::cerr << "Zero valued term found, but convergence is:" <<
-                    p_mTable[p_mTable.size()-1-1]/p_mTable[p_mTable.size()-2-1];
-            }
+            // DEBUG (something to check in the future?)
+            // if (p_m_abs == 0) {
+            //    std::cerr << "Zero valued term found, but convergence is:" <<
+            //        p_mTable[p_mTable.size()-1-1]/p_mTable[p_mTable.size()-2-1];
+            // }
             // END DEBUG
 
             if( ! std::isfinite( p_m ) )			// if the calculated value is not valid->exit
@@ -1390,13 +1407,12 @@ GreensFunction2DRadAbs::makedp_m_at_aTable( RealVector& p_mTable,
 
             p_mTable.push_back( p_m );                              // put the result in the table
             p_m_abs = fabs( p_m );                                  // take the absolute value
-    }
+    }            
     while (p_m_abs >= threshold || p_m_prev_abs >= threshold || p_m_abs >= p_m_prev_abs );
     // truncate when converged enough.
     // if the current term is smaller than threshold
     // AND the previous term is also smaller than threshold
     // AND the current term is smaller than the previous
-
 }
 
 // This calculates the m-th term of the summation for the drawTheta calculation
@@ -1448,10 +1464,10 @@ GreensFunction2DRadAbs::drawTheta( const Real rnd,
 					   const Real r, 
 					   const Real t ) const
 {
-	const Real sigma( this->getSigma() );
-	const Real a( this->geta() );
-	const Real D( this->getD() );
-    	const Real r0( this->getr0() );
+    const Real sigma( this->getSigma() );
+    const Real a( this->geta() );
+    const Real D( this->getD() );
+    const Real r0( this->getr0() );
 
 	// input parameter range checks.
 	THROW_UNLESS( std::invalid_argument, 0.0 <= rnd && rnd < 1.0 );
@@ -1482,15 +1498,21 @@ GreensFunction2DRadAbs::drawTheta( const Real rnd,
 	}
 
 	// preparing the function
-	ip_theta_params params = { this, r, t, p_mTable, rnd*0.5 };	// r, r0, t are not required
+	
+	// ip_theta_params is a struct.
+	ip_theta_params params = { this, r, t, p_mTable, rnd*0.5 };	// r, r0, t are not required	    
+	                                                        // 0.5 is not even used
+    // F is a struct of type "gsl_function" that contains a function pointer
+	// and the required parameters.
 	gsl_function F = 
 	{
-	    reinterpret_cast<typeof(F.function)>( &ip_theta_F ),     
+	    reinterpret_cast<typeof(F.function)>( &ip_theta_F ), // ip_theta_F is 
+	                                                    // theta pdf function.
 	    &params 
         // reinterpret_cast converts any pointer type to any other pointer type.
         // reinterpret_cast<new_type> variable
-	};
-
+	}; 
+	    
 	// finding the root
 	const gsl_root_fsolver_type* solverType( gsl_root_fsolver_brent );
 	gsl_root_fsolver* solver( gsl_root_fsolver_alloc( solverType ) );
@@ -1506,6 +1528,7 @@ GreensFunction2DRadAbs::drawTheta( const Real rnd,
 // debug
 //
 
+// Debug functionality
 std::string GreensFunction2DRadAbs::dump() const
 {
     std::ostringstream ss;
@@ -1516,3 +1539,59 @@ std::string GreensFunction2DRadAbs::dump() const
 	", h = " << this->geth() << std::endl;
     return ss.str();
 }    
+
+// Debug functionality
+// Directly outputs probability distribution function value of leaving angle
+// for given theta, r and t.
+Real 
+GreensFunction2DRadAbs::givePDF( const Real theta,
+					   const Real r, 
+					   const Real t ) const
+{
+    const Real sigma( this->getSigma() );
+    const Real a( this->geta() );
+    const Real D( this->getD() );
+    const Real r0( this->getr0() );
+
+	// input parameter range checks.
+	THROW_UNLESS( std::invalid_argument, sigma <= r0 && r0 <= a );
+	THROW_UNLESS( std::invalid_argument, sigma <= r && r <= a);
+	THROW_UNLESS( std::invalid_argument, t >= 0.0 );
+
+	// making the tables with constants
+	RealVector p_mTable;			// a table with constants to make calculations much faster
+	if( fabs(r - a) <= EPSILON*L_TYPICAL )	// If the r is at the outer boundary
+	{
+		makedp_m_at_aTable( p_mTable, t );	// making the table if particle on the outer boundary
+	}
+	else
+	{
+		makep_mTable( p_mTable, r, t );	// making the table of constants for the regular case
+	}
+
+    // Return the pdf
+  	ip_theta_params params = { this, r, t, p_mTable, 0.0 };	// r, r0, t are not required	    
+    Real PDF (ip_theta_F( theta, &params ));
+    return PDF;
+	
+}
+
+// It is used by the drawTheta method
+// It uses the p_nTable for it to speed things up
+/*
+const Real 
+GreensFunction2DRadAbs::debug_ip_theta_table( const Real theta) const
+{
+    const RealVector& p_nTable( params->p_nTable );	// table with useful constants
+    
+    const unsigned int maxm( p_nTable.size()-1 );	// get the length of the sum
+							// it is shifted one because the first entry should
+							// be used (m=0)
+
+    const Real p( funcSum_all( boost::bind( &GreensFunction2DRadAbs::ip_theta_n,
+                                             this,
+                                             _1, theta, p_nTable ),
+                                maxm ) );
+    return p;
+}
+*/

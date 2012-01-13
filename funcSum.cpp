@@ -10,10 +10,6 @@
 #include "Logger.hpp"
 #include "funcSum.hpp"
 
-#include <iostream> // debug REMOVEME
-#include <stdexcept> // debug REMOVEME
-#include <sstream> // debug REMOVEME
-
 typedef std::vector<Real> RealVector;
 
 static Logger& _log(Logger::get_logger("funcSum"));
@@ -108,7 +104,8 @@ funcSum(boost::function<Real(unsigned int i)> f, size_t max_i, Real tolerance)
 // If that's impossible, it's a compile error.
 // (From: http://stackoverflow.com/questions/527413/how-boostfunction-and-boostbind-work)
 {
-    const unsigned int CONVERGENCE_CHECK(4);
+    // DEFAULT = 4
+    const unsigned int CONVERGENCE_CHECK(4);    
 
     Real sum(0.0);
     RealVector pTable;
@@ -116,7 +113,6 @@ funcSum(boost::function<Real(unsigned int i)> f, size_t max_i, Real tolerance)
     const Real p_0(f(0));
     if (p_0 == 0.0)
     {
-//        std::clog << "[[p_0(f(0))=0]]"; // DEBUG *REMOVEME*
         return 0.0;
     }
 

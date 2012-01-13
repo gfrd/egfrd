@@ -57,6 +57,10 @@ def draw_theta_wrapper(gf, r, dt):
     """Draw theta for the inter-particle vector.
 
     """
+    # We're interested in value between [-pi,pi], but this problem is symmetric: 
+    # the cumulative pdf is odd. Thus drawTheta() returns a value between 
+    # [0,pi], which is then with a 50% probability made negative or kept 
+    # positive.
     rnd = myrandom.uniform()
 
     if __debug__:

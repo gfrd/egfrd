@@ -35,6 +35,11 @@ world_size = 1e-3   # Lengths of simulation box
 # ===============================
 # Model
 m = model.ParticleModel(world_size)
+# Add Plane ("membrane")
+the_plane = _gfrd.create_planar_surface('the_plane', 
+    [world_size/2,0,0], [0,0,1], [0,1,0], 
+    world_size, world_size)
+m.add_structure(the_plane)
 # Species
 X = model.Species('X', D, sigma/2)                                   
 m.add_species_type(X) 
@@ -64,7 +69,7 @@ s = EGFRDSimulator(w, myrandom.rng)
 throw_in_particles(w, X, numberToThrowIn)
 place_particle(w, X, [0,0,0])
 
-# Running 1
+# Running 1 (run for certain time)
 # ===============================
 while (s.get_next_time() < end_time):
     s.step()
@@ -72,7 +77,7 @@ while (s.get_next_time() < end_time):
 s.stop(end_time)
     
 
-# Running 2
+# Running 2 (run for X number of eGFRD steps)
 # ===============================
 for t in range(N):
     s.step()
@@ -89,6 +94,8 @@ vtk_output_directory = 'VTK_out'
 if (os.path.exists(vtk_output_directory)):
     print '** WARNING: VTK output directory already exists, possible '+ \
             'present old VTK files might lead to errors.'
+    logging = False
+    print "Turned logging of."            
     
 from visualization import vtklogger
 l = vtklogger.VTKLogger(s, vtk_output_directory, extra_particle_step=True) 

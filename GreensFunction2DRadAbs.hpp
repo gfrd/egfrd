@@ -43,6 +43,7 @@ private:
     static const Real T_TYPICAL = 1E-5; // typical time scale
     static const Real EPSILON = 1E-12;  // relative numeric error
 
+    // DEFAULT = 30
     static const unsigned int MAX_ORDER = 30;		// The maximum number of m 
                                                     // terms
     static const unsigned int MAX_ALPHA_SEQ = 500;	// The maximum number of n 
@@ -56,7 +57,7 @@ private:
     // Left boundary of 1st search interval 1st root
     static const Real SCAN_START = 0.001;     
     // Length of the scanning interval relative to estimated interval
-    static const Real FRACTION_SCAN_INTERVAL = .5;    
+    static const Real FRACTION_SCAN_INTERVAL = .5;
     
     // Other paramters
     // After CONVERGENCE_ASSUMED subsequent roots that lay within +/- 
@@ -110,8 +111,7 @@ public:
     virtual Real drawTheta( const Real rnd,
 			  const Real r, 
 			  const Real t ) const;
-    
-    
+      
     const Real f_alpha0( const Real alpha ) const;
   
     const Real f_alpha( const Real alpha, const Integer n ) const;
@@ -144,12 +144,6 @@ public:
     // methods below are kept public for debugging purpose.
 
     std::string dump() const;
-
-//    const Real alphaOffset( const unsigned int n ) const; // TODO Really can be thrown away?
-
-//    const Real alpha0_i( const Real previous ) const;
-
-//    const Real alpha_i( const Real offset, const Integer n ) const;
 
                                                           
     const void GiveRootInterval(  Real& low,          
@@ -194,6 +188,10 @@ public:
 //    const Real getAlpha( const size_t n, const RealVector::size_type i ) const;
 
 //    const Real getAlpha0( const RealVector::size_type i ) const;
+
+    virtual Real givePDF( const Real theta,
+					   const Real r, 
+					   const Real t ) const;    
 
 protected:
 
