@@ -968,13 +968,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
     def fire_interaction(self, single, reactant_pos):
         # This takes care of the identity change when a particle associates with a surface
         # It performs the reactions:
-        # A(3D) + surface -> 0
-        # A(3D) + surface -> B(surface)
+        # A(structure) + surface -> 0
+        # A(structure) + surface -> B(surface)
         assert isinstance(single, InteractionSingle)
 
         # 0. get reactant info
         reactant        = single.pid_particle_pair
-        reactant_radius    = reactant[1].radius
+        reactant_radius = reactant[1].radius
         rr = single.interactionrule
 
         # 1. remove the particle
@@ -998,9 +998,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
             product_species = self.world.get_species(rr.products[0])
             product_radius  = product_species.radius
             product_surface = single.surface
-            # make sure that the product species lives on the interaction surface
-            assert (single.surface == self.world.get_structure(product_species.structure_id)), \
-                   'Product particle should live on the surface of interaction after the reaction.'
+            # TODO make sure that the product species lives on the same type of the interaction surface
+#            product_structure_type = self.world.get_structure(product_species.structure_id)
+#            assert (single.surface.sid == self.world.get_structure(product_species.structure_id)), \
+#                   'Product particle should live on the surface of interaction after the reaction.'
 
             # 1.5 get new position of particle
             transposed_pos = self.world.cyclic_transpose(reactant_pos, product_surface.shape.position)

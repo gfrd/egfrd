@@ -25,8 +25,8 @@ __all__ = [
     'NonInteractionSingle',
     'InteractionSingle',
     'CylindricalSurfaceInteraction',
-    'PlanarSurfaceInteraction',
     'CylindricalSurfaceSink',
+    'PlanarSurfaceInteraction',
     ]
 
 
@@ -442,7 +442,7 @@ class CylindricalSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
             raise Exception('CylindricalSurfaceSingle, create_updated_shell failed: %s' % str(e) )
 
     def create_position_vector(self, z):
-        if utils.feq(z, self.get_inner_a()):
+        if feq(z, self.get_inner_a()):
             # Escape, can be either to the left or to the right.
             # The side of escape should be decided on by the flux through
             # both boundaries at the escape time
@@ -663,7 +663,7 @@ class CylindricalSurfaceInteraction(InteractionSingle):
         # r0 is the distance from the center of the cylinder to the center of the particle
         # z0 is known to be zero (the particle being in the center of the shell in the z direction)
         self.unit_r = self.testShell.reference_vector    
-        self.r0     = self.testShell.particle_surface_distance
+        self.r0     = self.testShell.particle_surface_distance + self.surface.shape.radius
         self.z0     = 0.0
 
     def get_inner_dz_left(self):

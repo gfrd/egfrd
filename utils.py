@@ -28,7 +28,7 @@ TIME_TOLERANCE = 1e-10
 MINIMAL_SEPARATION_FACTOR = 1.0 + TOLERANCE
 
 
-MULTI_SHELL_FACTOR = math.sqrt(2.1) # MULTI_SHELL_FACTOR should be AT LEAST sqrt(2)
+MULTI_SHELL_FACTOR = math.sqrt(3) # MULTI_SHELL_FACTOR should be AT LEAST sqrt(2)
                                     # This stems from the fact that there vacant space in the cylinder
                                     # NonInteractionSingles to a Multi and also defines the Multi
                                     # shell size.
