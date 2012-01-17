@@ -785,6 +785,9 @@ GreensFunction2DRadAbs::p_survival_table( const Real t,
 	Real p;
 	const unsigned int maxi( guess_maxi( t ) );	// guess the maximum number of iterations required
             
+    if( maxi == this->MAX_ALPHA_SEQ )
+        std::cerr << " p_survival_table (used by drawTime) couldn't converge; max terms reached: " << maxi << std::endl;
+           
         if( psurvTable.size() < maxi + 1 )		// if the dimensions are good then this means
         {						// that the table is filled
         	IGNORE_RETURN getAlpha( 0, maxi );	// this updates the table of roots
@@ -886,26 +889,28 @@ Real GreensFunction2DRadAbs::drawTime( const Real rnd) const
     THROW_UNLESS( std::invalid_argument, 0.0 <= rnd && rnd < 1.0 );
     THROW_UNLESS( std::invalid_argument, sigma <= r0 && r0 <= a );
 
-    Real dist;
-
+    Real t_guess;
 
     if( r0 == a || a == sigma )		// when the particle is at the border or if the PD has no real size
     {
 	return 0.0;
     }
 
+    // get some initial guess for the time, dr=sqrt(2dDt) with d
+    // the dimensionality (2 in this case)
+    const Real t_Abs( gsl_pow_2( a - r0 ) / ( 4.0 * D ) );
     if ( kf == 0.0 )			// if there was only one absorbing boundary
     {	
-        dist = a - r0;
+        t_guess = t_Abs;
     }
     else
     {	
-        dist = std::min( a - r0, r0 - sigma );	// take the shortest distance to a boundary
+        const Real t_Rad( D / gsl_pow_2( kf/(2*M_PI*a) ) + gsl_pow_2( r0 - sigma ) / D );
+        t_guess = std::min( t_Abs, t_Rad );	// take the shortest time to a boundary
     }
-    Real t_guess = dist * dist / ( 4.0 * D );	// get some initial guess for the time, dr=sqrt(2dDt) with d
-						// the dimensionality (2 in this case)
-
-
+    
+    t_guess *= .1;
+    
 	const Real minT( std::min( sigma * sigma / D * this->MIN_T_FACTOR,
                                t_guess * 1e-7 ) );	// something with determining the lowest possible t
 
@@ -1250,7 +1255,9 @@ GreensFunction2DRadAbs::makep_mTable( RealVector& p_mTable,
 		m++;
 		if( m >= this->MAX_ORDER )		// If the number of terms is too large
 		{
-			std::cerr << "p_m didn't converge (m=" << m << "), continuing..." << std::endl;
+			std::cerr << "p_m didn't converge (m=" << m << "), t = " << t << " r0, r = " << getr0() << ", " << r << 
+			    " t_est = " << gsl_pow_2( r - getr0() ) / getD() << ", continuing..." << std::endl;
+    		std::cerr << dump() <<std::endl;	    
 			break;
 		}
 

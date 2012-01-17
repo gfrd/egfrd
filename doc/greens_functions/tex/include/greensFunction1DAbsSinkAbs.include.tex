@@ -1,0 +1,38 @@
+
+\subsection{1D Abs Sink Abs}
+
+\paragraph{Green's function}
+is divided into two composite domains with functions $p_l$ and $p_r$ and the sink (rate k) at the origin. The left and right domains have lengths of respectively $L_l$ and $L_r$. $x_0$ is assumed to be in the right domain.
+ \begin{multline}
+ p_r(x,t|x_0) = - \sum_{i=1}^{\infty} \, e^{- D \beta_i ^2 t} \, 2 \, \mathrm{sin} \, \beta_i (L_r - x) \, \frac{D \beta_i \, \mathrm{sin} \, \beta_i (L_l + x_0) + k \, \mathrm{sin} \, \beta_i L_l \,\, \mathrm{sin} \, \beta_i x_0}{h'( \beta_i )},
+\end{multline}
+\begin{multline}
+ p_l(x,t,|x_0) = -\sum_{i=1}^{\infty} e^{- D \beta_i ^2 t} \, 2 D \beta_i \, \frac{\mathrm{sin} \, \beta_i (L_l + x) \,\, \mathrm{sin} \, \beta_i (L_r - x_0)}{h'( \beta_i )},
+\end{multline}
+where $L=L_r + L_l$ in both equations. Note that when $p_r$ is evaluated for $x<x_0$, $x$ and $x_0$ have to be interchanged. The denominator $h'( \beta_i )$ is
+\begin{equation*}
+h'( \beta_i ) = D \, (L \beta_i \mathrm{cos} \, \beta_i L + \, \mathrm{sin} \, L \beta_i ) + k \,( L_r \, \mathrm{cos} \, \beta_i L_r \,\, \mathrm{sin} \, \beta_i L_l + L_l \, \mathrm{cos} \, \beta_i L_l \,\, \mathrm{sin} \, \beta_i L_r )
+\end{equation*}
+The $\beta_i$'s are the roots of the equation
+\begin{equation*} 
+ D\beta_i \, \mathrm{sinh} \, \beta_i (L_r + L_l) + k \, \mathrm{sinh} \, \beta_i L_l \, \mathrm{sinh} \, \beta_i L_r = 0.
+\end{equation*}
+
+\paragraph{Survival probability}
+\begin{multline}
+S(t|x_0) = \bigg( 2 D \left[ \mathrm{sin} \, q L \, - \, \mathrm{sin} \, q (L_r - x_0) \, - \, \mathrm{sin} \, q (L_l + x_0)  \right] \, + \, \\ 
+ \frac{2 k}{q} \mathrm{sin} \, q L_l \left[ \mathrm{sin} \, q L_r \, - \, \mathrm{sin} \, q x_0 \, - \, \mathrm{sin} \, q (L_r - x_0) \right] \bigg) / h'( \beta_i ),
+\end{multline}
+where $q = \beta_i / L$.
+
+\paragraph{Propensity functions}
+\begin{align}
+  q_{x=L_l}(t) = \\
+  q_{x=L_r}(t) = \\
+  q_{x=0}(t) =
+\end{align}
+
+\paragraph{Cumulative Green's function}
+\begin{align}
+  P(X,t|x_0,t'=0) =
+\end{align}

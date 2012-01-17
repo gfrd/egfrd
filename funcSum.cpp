@@ -136,13 +136,12 @@ funcSum(boost::function<Real(unsigned int i)> f, size_t max_i, Real tolerance)
         {
             ++convergenceCounter;          
         }
-        /*
         // this screws it up; why?
         else
         {
             convergenceCounter = 0;
         }
-        */
+
 
         if (convergenceCounter >= CONVERGENCE_CHECK)
         {

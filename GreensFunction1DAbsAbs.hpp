@@ -20,7 +20,6 @@
 
 #include "findRoot.hpp"
 #include "Defs.hpp"
-#include "OldDefs.hpp"			// TODO: this must be removed at some point!
 #include "funcSum.hpp"
 #include "freeFunctions.hpp"
 #include "Logger.hpp"
@@ -185,7 +184,6 @@ private:
         const Real t;
         RealVector table;
         Real rnd;
-        Real p_surv;
     };
 
     uint guess_maxi(Real const& t ) const;
@@ -206,10 +204,21 @@ private:
 
     static Real drawR_f (Real z, void* p);
 
-    Real p_int_r_table(Real const& r, Real const& t, Real const& p_surv, 
-                       RealVector& table) const;
+    Real p_int_r_table(Real const& r, Real const& t, RealVector& table) const;
 
-    void createP_int_r_Table( Real const& t, uint const& maxi, RealVector& table ) const;
+    Real p_int_r_i(uint i, Real const& r, Real const& t, RealVector& table) const;
+
+    void create_p_int_r_Table( Real const& t, uint const& maxi, RealVector& table ) const;
+
+    Real get_p_int_r_Table_i( uint& i, Real const& t, RealVector& table ) const
+    {
+        if( i >= table.size() )
+        {
+            create_p_int_r_Table(t, i+1, table);
+        }
+
+        return table[i];
+    }
 
 private:
     // The diffusion constant and drift velocity

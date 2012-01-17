@@ -11,11 +11,11 @@
 
 PDFLATEX=pdflatex -output-directory=../build
 
-greensFunctions.pdf: greensFunctions.tex greensFunction1DAbsAbs.pdf greensFunction1DAbsInf.pdf greensFunction1DRadAbs.pdf greensFunction1DRadInf.pdf greensFunction2DRadAbs.pdf
+greensFunctions.pdf: greensFunctions.tex greensFunction1DAbsAbs.pdf greensFunction1DAbsInf.pdf greensFunction1DRadAbs.pdf greensFunction1DRadInf.pdf greensFunction1DAbsSinkAbs.pdf greensFunction1DInfSinkInf.pdf greensFunction2DRadAbs.pdf
 	$(PDFLATEX) greensFunctions.tex
 
 greensFunction1DAbsAbs.pdf: greensFunction1DAbsAbs.tex include/greensFunction1DAbsAbs.include.tex 
-	$(PDFLATEX) greensFunction1DAbsAbs.tex 
+	$(PDFLATEX) greensFunction1DAbsAbs.tex
 
 greensFunction1DAbsInf.pdf: greensFunction1DAbsInf.tex include/greensFunction1DAbsInf.include.tex
 	$(PDFLATEX) greensFunction1DAbsInf.tex
@@ -25,6 +25,12 @@ greensFunction1DRadAbs.pdf: greensFunction1DRadAbs.tex include/greensFunction1DR
 
 greensFunction1DRadInf.pdf: greensFunction1DRadInf.tex include/greensFunction1DRadInf.include.tex
 	$(PDFLATEX) greensFunction1DRadInf.tex
+
+greensFunction1DAbsSinkAbs.pdf: greensFunction1DAbsSinkAbs.tex include/greensFunction1DAbsSinkAbs.include.tex
+	$(PDFLATEX) greensFunction1DAbsSinkAbs.tex
+
+greensFunction1DInfSinkInf.pdf: greensFunction1DInfSinkInf.tex include/greensFunction1DInfSinkInf.include.tex
+	$(PDFLATEX) greensFunction1DInfSinkInf.tex
 
 greensFunction2DRadAbs.pdf: greensFunction2DRadAbs.tex include/greensFunction2DRadAbs.include.tex
 	$(PDFLATEX) greensFunction2DRadAbs.tex

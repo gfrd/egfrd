@@ -87,7 +87,6 @@ Real W(Real a, Real b)
 
    The approximation for the greensfunction with a sink has 3 boundaries: 030
    left absorbing boundary, sink, right absorbing boundary.
-   
  */
 
 Real XP00( Real r, Real t, Real r0, Real D, Real v )
@@ -168,9 +167,9 @@ Real XS10( Real t, Real r0, Real D, Real v )
         return erf( r0 / sqrt4Dt );
     else
     {
-        const Real temp( erfc( -(r0 + vt) / sqrt4Dt ) - 
-                         exp(- v * r0 / D ) * erfc( (r0 - vt) / sqrt4Dt) );
-        return 0.5 * temp;
+        const Real corr( exp((6*v*r0 - v*vt ) / (4 * D)) ); 
+        //erfc( -(r0 + vt) / sqrt4Dt ) - exp(- v * r0 / D ) * erfc( (r0 - vt) / sqrt4Dt) );
+        return 0.5 * corr * W(r0/sqrt4Dt, -vt/sqrt4Dt);
     }
 }
 
@@ -318,7 +317,7 @@ Real XS30( Real t, Real r0, Real ka, Real D, Real v )
         const Real r0plusvt( r0 + v * t );
         const Real r0minvt( r0 - v * t );
 
-        const Real erfc_arg( ( r0 + 2 * kplusv2 * t ) / sqrt4Dt);
+        const Real erfc_arg( ( r0 + 2 * kplusv2 * t ) / sqrt4Dt );
 
         const Real exp_arg( k_D * ( r0 + (ka + v) * t ) );
 

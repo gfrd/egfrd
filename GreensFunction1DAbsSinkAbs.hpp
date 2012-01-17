@@ -20,7 +20,6 @@
 
 #include "findRoot.hpp"
 #include "Defs.hpp"
-#include "OldDefs.hpp"			// TODO: this must be removed at some point!
 #include "GreensFunction.hpp"
 #include "funcSum.hpp"
 #include "freeFunctions.hpp"
@@ -241,16 +240,13 @@ private:
         rootList.erase( rootList.begin() + n );
     }
 
-    /* return the n'th root */
+    /* return the n + 1'th root */
     Real get_root( uint const& n ) const
     {
-        if( n < rootList.size() )
-            return rootList[ n ];
-        else
-        {
-            calculate_n_roots( n );
-            return rootList.back();
-        }
+        if( n >= rootList.size() )
+            calculate_n_roots( n+1 );
+
+        return rootList[ n ];
     }
 
 
@@ -297,16 +293,29 @@ private:
     /* functions for calculating the c.d.f. */
 
     /* i'th term of p_int_r(r') for r' in left domain */
-    Real p_int_r_leftdomain(uint i, Real const& rr, RealVector const& table) const;
+    Real p_int_r_leftdomain(uint i, Real const& rr, Real const& t, RealVector& table) const;
 
     /* i'th term of p_int_r(r') for r' in right domain, left of r0 */
-    Real p_int_r_rightdomainA(uint i, Real const& rr, RealVector const& table) const;
+    Real p_int_r_rightdomainA(uint i, Real const& rr, Real const& t, RealVector& table) const;
 
     /* i'th term of p_int_r(r') for r' in right domain, right of r0 */
-    Real p_int_r_rightdomainB(uint i, Real const& rr, RealVector const& table) const;
+    Real p_int_r_rightdomainB(uint i, Real const& rr, Real const& t, RealVector& table) const;
 
-    void createP_int_r_Table( Real const& t, RealVector& table ) const;
+    /* Fills table with r-independent part of p_int_r_i. */
+    void create_p_int_r_Table( Real const& t, RealVector& table ) const;
 
+    /* Returns i'th r-independent term of p_int_r_i.
+       Term is created if not in table. */
+    Real get_p_int_r_Table_i( uint& i, Real const& t, RealVector& table) const
+    {
+        if( i >= table.size() )
+        {
+            calculate_n_roots( i+1 );
+            create_p_int_r_Table( t, table );
+        }
+
+        return table[i];
+    }
 
     /* Denominator of the Greens function */
     inline Real p_denominator_i( Real const& root_n ) const;

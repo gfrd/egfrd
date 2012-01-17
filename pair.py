@@ -229,7 +229,7 @@ class SimplePair(Pair):
         D1 = self.pid_particle_pair1[1].D
         D2 = self.pid_particle_pair2[1].D
 
-        LD_MAX = 20 # temporary value
+        LD_MAX = self.LD_MAX # temporary value
         a_r_max = LD_MAX * (r0 - self.sigma) + self.sigma
         # a_r_max is the maximum size of a_r for a given maximum ratio of l/delta
 
@@ -313,6 +313,7 @@ class SphericalPair(SimplePair, hasSphericalShell):
         assert isinstance(testShell, SphericalPairtestShell)
         hasSphericalShell.__init__(self, testShell, domain_id)
         SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
+        self.LD_MAX = numpy.inf
 
     def com_greens_function(self):
         # Green's function for centre of mass inside absorbing sphere.
@@ -411,6 +412,7 @@ class PlanarSurfacePair(SimplePair, hasCylindricalShell):
         assert isinstance(testShell, PlanarSurfacePairtestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
         SimplePair.__init__(self, domain_id, shell_id, rrs)
+        self.LD_MAX = 20
 
     def com_greens_function(self):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
@@ -500,6 +502,7 @@ class CylindricalSurfacePair(SimplePair, hasCylindricalShell):
         assert isinstance(testShell, CylindricalSurfacePairtestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
         SimplePair.__init__(self, domain_id, shell_id, rrs)
+        self.LD_MAX = numpy.inf
 
     def get_v_tot(self):
         return self.pid_particle_pair2[1].v - \

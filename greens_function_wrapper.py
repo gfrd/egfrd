@@ -68,9 +68,9 @@ def draw_theta_wrapper(gf, r, dt):
     try:
         theta = gf.drawTheta(rnd, r, dt)
     except Exception, e:
-        raise Exception('gf.drawTheta() failed, '
-                        '%s, rnd = %g, r = %g, dt = %g; %s' %
-                        (str(e), rnd, r, dt, gf.dump()))
+        print 'gf.drawTheta() failed, %s, rnd = %g, r = %g, dt = %g; %s' %(str(e), rnd, r, dt, gf.dump())
+        #ugly hack: When drawTheta fails, return uniformly distributed theta.
+        theta = rnd * numpy.pi
 
     # Heads up. For cylinders theta should be between [-pi, pi]. For 
     # spheres it doesn't matter.

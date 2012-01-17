@@ -22,7 +22,6 @@
 #include "funcSum.hpp" 
 #include "freeFunctions.hpp"
 #include "Defs.hpp"
-#include "OldDefs.hpp"			// TODO: this must be removed at some point!
 #include "GreensFunction.hpp"
 #include "Logger.hpp"
 
@@ -95,12 +94,12 @@ public:
 
     Real geta() const
     {
-	return this->a;
+        return this->a;
     }
     
     Real getsigma() const
     {
-	return this->sigma;
+        return this->sigma;
     }
 
     void setr0(Real r0)
@@ -123,17 +122,17 @@ public:
 
     Real getr0() const
     {
-	return r0;
+        return r0;
     }
 
     Real getk() const
     {
-	return this->k;
+        return this->k;
     }
 
     Real getv() const
     {
-	return this->v;
+        return this->v;
     }
 
     // Calculates the probability density of finding the particle at 
@@ -218,7 +217,6 @@ private:
         const Real t;
         RealVector table;
         Real rnd;
-        Real p_surv;
     };
 
 
@@ -248,16 +246,13 @@ private:
         rootList.erase( rootList.begin() + n );
     }
 
-    /* return the n'th root */
+    /* return the n + 1'th root */
     Real get_root( uint const& n ) const
     {
-        if( n < rootList.size() )
-            return rootList[ n ];
-        else
-        {
-            calculate_n_roots( n );
-            return rootList.back();
-        }
+        if( n >= rootList.size() )
+            calculate_n_roots( n+1 );
+
+        return rootList[ n ];
     }
 
     /* Fills the rootList with the first n roots. */
@@ -289,11 +284,22 @@ private:
 
     static Real drawR_f (Real z, void* p);
 
-    Real p_int_r_table(Real const& r, Real const& t, Real const& p_surv, 
-                       RealVector& table) const;
+    Real p_int_r_table(Real const& r, Real const& t, RealVector& table) const;
 
-    void createP_int_r_Table( Real const& t, uint const& maxi, RealVector& table ) const;
+    Real p_int_r_i(uint i, Real const& r, Real const& t, RealVector& table) const;
+
+    void create_p_int_r_Table( Real const& t, RealVector& table ) const;
     
+    Real get_p_int_r_Table_i( uint& i, Real const& t, RealVector& table) const
+    {
+        if( i >= table.size() )
+        {
+            calculate_n_roots( i+1 );
+            create_p_int_r_Table(t, table);
+        }
+
+        return table[i];
+    }
 
     /* Member variables */
 
