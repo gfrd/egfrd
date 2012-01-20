@@ -101,10 +101,10 @@ public:
         switch (PyTuple_Size(arg))
         {
         default:
-            PyErr_SetString(PyExc_TypeError, "the number of arguments must be either 0 or 4");
+            PyErr_SetString(PyExc_TypeError, "the number of arguments must be either 0 or 5");
             return NULL;
 
-        case 4:
+        case 5:
             retval = create();
             if (set_position(reinterpret_cast<ParticleWrapper*>(retval), 
                         PyTuple_GetItem(arg, 0), 0)
@@ -112,8 +112,10 @@ public:
                         PyTuple_GetItem(arg, 1), 0)
                 || set_D(reinterpret_cast<ParticleWrapper*>(retval), 
                         PyTuple_GetItem(arg, 2), 0)
+                || set_v(reinterpret_cast<ParticleWrapper*>(retval), 
+                        PyTuple_GetItem(arg, 3), 0)
                 || set_sid(reinterpret_cast<ParticleWrapper*>(retval), 
-                        PyTuple_GetItem(arg, 3), 0))
+                        PyTuple_GetItem(arg, 4), 0))
             {
                 ParticleWrapper::operator delete(retval);
                 return NULL;
@@ -301,7 +303,7 @@ public:
 
     static Py_ssize_t __sq_len__(PyObject *self)
     {
-        return 4;
+        return 5;           // I think this is the number of elements (and not the max index)
     }
 
     static PyObject* __sq_item__(PyObject *self, Py_ssize_t idx)
@@ -320,7 +322,7 @@ public:
             return get_radius(reinterpret_cast<ParticleWrapper*>(self));
         case 2:
             return get_D(reinterpret_cast<ParticleWrapper*>(self));
-	case 3:
+    	case 3:
             return get_v(reinterpret_cast<ParticleWrapper*>(self));
         case 4:
             return get_sid(reinterpret_cast<ParticleWrapper*>(self));
@@ -344,7 +346,7 @@ public:
             return set_radius(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         case 2:
             return set_D(reinterpret_cast<ParticleWrapper*>(self), val, 0);
-	case 3:
+	    case 3:
             return set_v(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         case 4:
             return set_sid(reinterpret_cast<ParticleWrapper*>(self), val, 0);

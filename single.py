@@ -122,7 +122,7 @@ class Single(ProtectiveDomain):
         else:
             dt = draw_time_wrapper(self.greens_function())
 
-        event_type = EventType.SINGLE_ESCAPE    # TODO Event is not an ESCAPE when in 1D there is drift
+        event_type = EventType.SINGLE_ESCAPE
         return dt, event_type
 
     def check(self):
@@ -183,8 +183,6 @@ class NonInteractionSingle(Single, NonInteractionSingles):
             # idea, because then you'd draw an unused random number.  
             # The same yields for the draw_new_com and draw_new_iv.  
 
-            # TODO Either include check for non-zero drift here, or overload
-            # this method in CylindricalSurfaceSingle to check exit interface
                 r = self.get_inner_a()
             else:
                 gf = self.greens_function()
@@ -271,8 +269,8 @@ class SphericalSingle(NonInteractionSingle, hasSphericalShell):
     # these return potentially corrected dimensions
     # For explanation see NonInteractionSingles and Others in shells.py
     def shell_list_for_single(self):
-#        min_radius = self.pid_particle_pair[1].radius * MULTI_SHELL_FACTOR
-        min_radius = self.testShell.get_min_radius()
+        # make sure that there is at least space for the multi shell
+        min_radius = self.pid_particle_pair[1].radius * MULTI_SHELL_FACTOR
         if  self.shell.shape.radius < min_radius:
             position = self.shell.shape.position
             fake_shell = self.create_new_shell(position, min_radius, self.domain_id)
@@ -282,6 +280,7 @@ class SphericalSingle(NonInteractionSingle, hasSphericalShell):
             return self.shell_list
 
     def shell_list_for_other(self):
+        # keeps all the other domains at a distance of the burst radius
         min_radius = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
         if self.shell.shape.radius < min_radius:
             position = self.shell.shape.position
@@ -293,7 +292,7 @@ class SphericalSingle(NonInteractionSingle, hasSphericalShell):
     def create_updated_shell(self, position):
         # TODO what should we do with the position now?
         try:
-            radius = self.testShell.determine_possible_shell([self.domain_id], [self.structure.id])
+            radius = self.testShell.determine_possible_shell(self.structure.id, [self.domain_id], [])
             return self.create_new_shell(position, radius, self.domain_id)
 
         except ShellmakingError as e:
@@ -331,31 +330,39 @@ class PlanarSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
     # For explanation see NonInteractionSingles and Others in shells.py
     def shell_list_for_single(self):
         # The shell should always be larger that the bare minimum for a test shell
-        # Note that in case of a cylindrical shell this fits inside of the spherical multi shell
-#        min_radius = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
-        min_radius, _, _ = self.testShell.get_min_dr_dzright_dzleft()
+        # Note that in case of a cylindrical shell this must fit inside of the spherical multi shell because
+        # this demarks the boundary outside of which domains can be.
+        min_radius = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
         if self.shell.shape.radius < min_radius:
+            # This should only happen if the domain is just initialized.
             position = self.shell.shape.position
-            half_length = self.shell.shape.half_length
-            fake_shell = self.create_new_shell(position, min_radius, half_length, self.domain_id)
+            radius = self.pid_particle_pair[1].radius * MULTI_SHELL_FACTOR
+            # There should always be space to make the spherical multi shell.
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
             return [(self.shell_id, fake_shell), ]
         else:
+            # When the shell has proper dimensions -> just return the real shell.
             return self.shell_list
 
     def shell_list_for_other(self):
-        min_radius = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+        # set the threshold below which the shell is adjusted.
+        min_radius = self.pid_particle_pair[1].radius * math.sqrt(SINGLE_SHELL_FACTOR**2 - 1.0)
         if self.shell.shape.radius < min_radius:
             position = self.shell.shape.position
-            half_length = self.shell.shape.half_length
-            fake_shell = self.create_new_shell(position, min_radius, half_length, self.domain_id)
+            radius = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR     # The burst radius
+#            half_length = self.shell.shape.half_length
+            # keep everything at a burstradius distance
+#            fake_shell = self.create_new_shell(position, min_radius, half_length, self.domain_id)
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
             return [(self.shell_id, fake_shell), ]
         else:
+            # When the shell is larger than the burst volume -> return the real shell.
             return self.shell_list
 
     def create_updated_shell(self, position):
         # TODO what should we do with the position now?
         try:
-            dr, dz_right, dz_left = self.testShell.determine_possible_shell([self.domain_id], [self.structure.id])
+            dr, dz_right, dz_left = self.testShell.determine_possible_shell(self.structure.id, [self.domain_id], [])
             center, radius, half_length = self.r_zright_zleft_to_r_center_hl(self.testShell.get_referencepoint(),
                                                                              self.testShell.get_orientation_vector(),
                                                                              dr, dz_right, dz_left)            
@@ -407,31 +414,36 @@ class CylindricalSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
     def shell_list_for_single(self):
         # The shell should always be larger that the bare minimum for a test shell
         # Note that in case of a cylindrical shell this fits inside of the spherical multi shell
-#        min_half_length = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
-        _, min_half_length, _ = self.testShell.get_min_dr_dzright_dzleft()
+        min_half_length = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
         if self.shell.shape.half_length < min_half_length:
+            # This should only happen if the domain is just initialized.
             position = self.shell.shape.position
-            radius = self.shell.shape.radius
-            fake_shell = self.create_new_shell(position, radius, min_half_length, self.domain_id)
+            # There should always be space to make the spherical multi shell.
+            radius = self.pid_particle_pair[1].radius * MULTI_SHELL_FACTOR
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
             return [(self.shell_id, fake_shell), ]
         else:
             return self.shell_list
 
     def shell_list_for_other(self):
-        min_half_length = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+        min_half_length = self.pid_particle_pair[1].radius * math.sqrt(SINGLE_SHELL_FACTOR**2 - 1.0)
         if self.shell.shape.half_length < min_half_length:
             position = self.shell.shape.position
-            radius = self.shell.shape.radius
-            fake_shell = self.create_new_shell(position, radius, min_half_length, self.domain_id)
+            radius = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+#            fake_shell = self.create_new_shell(position, radius, min_half_length, self.domain_id)
+            # Keep all the other shells outside the burst radius (which is spherical!)
+            # Note that this makes the cylindrical shell have a slightly smaller radius than the burst radius.
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
             return [(self.shell_id, fake_shell), ]
         else:
+            # When the shell is larger than the burst volume -> return the real shell.
             return self.shell_list
 
     def create_updated_shell(self, position):
         # TODO what should we do with the position now?
         # maybe update the reference_point of the shell before updating the shell
         try:
-            dr, dz_right, dz_left = self.testShell.determine_possible_shell([self.domain_id], [self.structure.id])
+            dr, dz_right, dz_left = self.testShell.determine_possible_shell(self.structure.id, [self.domain_id], [])
             dz_right = min(dz_right, dz_left)       # make sure the domain is symmetric around the particle
             dz_left  = dz_right                     # This is not necessary but it's assumed later
             center, radius, half_length = self.r_zright_zleft_to_r_center_hl(self.testShell.get_referencepoint(),
@@ -442,15 +454,35 @@ class CylindricalSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
             raise Exception('CylindricalSurfaceSingle, create_updated_shell failed: %s' % str(e) )
 
     def create_position_vector(self, z):
-        if feq(z, self.get_inner_a()):
-            # Escape, can be either to the left or to the right.
-            # The side of escape should be decided on by the flux through
-            # both boundaries at the escape time
-            # TODO, include drift
+        # 'z' can be interpreted in two different ways here, it may a coordinate in the z direction or it may
+        # be a displacement from the origin. In the first case it will already contain the drift information.
+        if self.v == 0.0:
+            # if there is no drift then we regard 'z' as a displacement from the origin. Although
+            # it actually represents a coordinate when drawR was called. It is a displacement when z=a.
+            # We randomize the direction.
             z = myrandom.choice(-1, 1) * z 
 
-        # project the com onto the surface unit vectors to make sure that the coordinates are in the surface
-        return z * self.shell.shape.unit_z
+        elif self.v != 0.0 and feq(z, self.get_inner_a()):
+            # When there is drift and z=a, the 'z' actually represent the displacement from the origin and a
+            # boundary must be chosen.
+
+            # The Escape can be either to the left or to the right.
+            # The side of escape should be decided on by the flux through both boundaries at the escape time
+            gf = self.greens_function()
+            event_kind = draw_event_type_wrapper(gf, self.dt)
+            if event_kind == PairEventKind.IV_REACTION:     # IV_REACTION -> ESCAPE through 'left' boundary
+                z = -z
+            elif event_kind == PairEventKind.IV_ESCAPE:     # IV_ESCAPE -> ESCAPE through 'right' boundary
+                #z = z
+                pass 
+            else:
+                raise NotImplemented()
+        else:
+            # When there was drift and the particle was not at the boundary.
+            # -> In this case the 'z' actually signifies a coordinate and nothing has to be done.
+            pass
+
+        return z * self.structure.shape.unit_z
 
     def __str__(self):
         return 'CylindricalSurface' + Single.__str__(self)

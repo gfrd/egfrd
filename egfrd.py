@@ -319,24 +319,26 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         non_single_list = []
 
+        # Burst all the domains that we know of.
         # first burst all Singles, and put Pairs and Multis in a list.
-        for id, event in self.scheduler:
-            obj = self.domains[event.data]
-            if isinstance(obj, Pair) or isinstance(obj, Multi):
-                non_single_list.append(obj)
-            elif isinstance(obj, Single):
+#        for id, event in self.scheduler:
+        for _, domain in self.domains.items():
+#            obj = self.domains[event.data]
+            if isinstance(domain, Pair) or isinstance(domain, Multi):
+                non_single_list.append(domain)
+            elif isinstance(domain, Single):
                 if __debug__:
                     log.debug('burst %s, last_time= %s' % 
-                              (obj, FORMAT_DOUBLE % obj.last_time))
-                self.burst_single(obj)
+                              (domain, FORMAT_DOUBLE % domain.last_time))
+                self.burst_single(domain)
             else:
-                assert False, 'object from scheduler was no Single, Pair or Multi'
+                assert False, 'domain from domains{} was no Single, Pair or Multi'
 
 
         # then burst all Pairs and Multis.
         if __debug__:
             log.debug('burst %s' % non_single_list)
-        self.burst_objs(non_single_list)
+        self.burst_domains(non_single_list)
 
         self.dt = 0.0
 
@@ -561,6 +563,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                                  Particle(position,
                                           pid_particle_pair[1].radius,
                                           pid_particle_pair[1].D,
+                                          pid_particle_pair[1].v,
                                           pid_particle_pair[1].sid))
 
         self.world.update_particle(new_pid_particle_pair)
@@ -615,11 +618,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
         elif isinstance(domain, Pair):  # Pair
             bursted = self.burst_pair(domain)
         else:  # Multi
-#            bursted = self.burst_multi(domain)
-            bursted = self.break_up_multi(domain)       # Multi's can't really be 'bursted' since the
+            assert isinstance(domain, Multi)
+            bursted = self.burst_multi(domain)
+#            bursted = self.break_up_multi(domain)       # Multi's can't really be 'bursted' since the
                                                         # positions of the particles are known. They
                                                         # are broken up to singles with a dt=0 shell instead.
-            self.remove_event(domain)
+#            self.remove_event(domain)
 
         if __debug__:
             # After a burst, InteractionSingles should be gone.
@@ -628,7 +632,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return bursted
 
-    def burst_objs(self, domains):
+    def burst_domains(self, domains):
     # bursts all the domains that are in the list 'domains'
         bursted = []
         for domain in domains:
@@ -655,7 +659,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(pos, radius,
                                                                                ignore)
         neighbors = [self.domains[domain_id] for domain_id in neighbor_ids]
-        return self.burst_objs(neighbors)
+        return self.burst_domains(neighbors)
 
     def burst_non_multis(self, domain_distances, burstradius):
         # Bursts the domains in 'domains' if within burstradius
@@ -1165,7 +1169,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # Get also surfaces but only if the particle is in 3D
         surface_distances = []
 #        if isinstance(single, SphericalSingle):
-        surface_distances = self.geometrycontainer.get_neighbor_surfaces(single_pos, ignores=[single.structure.id])
+        surface_distances = self.geometrycontainer.get_neighbor_surfaces(single_pos, single.structure.id, ignores=[])
 
 
         # Check if there are shells with the burst radius (reaction_threshold)
@@ -1381,6 +1385,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
     # Note that this method is also called when a single is bursted. This event in that
     # case is just a BURST event.
 
+        # TODO assert that there is no event associated with this domain in the scheduler
+
         ### log Single event
         if __debug__:
             log.info('FIRE SINGLE: %s' % single.event_type)
@@ -1401,7 +1407,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
         else:
         ### 1. Process 'normal' event produced by the single
 
-            assert self.check_domain(single)
+            if single.event_type != EventType.BURST:
+                # The burst of the domain may be caused by an overlapping domain
+                assert self.check_domain(single)
+
             # check that the event time of the single (last_time + dt) is equal to the
             # simulator time
             assert (abs(single.last_time + single.dt - self.t) <= TIME_TOLERANCE * self.t), \
@@ -1491,6 +1500,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         assert self.check_domain(pair)
         assert pair.single1.domain_id not in self.domains
         assert pair.single2.domain_id not in self.domains
+        # TODO assert that there is no event associated with this domain in the scheduler
 
         # check that the event time of the single (last_time + dt) is equal to the
         # simulator time
@@ -1690,12 +1700,14 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.remove_domain(multi)
         return singles
 
-#    def burst_multi(self, multi):
-#        #multi.sim.sync()
-#        assert isinstance(multi, Multi)
-#        singles = self.break_up_multi(multi)
-#
-#        return singles
+    def burst_multi(self, multi):
+        #multi.sim.sync()
+        self.remove_event(multi)        # The old event was still in the scheduler
+
+        newsingles = self.break_up_multi(multi)
+        # Note that the multi domain is here also removed from 'domains'
+
+        return newsingles
 
     def burst_single(self, single):
         # Sets next event time of 'single' to current time and event to burst event
