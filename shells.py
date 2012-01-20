@@ -683,8 +683,7 @@ def get_radius_to_CylindricalShape(shape, testShell, r):
     return min(r, r_new)
 
 def get_dr_dzright_dzleft_to_PlanarShape(shape, testShell, r, z_right, z_left):
-    assert False
-    pass
+    return r, z_right, z_left
 
 def get_radius_to_PlanarShape(shape, testShell, r):
     # This function returns the radius for the spherical 'testShell' using the planar 'shape' as its closest

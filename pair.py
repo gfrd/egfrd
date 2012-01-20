@@ -312,8 +312,8 @@ class SphericalPair(SimplePair, hasSphericalShell):
 
         assert isinstance(testShell, SphericalPairtestShell)
         hasSphericalShell.__init__(self, testShell, domain_id)
-        SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
         self.LD_MAX = numpy.inf
+        SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
 
     def com_greens_function(self):
         # Green's function for centre of mass inside absorbing sphere.
@@ -411,8 +411,8 @@ class PlanarSurfacePair(SimplePair, hasCylindricalShell):
 
         assert isinstance(testShell, PlanarSurfacePairtestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
-        SimplePair.__init__(self, domain_id, shell_id, rrs)
         self.LD_MAX = 20
+        SimplePair.__init__(self, domain_id, shell_id, rrs)
 
     def com_greens_function(self):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
@@ -501,8 +501,8 @@ class CylindricalSurfacePair(SimplePair, hasCylindricalShell):
 
         assert isinstance(testShell, CylindricalSurfacePairtestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
-        SimplePair.__init__(self, domain_id, shell_id, rrs)
         self.LD_MAX = numpy.inf
+        SimplePair.__init__(self, domain_id, shell_id, rrs)
 
 
     def get_shell_size(self):
