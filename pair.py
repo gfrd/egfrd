@@ -185,11 +185,12 @@ class Pair(ProtectiveDomain, Others):
         sid2 = self.pid_particle_pair2[1].sid
         name1 = self.world.model.get_species_type_by_id(sid1)["name"]
         name2 = self.world.model.get_species_type_by_id(sid2)["name"]
-        return 'Pair[%s: %s, %s, (%s, %s)]' % (
+        return 'Pair[%s: %s, %s, (%s, %s)] with shell: %s' % (
             self.domain_id,
             self.pid_particle_pair1[0],
             self.pid_particle_pair2[0],
-            name1, name2)
+            name1, name2,
+            self.shell)
 
 class SimplePair(Pair):
 
@@ -617,33 +618,21 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         D_1 = self.pid_particle_pair1[1].D
         D_2 = self.pid_particle_pair2[1].D
 
+        radius      = self.shell.shape.radius
         half_length = self.shell.shape.half_length
-        radius = self.shell.shape.radius
 
-        # use class methods to check dimensions of the cylinder
-        # note that we assume that only the z_right is scalable
-        r_check   = self.testShell.r_right (half_length*2 - radius1)
-        hl2_check = self.testShell.z_right (radius) + self.testShell.z_left  (radius)
-        if r_check > radius:
-            # radius should have been larger, adjust z_right instead
-            if __debug__:
-                log.debug('MixedPair2D3D: half_length was too high for radius. '
-                          'radius = %.3g, r_check = %.3g, 2half_length = %.3g, 2hl_check = %.3g' %
-                          (radius, r_check, half_length*2, hl2_check))
+        # Use class methods to check dimensions of the cylinder
+        r_check  = self.testShell.r_right (half_length*2 - radius1)
+        hl_check = (self.testShell.z_right (radius) + self.testShell.z_left (radius))/2
+        if __debug__:
+            assert feq(r_check, radius) and feq(hl_check, half_length), \
+                'MixedPair2D3D: Domain did not obey scaling relationship. ' \
+                'radius = %s, half_length = %s, radius_check = %s, half_length_check = %s' % \
+                 (FORMAT_DOUBLE % radius,  FORMAT_DOUBLE % half_length,
+                  FORMAT_DOUBLE % r_check, FORMAT_DOUBLE % hl_check)
 
-            half_length = hl2_check/2
 
-        elif hl2_check > (half_length*2):
-            # half_length should have been larger, adjust radius instead
-            if __debug__:
-                log.debug('MixedPair2D3D: radius was too high for half_length. '
-                          'radius = %.3g, r_check = %.3g, 2half_length = %.3g, 2hl_check = %.3g' %
-                          (radius, r_check, half_length*2, hl2_check))
-            radius = r_check
-        else:
-            # dimensions were ok
-            pass
-
+        # Partition the space in the protective domain over the IV and the CoM domains
         z_left  = radius1
         z_right = half_length * 2 - z_left
         a_r = (z_right - radius2) * self.z_scaling_factor
@@ -654,15 +643,19 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         a_R = radius - space_for_iv
 
 
+        # Print the domain sizes and their estimated first passage times.
         if __debug__:
             tr = ((a_r - self.r0)**2) / (6 * self.D_r)  # the expected escape time of the iv
             if self.D_R == 0:
                 tR = numpy.inf 
             else:
                 tR = (a_R**2) / (4 * self.D_R)          # the expected escape time of the CoM
-            log.debug('a_r= %s, tr= %s, a_R= %s, tR= %s' % \
+            log.debug('determine_radii: a_r= %s, tr= %s, a_R= %s, tR= %s, delta_tRr= %s' % \
                       (FORMAT_DOUBLE % a_r, FORMAT_DOUBLE % tr,
-                       FORMAT_DOUBLE % a_R, FORMAT_DOUBLE % tR))
+                       FORMAT_DOUBLE % a_R, FORMAT_DOUBLE % tR,
+                       FORMAT_DOUBLE % (tr-tR) ))
+
+#        assert feq(tr, tR), 'estimate first passage times were not equal'
 
         assert (self.sigma < a_r) and (a_r < half_length*2)
         assert (0 < a_R) and (a_R < radius)
@@ -759,8 +752,28 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
         return new_iv
 
+    def check(self):
+    # perform internal consistency check 
+        radius1 = self.pid_particle_pair1[1].radius
+        radius2 = self.pid_particle_pair2[1].radius
+        D_1 = self.pid_particle_pair1[1].D
+        D_2 = self.pid_particle_pair2[1].D
+
+        radius      = self.shell.shape.radius
+        half_length = self.shell.shape.half_length
+
+        # check that the shell obeys the scaling rules dimensions of the cylinder
+        r_check  = self.testShell.r_right (half_length*2 - radius1)
+        hl_check = (self.testShell.z_right (radius) + self.testShell.z_left (radius))/2
+        assert feq(r_check, radius) and feq(hl_check, half_length), \
+            'MixedPair2D3D: Domain did not obey scaling relationship. '
+
+        # check that the CoM is in the surface
+        assert numpy.dot( (self.com-self.surface.shape.position), self.surface.shape.unit_z) == 0.0
+        # check that the IV is NOT in the surface
+
     def __str__(self):
-        return 'Mixed' + Pair.__str__(self)
+        return 'Mixed2D3D' + Pair.__str__(self)
 
 class MixedPair1D3D(Pair):
 

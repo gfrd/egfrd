@@ -27,6 +27,7 @@ __all__ = [
     'NoSpace',
     'create_world',
     'ParticleSimulatorBase',
+    'get_surfaces',
     'get_closest_surface',
     'create_network_rules_wrapper',
     'place_particle'
@@ -81,6 +82,19 @@ def p_free(r, t, D):
 
     return p * jacobian
     
+def get_surfaces(world, pos, ignore=[]):
+    
+    surface_distances = []
+
+    for surface in world.structures:
+        if isinstance(surface, _gfrd.Surface) and surface.id not in ignore:
+            pos_transposed = \
+                world.cyclic_transpose(pos, surface.shape.position)
+            distance = world.distance(surface.shape, pos_transposed)
+            surface_distances.append((surface, distance))
+
+    return surface_distances
+
 def get_closest_surface(world, pos, ignore=[]):
     """Return
       - closest surface
@@ -90,18 +104,10 @@ def get_closest_surface(world, pos, ignore=[]):
     origin of the surface would not be in the same or neighboring 
     cells as pos."""
 
-    distances_and_surfaces = []
+    surface_distances = get_surfaces(world, pos, ignore)
 
-    for surface in world.structures:
-        if isinstance(surface, _gfrd.Surface) and surface.id not in ignore:
-            pos_transposed = \
-                world.cyclic_transpose(pos, surface.shape.position)
-            distance = world.distance(surface.shape, pos_transposed)
-            distances_and_surfaces.append((distance, surface))
-
-    if distances_and_surfaces:
-        distance, surface = min(distances_and_surfaces)
-        return surface, distance
+    if surface_distances:
+        return min(surface_distances, key=lambda surface_dist: surface_dist[1])
     else:
         return None, numpy.inf
 

@@ -12,6 +12,7 @@ from utils import *
 from single import NonInteractionSingle
 from multi import Multi
 from gfrdbase import (
+    get_surfaces,
     get_closest_surface
     )
 
@@ -179,12 +180,9 @@ class ShellContainer(object):
         # We assume a particle can't have an interaction with the same surface on/in which it lives.
         ignores.append( base_structure_id )
 
-        # TODO return a list of neighboring surfaces
-        surface, distance = get_closest_surface(self.world, position, ignores)
-        if surface:
-            return [(surface, distance), ]
-        else:
-            return []
+        surface_distances = get_surfaces(self.world, position, ignores)
+
+        return surface_distances
 
 
     def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):

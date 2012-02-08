@@ -147,7 +147,10 @@ class testNonInteractionSingle(testSingle, NonInteractionSingles):
 class testInteractionSingle(testSingle, Others):
 
     def __init__(self, single, structure, surface):
+
+        # assert that the single is reset
         assert single.is_reset()
+
         testSingle.__init__(self, single.pid_particle_pair, structure)
         # Note: for the Others superclass nothing is to be initialized.
 
@@ -1184,6 +1187,10 @@ class CylindricalSurfacePairtestShell(CylindricaltestShell, testSimplePair):
             raise testShellError('(CylindricalSurfacePair). %s' %
                                  (str(e)))
 
+        # make sure the domain is symmetric around the CoM
+        self.dz_right = min(self.dz_right, self.dz_left)
+        self.dz_left  = self.dz_right
+
     def get_orientation_vector(self):
         return self.structure.shape.unit_z
 
@@ -1262,7 +1269,7 @@ class PlanarSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSin
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
-        return r/SAFETY, z_right/SAFETY, z_left
+        return self.r_right(z_right/SAFETY), z_right/SAFETY, z_left
 
 #####
 class CylindricalSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSingle):
@@ -1316,7 +1323,7 @@ class CylindricalSurfaceInteractiontestShell(CylindricaltestShell, testInteracti
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
-        return r/SAFETY, z_right/SAFETY, z_left/SAFETY
+        return r/SAFETY, self.z_right(r/SAFETY), self.z_left(r/SAFETY)
 
 class CylindricalSurfaceSinktestShell(CylindricaltestShell, testInteractionSingle):
 
@@ -1387,6 +1394,8 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
         # The initialization of r0 can fail in testPair.__init__
 
+#        raise testShellError('(MixedPair2D3D).')
+
         try:
             testMixedPair2D3D.__init__(self, single2D, single3D)
         except protoDomainError as e:
@@ -1397,11 +1406,19 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         self.sqrt_DRDr = math.sqrt((2*self.D_R)/(3*self.D_r))
 
         # initialize the scaling parameters
-        self.drdz_right = self.get_scaling_factor() * ( self.sqrt_DRDr + max( self.pid_particle_pair1[1].D/self.D_tot,
-                                                                              self.pid_particle_pair2[1].D/self.D_tot ))
+        bla = self.get_scaling_factor() * ( self.sqrt_DRDr + max( self.pid_particle_pair1[1].D/self.D_tot,
+                                                                  self.pid_particle_pair2[1].D/self.D_tot ))
+        minimum = self.r0+self.pid_particle_pair1[1].radius
+        self.drdz_right = self.r_right(minimum + 1.0) - self.r_right(minimum)
+        assert feq(bla, self.drdz_right), 'bla= %s, drdz_right=%s' % (bla, self.drdz_right)
+
+        bla2 = self.z_right(minimum + 1.0) - self.z_right(minimum)
+
+        minr, minz_right, _ = self.get_min_dr_dzright_dzleft()
         self.dzdr_right = 1.0/self.drdz_right
+        assert feq(self.dzdr_right, bla2), 'bla2= %s, dzdr_right= %s' % (bla2, self.dzdr_right)
         self.r0_right   = 0.0
-        self.z0_right   = self.z_right2(self.r0_right)
+        self.z0_right   = self.z_right(self.r0_right)
         self.dzdr_left  = 0.0
         self.drdz_left  = numpy.inf
         self.r0_left    = 0.0
@@ -1448,26 +1465,29 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         dr_1 = self.r_right(dz_right1)
 
 
-        ### calculate the minimal radius r2 of the shell including the burst radius
-        # First calculate the minimal size of the iv shell (r0 is at outer boundary)
-        iv_shell_radius1 = self.r0 * D_1 / self.D_tot
-        iv_shell_radius2 = self.r0 * D_2 / self.D_tot
+#        ### calculate the minimal radius r2 of the shell including the burst radius
+#        # First calculate the minimal size of the iv shell (r0 is at outer boundary)
+#        iv_shell_radius1 = self.r0 * D_1 / self.D_tot
+#        iv_shell_radius2 = self.r0 * D_2 / self.D_tot
+#
+#        # fix the minimum shell size for the CoM domain
+#        com_shell_radius = max(radius1, radius2)
+#
+#        # calculate the minimal dimensions of the protective domain including space for the
+#        # burst volumes of the particles
+#        dr_2 = max(iv_shell_radius1 + com_shell_radius + radius1 * SINGLE_SHELL_FACTOR,
+#                   iv_shell_radius2 + com_shell_radius + radius2 * SINGLE_SHELL_FACTOR)
+#        dz_right2 = self.z_right(dr_2)
+#
+#        # of both alternatives pick the largest one. Here we just compare the height, but the
+#        # radius scales accordingly.
+#        dz_right, dr = max((dz_right1, dr_1),(dz_right2, dr_2))
 
-        # fix the minimum shell size for the CoM domain
-        com_shell_radius = max(radius1, radius2)
-
-        # calculate the minimal dimensions of the protective domain including space for the
-        # burst volumes of the particles
-        dr_2 = max(iv_shell_radius1 + com_shell_radius + radius1 * SINGLE_SHELL_FACTOR,
-                   iv_shell_radius2 + com_shell_radius + radius2 * SINGLE_SHELL_FACTOR)
-        dz_right2 = self.z_right(dr_2)
-
-        # of both alternatives pick the largest one. Here we just compare the height, but the
-        # radius scales accordingly.
-        dz_right, dr = max((dz_right1, dr_1),(dz_right2, dr_2))
-
+        dr = dr_1
+        dz_right = dz_right1
 
         dz_left  = self.pid_particle_pair1[1].radius
+#        print "min= ", dr, dz_right, dz_left
         return dr, dz_right, dz_left
         
     def get_max_dr_dzright_dzleft(self):
@@ -1479,10 +1499,12 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         # We assume that dz_right needs to be adjusted to dr and not the other way around since the cylinder is
         # always a bit flatter.
         dz_right = self.z_right(dr)
+#        print "max= ", dr, dz_right, dz_left
+        assert dr > dz_right
 
         return dr, dz_right, dz_left
 
-    def z_right2(self, r_right):
+    def z_right(self, r_right):
         # if the radius is known and we want to determine the height z_right
         radius1 = self.pid_particle_pair1[1].radius
         radius2 = self.pid_particle_pair2[1].radius
@@ -1495,30 +1517,43 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         # take the smallest that, if entered in the function for r below, would lead to this z_right
         a_r = min (a_r1, a_r2)
 
-        return (a_r/self.get_scaling_factor()) + radius2
+        z_right = (a_r/self.get_scaling_factor()) + radius2
 
-#    def r_right(self, z_right):
-#        # if the z_right is known and we want to know the radius r
-#        radius1 = self.pid_particle_pair1[1].radius
-#        radius2 = self.pid_particle_pair2[1].radius
-#        D_1 = self.pid_particle_pair1[1].D
-#        D_2 = self.pid_particle_pair2[1].D
-#
-#        # we first calculate the a_r, since it is the only radius that depends on z_right only.
-#        a_r = (z_right - radius2) * self.get_scaling_factor()
-#
-#        # We equalize the estimated first passage time for the CoM (2D) and IV (3D) for a given a_r
-#        # Note that for the IV we only take the distance to the outer boundary into account.
-#        a_R = (a_r - self.r0)*self.sqrt_DRDr
-#
-#        # We calculate the maximum space needed for particles A and B based on maximum IV displacement
-#        iv_max = max( (D_1/self.D_tot * a_r + radius1),
-#                      (D_2/self.D_tot * a_r + radius2))
-#
-#        return a_R + iv_max
+#        assert feq(self.r_right(z_right), r_right), 'inconsistent z_right function \
+#                                                     r_right= %s, r_right(z_right)=%s ' % \
+#                                                     (r_right, self.r_right(z_right))
+
+        return z_right
+
+    def r_right(self, z_right):
+        # if the z_right is known and we want to know the radius r
+        radius1 = self.pid_particle_pair1[1].radius
+        radius2 = self.pid_particle_pair2[1].radius
+        D_1 = self.pid_particle_pair1[1].D
+        D_2 = self.pid_particle_pair2[1].D
+
+        # we first calculate the a_r, since it is the only radius that depends on z_right only.
+        a_r = (z_right - radius2) * self.get_scaling_factor()
+
+        # We equalize the estimated first passage time for the CoM (2D) and IV (3D) for a given a_r
+        # Note that for the IV we only take the distance to the outer boundary into account.
+        a_R = (a_r - self.r0)*self.sqrt_DRDr
+
+        # We calculate the maximum space needed for particles A and B based on maximum IV displacement
+        iv_max = max( (D_1/self.D_tot * a_r + radius1),
+                      (D_2/self.D_tot * a_r + radius2))
+
+        r_right = a_R + iv_max
+
+        assert feq(self.z_right(r_right), z_right), 'inconsistent r_right function \
+                                                  z_right= %s, z_right(r_right)=%s ' % \
+                                                  (z_right, self.z_right(r_right))
+
+        return r_right
 
     def apply_safety(self, r, z_right, z_left):
-        return r/SAFETY, z_right/SAFETY, z_left
+        SAFETY = 1.1
+        return r/SAFETY, self.z_right(r/SAFETY), z_left
 
 #####
 #class MixedPair3D1DtestShell(CylindricaltestShell, Others):

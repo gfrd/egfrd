@@ -19,8 +19,8 @@ class Multi(Domain, hasSphericalShell, Others):
         #       Only the methods of the hasSphericalShell class are used
 
         self.main = ref(main)
-        self.last_event = None
-        self.event_Type = EventType.MULTI_DIFFUSION
+        self.last_event = EventType.MULTI_DIFFUSION     #None
+#        self.event_type = EventType.MULTI_DIFFUSION
 
         self.sphere_container = _gfrd.SphericalShellContainer(main.world.world_size, 3)
         self.particle_container = _gfrd.MultiParticleContainer(main.world)
@@ -53,11 +53,10 @@ class Multi(Domain, hasSphericalShell, Others):
         return self.particle_container.num_particles
     multiplicity = property(get_multiplicity)
 
-#    def create_new_shell(self, position, radius):
-#        return SphericalShell(self.domain_id, Sphere(position, radius))
-
     def within_shell(self, pp):
-        return bool(self.sphere_container.get_neighbors_within_radius(pp[1].position, -(pp[1].radius + self.reaction_length)))
+        # test if pid_particle_pair 'pp' is within at least one shell.
+        shells = self.sphere_container.get_neighbors_within_radius(pp[1].position, -(pp[1].radius + self.reaction_length))
+        return len(shells) >= 1
 
     def add_shell(self, shell_id_shell_pair):
         if __debug__:
@@ -98,7 +97,7 @@ class Multi(Domain, hasSphericalShell, Others):
                         shape.position, -(shape.radius + self.outer_.reaction_length) ))
                 if not within_radius:
                     main = self.outer_.main()
-                    if self.outer_.last_event == None:
+                    if self.outer_.last_event == EventType.MULTI_DIFFUSION: #None:
                         self.outer_.last_event = EventType.MULTI_ESCAPE
                     main.burst_volume(shape.position, shape.radius, 
                                       ignore=[self.outer_.domain_id, ])
@@ -117,7 +116,7 @@ class Multi(Domain, hasSphericalShell, Others):
                      myrandom.rng, self.dt, main.dissociation_retry_moves, self.reaction_length,
                      cr, vc, [pid for pid, _ in self.particle_container])
 
-        self.last_event = None        
+        self.last_event = EventType.MULTI_DIFFUSION     #None
         while ppg():
             if cr.reactions:
                 self.last_reaction = cr.reactions[-1]
@@ -137,38 +136,62 @@ class Multi(Domain, hasSphericalShell, Others):
         #         return
 
         #     if not self.within_shell(pid_particle_pair):
-        #         if self.last_event == None:
+        #         if self.last_event == EventType.MULTI_DIFFUSION   #None:
         #             self.last_event = EventType.MULTI_ESCAPE
         #         main.clear_volume(
         #             pid_particle_pair[1].position,
         #             pid_particle_pair[1].radius, ignore=[self.domain_id, ])
 
     def check(self):
-        # shells are contiguous
-        # FIXME: this code cannot detect a pair of shells that are isolated
-        #        from others.
-        for _, shell in self.shell_list:
-            result = self.sphere_container.get_neighbors(shell.shape.position)
-            # Check contiguity with nearest neighbor only (get_neighbors 
-            # returns a sorted list).
-            nearest = result[1]
-            distance = nearest[1]
-            assert distance - shell.shape.radius < 0.0,\
-                'shells of %s are not contiguous.' % str(self)
+        # check Multi num particles >= 1
+        assert self.multiplicity >= 1, 'Multi needs to have at least one particle'
+        # check number of shells==num of particles in Multi
+        assert self.multiplicity == self.num_shells, \
+            'number of particles is not equal to number of shells'
+        # Event is DIFFUSION, SINGLE_REACTION, BIMOL_REACTION, ESCAPE
+        assert self.last_event == EventType.MULTI_DIFFUSION or \
+               self.last_event == EventType.MULTI_ESCAPE or \
+               self.last_event == EventType.MULTI_UNIMOLECULAR_REACTION or \
+               self.last_event == EventType.MULTI_BIMOLECULAR_REACTION, \
+                    'event_type of Multi was not of proper type'
 
-        # all particles within the shell.
+        # check that the shells of the multi are contiguous
+        # FIXME: This can be done more efficiently because we already have an
+        #        exhaustive list of the shells to check
+        def check_connected(shell_id_shell_pair, already_checked):
+
+            shell_id, shell = shell_id_shell_pair
+            if shell_id not in already_checked:
+                already_checked.add(shell_id)
+                # TODO get only the neighbors that are not in already_checked
+                neighbor_distances = self.sphere_container.get_neighbors_within_radius(shell.shape.position, shell.shape.radius)
+                for shell_id_shell_pair, _ in neighbor_distances:
+                    already_checked = check_connected(shell_id_shell_pair, already_checked)
+
+            return already_checked
+
+        connected_shell_ids = check_connected(self.shell_list.next(), set([]))
+        assert len(connected_shell_ids) == self.num_shells, \
+            'shells of %s are not contiguous.' % str(self)
+
+
+        # check that all particles are within one of the shells.
         for pid_particle_pair in self.particle_container:
             assert self.within_shell(pid_particle_pair),\
                 'not all particles within the shell.'
 
+        # check that all the shells in the private multi shell container
+        # are also in the shell container of the Simulator
         main = self.main()
         for shell_id, shell in self.shell_list:
-            container = main.get_container(shell)
+            container = main.geometrycontainer.get_container(shell)
             if not container.contains(shell_id):
                 raise RuntimeError,\
                     'self.sim.main.sphere_container does not contain %s'\
                     % str(shell_id)
-        for shell_id, shell in main.containers[0]:
+        # check that all the shells in the container of the Simulator that belong to this multi
+        # domain are also in the private shell container.
+        for shell_id, shell in main.geometrycontainer.containers[0]:
             if shell.did == self.domain_id:
                 if not self.sphere_container.contains(shell_id):
                     raise RuntimeError,\
@@ -199,5 +222,6 @@ class Multi(Domain, hasSphericalShell, Others):
     num_shells = property(num_shells)    
 
     def shell_list(self):
+    # returns a list of (shell_id, shell) pairs of the Multi
         return iter(self.sphere_container)
     shell_list = property(shell_list)
