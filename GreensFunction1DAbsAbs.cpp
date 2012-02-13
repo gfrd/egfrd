@@ -42,7 +42,7 @@ uint GreensFunction1DAbsAbs::guess_maxi(Real const& t) const
 
     if (thr <= 0.0)
     {
-        return MAX_TERMS;
+        return static_cast<uint>(MAX_TERMS);
     }
 
     const Real max_root( sqrt(root0 * root0 - log(thr) / Dt) );
@@ -50,10 +50,10 @@ uint GreensFunction1DAbsAbs::guess_maxi(Real const& t) const
     const uint maxi(std::max( safety + 
                               static_cast<uint>
                               (max_root * L  / M_PI),
-                              MIN_TERMS )
+                              static_cast<uint>(MIN_TERMS) )
                     );
 
-    return std::min(maxi, MAX_TERMS);
+    return std::min(maxi, static_cast<uint>(MAX_TERMS) );
 }
 
 
@@ -111,7 +111,7 @@ Real GreensFunction1DAbsAbs::p_survival_table(Real t, RealVector& psurvTable) co
 
     const uint maxi( guess_maxi(t) );
     
-    if( maxi >= MAX_TERMS )
+    if( maxi >= static_cast<uint>(MAX_TERMS) )
         log_.warn("drawT: maxi was cut to MAX_TERMS for t = %.16g", t);
     
     if (psurvTable.size() < maxi)
@@ -252,7 +252,7 @@ Real GreensFunction1DAbsAbs::prob_r (Real r, Real t) const
     uint n = 0;
     do
     {
-        if (n >= MAX_TERMS )
+        if (n >= static_cast<uint>(MAX_TERMS) )
         {
             log_.warn("Too many terms for prob_r. N: %6u", n);
             break;
@@ -267,7 +267,7 @@ Real GreensFunction1DAbsAbs::prob_r (Real r, Real t) const
     }
     while (fabs(term/sum) > EPSILON*PDENS_TYPICAL ||
            fabs(prev_term/sum) > EPSILON*PDENS_TYPICAL ||
-           n < MIN_TERMS);
+           n < static_cast<uint>(MIN_TERMS) );
 
     return 2.0/L * exp(vexpo) * sum;
 }
@@ -317,7 +317,7 @@ GreensFunction1DAbsAbs::leaves(Real t) const
     uint n = 0;
     do
     {
-        if (n >= MAX_TERMS )
+        if (n >= static_cast<uint>(MAX_TERMS) )
         {
             log_.warn("Too many terms for leaves. N: %6u", n);
             break;
@@ -331,7 +331,7 @@ GreensFunction1DAbsAbs::leaves(Real t) const
     }
     while (fabs(term/sum) > EPSILON*PDENS_TYPICAL ||
            fabs(prev_term/sum) > EPSILON*PDENS_TYPICAL ||
-           n < MIN_TERMS );
+           n < static_cast<uint>(MIN_TERMS) );
 
     return 2.0 * D_L_sq * exp( vexpo ) * sum;
 }
@@ -372,7 +372,7 @@ GreensFunction1DAbsAbs::leavea(Real t) const
     Real n = 0;
     do
      {
-         if (n >= MAX_TERMS )
+         if (n >= static_cast<uint>(MAX_TERMS) )
          {
              log_.warn("Too many terms for leavea. N: %6u ", n);
              break;
@@ -386,7 +386,7 @@ GreensFunction1DAbsAbs::leavea(Real t) const
      }
      while (fabs(term/sum) > EPSILON*PDENS_TYPICAL ||
             fabs(prev_term/sum) > EPSILON*PDENS_TYPICAL ||
-            n < MIN_TERMS );
+            n < static_cast<uint>(MIN_TERMS) );
      
      return - 2.0 * D_L_sq * exp(vexpo) * sum;
 }
@@ -611,7 +611,7 @@ Real GreensFunction1DAbsAbs::p_int_r_table(Real const& r,
         create_p_int_r_Table(t, maxi, table);
     }
     
-    if( maxi >= MAX_TERMS )
+    if( maxi >= static_cast<uint>(MAX_TERMS) )
     {
         log_.warn("drawR: maxi was cut to MAX_TERMS for t = %.16g", t);
         std::cerr << dump();
@@ -620,7 +620,7 @@ Real GreensFunction1DAbsAbs::p_int_r_table(Real const& r,
 
     p = funcSum(boost::bind(&GreensFunction1DAbsAbs::p_int_r_i, 
                             this, _1, r, t, table),
-                MAX_TERMS);
+                static_cast<uint>(MAX_TERMS) );
 
     return prefac * p;
 }

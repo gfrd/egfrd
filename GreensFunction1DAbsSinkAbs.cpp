@@ -238,7 +238,7 @@ uint GreensFunction1DAbsSinkAbs::guess_maxi(Real const& t) const
 
     if (thr <= 0.0)
     {
-        return MAX_TERMS;
+        return static_cast<uint>(MAX_TERMS);
     }
 
     const Real max_root( sqrt(root0 * root0 - log(thr) / Dt) );
@@ -246,7 +246,7 @@ uint GreensFunction1DAbsSinkAbs::guess_maxi(Real const& t) const
     const uint maxi(safety + 
           static_cast<unsigned int>(max_root * ( getLr() + getLl() )  / M_PI));
 
-    return std::min(maxi, MAX_TERMS);
+    return std::min(maxi, static_cast<uint>(MAX_TERMS) );
 }
 
 
@@ -320,7 +320,7 @@ Real GreensFunction1DAbsSinkAbs::p_survival_table(Real t, RealVector& psurvTable
 
     const uint maxi( guess_maxi(t) );
     
-    if( maxi == MAX_TERMS )
+    if( maxi == static_cast<uint>(MAX_TERMS) )
         log_.info("drawT: maxi was cut to MAX_TERMS for t = %.16g", t);
         
     if (psurvTable.size() < maxi )
@@ -476,13 +476,13 @@ Real GreensFunction1DAbsSinkAbs::prob_r(Real r, Real t) const
     {   
         p = funcSum(boost::bind(&GreensFunction1DAbsSinkAbs::prob_r_r0_i, 
                                 this, _1, rr, t),
-                    MAX_TERMS);
+                    static_cast<uint>(MAX_TERMS) );
 	}
     else
     {
         p = funcSum(boost::bind(&GreensFunction1DAbsSinkAbs::prob_r_nor0_i, 
                                 this, _1, rr, t),
-                    MAX_TERMS);
+                    static_cast<uint>(MAX_TERMS) );
     }
     
     return p;
@@ -547,7 +547,7 @@ Real GreensFunction1DAbsSinkAbs::flux_tot(Real t) const
 
     p = funcSum(boost::bind(&GreensFunction1DAbsSinkAbs::flux_tot_i, 
                             this, _1, t),
-                MAX_TERMS);
+                static_cast<uint>(MAX_TERMS) );
 
     return D * p;
 }
@@ -572,7 +572,7 @@ Real GreensFunction1DAbsSinkAbs::flux_abs_Lr(Real t, uint const& maxi) const
    
     p = funcSum(boost::bind(&GreensFunction1DAbsSinkAbs::flux_abs_Lr_i, 
                             this, _1, t),
-                MAX_TERMS);
+                static_cast<uint>(MAX_TERMS) );
 
     return - D * 2 * p;
 }
@@ -605,7 +605,7 @@ Real GreensFunction1DAbsSinkAbs::flux_abs_Ll(Real t, uint const& maxi) const
 
     p = funcSum(boost::bind(&GreensFunction1DAbsSinkAbs::flux_abs_Ll_i, 
                             this, _1, t),
-                MAX_TERMS);
+                static_cast<uint>(MAX_TERMS));
     
     return 2 * D2 * p;
 }
@@ -685,7 +685,7 @@ GreensFunction1DAbsSinkAbs::drawEventType( Real rnd, Real t ) const
     /* Allready fill rootList with needed roots. */ 
     const uint maxi( guess_maxi( t ) );
 
-    if( maxi == MAX_TERMS )
+    if( maxi == static_cast<uint>(MAX_TERMS) )
         log_.info("drawEventType: maxi was cut to MAX_TERMS for t = %.16g", t);
 
     calculate_n_roots( maxi );
@@ -876,7 +876,7 @@ Real GreensFunction1DAbsSinkAbs::p_int_r_table(Real const& r,
 
     const uint maxi( guess_maxi(t) );
 
-    if( maxi == MAX_TERMS )
+    if( maxi == static_cast<uint>(MAX_TERMS) )
         log_.warn("p_int_r_table: maxi was cut to MAX_TERMS for t = %.16g"
                   , t);
    
@@ -900,7 +900,7 @@ Real GreensFunction1DAbsSinkAbs::p_int_r_table(Real const& r,
 
     p = funcSum(boost::bind(p_int_r_i, 
                             this, _1, rr, t, table),
-                MAX_TERMS);
+                static_cast<uint>(MAX_TERMS));
 
     return 2.0 * p;
 }
