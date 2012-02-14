@@ -45,6 +45,7 @@ boost::shared_ptr<ParticleModel::structure_type_type> ParticleModel::get_structu
 }
 
 ParticleModel::structure_type_range ParticleModel::get_structure_types() const
+// Returns all the structure types that are present in the particle model
 {
     return structure_type_range(
         structure_type_iterator(structure_type_map_.begin(), structure_second_selector_type()),

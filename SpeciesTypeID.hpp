@@ -16,6 +16,7 @@
 #include "Identifier.hpp"
 
 struct SpeciesTypeID: public Identifier<SpeciesTypeID, unsigned long long, int>
+// The SpeciesTypeID is an indentifier class for species types (species?) but is also used for structure(type)s
 {
     typedef Identifier<SpeciesTypeID, unsigned long long, int> base_type;
 

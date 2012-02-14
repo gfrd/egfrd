@@ -176,6 +176,10 @@ class Pair(ProtectiveDomain, Others):
         # the particle leaving the structure due to numerical errors
         return self.create_interparticle_vector(gf, r, dt, r0, old_iv)
 
+    def get_particles(self):
+        return [self.pid_particle_pair1, self.pid_particle_pair2]
+    particles = property(get_particles)
+
     def check(self):
     # perform internal consistency check 
         pass

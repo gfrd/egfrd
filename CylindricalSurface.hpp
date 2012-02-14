@@ -11,6 +11,8 @@ template<typename Ttraits_>
 class CylindricalSurface
     : public BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> >
 {
+    // The CylindricalSurface is the implementation of a Basic surface parameterized with a Cylinder
+
 public:
     typedef BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> > base_type;
     typedef typename base_type::traits_type traits_type;
@@ -23,17 +25,20 @@ public:
     typedef std::pair<position_type, position_type> position_pair_type;
 
     virtual position_type random_position(rng_type& rng) const
+    // Gives a random position in the cylinder (1D)
     {
         return ::random_position(base_type::shape(), boost::bind(&rng_type::uniform, rng, -1., 1.));
     }
 
     virtual position_type random_vector(length_type const& r, rng_type& rng) const
+    // Gives a random vector in the axis of the cylinder
     {
         return multiply(base_type::shape().unit_z(),
                 (rng.uniform_int(0, 1) * 2 - 1) * r);
     }
 
     virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const
+    // BD displacement for BD on the line of the cylinder?
     {
         return multiply(base_type::shape().unit_z(), rng.normal(mean, r));
     }

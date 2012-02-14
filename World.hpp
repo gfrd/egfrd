@@ -37,11 +37,11 @@ struct WorldTraitsBase
     typedef Tlen_ length_type;
     typedef TD_ D_type;
     typedef TD_ v_type;
-    typedef ParticleID particle_id_type;
+    typedef ParticleID particle_id_type;                                    // identifier type for particles
     typedef SerialIDGenerator<particle_id_type> particle_id_generator;
-    typedef SpeciesTypeID species_id_type;
-    typedef Particle<length_type, D_type, species_id_type> particle_type;
-    typedef std::string structure_id_type;
+    typedef SpeciesTypeID species_id_type;                                  // identifier type for species and (structure types)
+    typedef Particle<length_type, D_type, species_id_type> particle_type;   // type for particles
+    typedef std::string structure_id_type;                                  // identifier type for structures
     // typedef SpeciesTypeID structure_id_type;
     typedef SpeciesInfo<species_id_type, D_type, length_type, structure_id_type> species_type;
     typedef Vector3<length_type> point_type;
@@ -56,12 +56,14 @@ template<typename Tlen_, typename TD_>
 struct WorldTraits: public WorldTraitsBase<WorldTraits<Tlen_, TD_>, Tlen_, TD_>
 {
 public:
+    // This is the normal world (without periodic/cyclic boundary conditions)
     typedef WorldTraitsBase<WorldTraits<Tlen_, TD_>, Tlen_, TD_> base_type;
     typedef typename base_type::length_type length_type;
     typedef typename base_type::position_type position_type;
 
     template<typename Tval_>
     static Tval_ apply_boundary(Tval_ const& v, length_type const& world_size)
+    // apply_boundary is here defined for consistency
     {
         return v;
     }
@@ -74,6 +76,7 @@ public:
 
     template<typename T1_, typename T2_>
     static length_type distance(T1_ const& p0, T2_ const& p1, length_type const& world_size)
+    // The distance function
     {
         return ::distance(p0, p1);
     }
@@ -107,28 +110,34 @@ template<typename Tlen_, typename TD_>
 struct CyclicWorldTraits: public WorldTraitsBase<CyclicWorldTraits<Tlen_, TD_>, Tlen_, TD_>
 {
 public:
+    // This is the world WITH periodic/cyclic boundary conditions
     typedef WorldTraitsBase<CyclicWorldTraits<Tlen_, TD_>, Tlen_, TD_> base_type;
     typedef typename base_type::length_type length_type;
     typedef typename base_type::position_type position_type;
 
     template<typename Tval_>
     static Tval_ apply_boundary(Tval_ const& v, length_type const& world_size)
+    // This applied the periodic boundary conditions
     {
         return ::apply_boundary(v, world_size);
     }
 
     static length_type cyclic_transpose(length_type const& p0, length_type const& p1, length_type const& world_size)
+    // selects the copy of p0 (over the periodic boundaries) such that the distance between p0 and p1 is minimized over
+    // over the periodic boundary conditions.
     {
         return ::cyclic_transpose(p0, p1, world_size);
     }
 
     static position_type cyclic_transpose(position_type const& p0, position_type const& p1, length_type const& world_size)
+    // Not sure what the difference is with above method
     {
         return ::cyclic_transpose(p0, p1, world_size);
     }
 
     template<typename T1_, typename T2_>
     static length_type distance(T1_ const& p0, T2_ const& p1, length_type const& world_size)
+    // This distance function in the presence of the periodic boundary conditions
     {
         return distance_cyclic(p0, p1, world_size);
     }
@@ -205,8 +214,8 @@ public:
     {
         species_type const& species(get_species(sid));
         particle_id_pair retval(pidgen_(),
-            particle_type(sid, particle_shape_type(pos, species.radius()),
-                          species.D(), species.v() ));
+                                particle_type(sid, particle_shape_type(pos, species.radius()),
+                                              species.D(), species.v() ));
         update_particle(retval);
         return retval;
     }
@@ -231,6 +240,7 @@ public:
     }
 
     virtual bool remove_particle(particle_id_type const& id)
+    // Removed the particle by id 'id' if present in the world.
     {
         bool found(false);
         particle_id_pair pp(get_particle(id, found));
@@ -244,7 +254,8 @@ public:
     }
 
     void add_species(species_type const& species)
-// Wouldn't it make more sence to make this method part of the model class instead of the world class?
+    // Adds a species to the world.
+    // Wouldn't it make more sence to make this method part of the model class instead of the world class?
     {
         species_map_[species.id()] = species;
         particle_pool_[species.id()] = particle_id_set();
@@ -326,10 +337,11 @@ public:
         return (*i).second;
     }
 
+///////////// Member variables
 private:
-    particle_id_generator pidgen_;
-    species_map species_map_;
-    structure_map structure_map_;
+    particle_id_generator pidgen_;                  // generator used to produce the unique ids for the particles
+    species_map species_map_;                       // ?
+    structure_map structure_map_;                   // ?
     per_species_particle_id_set particle_pool_;
 };
 

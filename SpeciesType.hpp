@@ -22,7 +22,7 @@ private:
     typedef get_mapper_mf<std::string, std::string>::type string_map_type;
 
 public:
-    typedef SpeciesTypeID identifier_type;
+    typedef SpeciesTypeID identifier_type;                          // The identifier
     typedef string_map_type::const_iterator string_map_iterator;
     typedef boost::iterator_range<string_map_iterator> attributes_range;
 
@@ -36,28 +36,37 @@ public:
     attributes_range attributes() const;
 
     Model* model() const
+    // The model with which this species type is associated?
     {
         return model_;
     }
 
     SpeciesType(): model_(0) {}
+    // The constructor initializes the model with '0'
  
 protected:
     void bind_to_model(Model* model, identifier_type const& id)
+    // Later the species type can be bound to the model.
+    // Note that also here the id is fixed -> Only when bound to a model is the id known
     {
         model_ = model; 
         id_ = id;
     }
 
+
+////////// Member variables
 private:
-    Model* model_;
-    identifier_type id_;
-    string_map_type attrs_;
+    Model* model_;              // The model to which the species type is bound
+    identifier_type id_;        // The id of the species type
+    string_map_type attrs_;     // all the attributes?
 };
+
 
 template<typename Tchar_, typename Ttraits_>
 inline std::basic_ostream<Tchar_, Ttraits_>&
 operator<<(std::basic_ostream<Tchar_, Ttraits_>& out, const SpeciesType& v)
+// Allows for printing of the object
+// -> provides a stream of 'attributename : attribute_value' pairs.
 {
     bool first = true;
     out << "SpeciesType(id=" << v.id() << ", attributes={";

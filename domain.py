@@ -4,6 +4,8 @@ import numpy
 import myrandom
 import math
 
+from constants import *
+
 __all__ = [
     'Domain',
     'ProtectiveDomain',
@@ -89,3 +91,14 @@ class ProtectiveDomain(Domain):
 
     def get_shell_radius(self):         # returns the radius of the shell
         return self.shell.shape.radius
+
+    def check(self):
+        ### checks some basic parameters of the Protective Domain
+
+        # check that the domain has the proper number of shells.
+        assert len(self.shell_list) == 1
+        # check event_type != BURST, note that this means that the check can't take place when the
+        # event by the domain is processed.
+        assert self.event_type != EventType.BURST
+
+        return True

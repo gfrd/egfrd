@@ -10,6 +10,8 @@ template<typename Ttraits_>
 class PlanarSurface
     : public BasicSurfaceImpl<Ttraits_, Plane<typename Ttraits_::world_type::traits_type::length_type> >
 {
+    // The planar surface is an implementation of a Basic surface parameterized with the plane
+
 public:
     typedef BasicSurfaceImpl<Ttraits_, Plane<typename Ttraits_::world_type::traits_type::length_type> > base_type;
     typedef typename base_type::traits_type traits_type;
@@ -23,11 +25,13 @@ public:
     typedef std::pair<position_type, length_type> projected_type;
 
     virtual position_type random_position(rng_type& rng) const
+    // Selects a random position in the plane
     {
         return ::random_position(base_type::shape(), boost::bind(&rng_type::uniform, rng, -1., 1.));
     }
 
     virtual position_type random_vector(length_type const& r, rng_type& rng) const
+    // Provides a random vector in the plane
     {
         return multiply(
             normalize(
@@ -39,6 +43,7 @@ public:
     }
 
     virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const
+    // Calculated a bd displacement for particles diffusing in the plane?
     {
         length_type const x(rng.normal(0., r)), y(rng.normal(0., r));
         return add(

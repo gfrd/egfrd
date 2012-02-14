@@ -2328,18 +2328,31 @@ rejected moves = %d
 
 
         ###### check shell consistency
+        # check that shells of the domain don't overlap with surfaces that are not associated with the domain.
+        # check that shells of the domain DO overlap with the structures that it is associated with.
+        # check that shells of the domain do not overlap with shells of other domains
+        # check that shells are not bigger than the allowed maximum
+
         for shell_id, shell in domain.shell_list:
 
+            ### check that shells do not overlap with non associated surfaces
             surfaces = get_surfaces(self.world, shell.shape.position, ignores + associated)
             for surface, _ in surfaces:
                 assert self.check_surface_overlap(shell, surface), \
                     '%s (%s) overlaps with %s.' % \
                     (str(domain), str(shell), str(surface))
 
+            ### check that shells DO overlap with associated surfaces.
+            surfaces = get_surfaces(self.world, shell.shape.position, ignores)
+            for surface, _ in surfaces:
+                if surface.id in associated:
+                    assert not self.check_surface_overlap(shell, surface), \
+                    '%s (%s) should overlap with associated surface %s.' % \
+                    (str(domain), str(shell), str(surface))
+
             ### Check shell overlap with other shells
             neighbors = self.geometrycontainer.get_neighbor_domains(shell.shape.position,
                                                                     self.domains, ignore=[domain.domain_id])
-
             # TODO maybe don't check all the shells, this takes a lot of time
             # testing overlap criteria
             for neighbor, _ in neighbors:
@@ -2443,32 +2456,103 @@ rejected moves = %d
 
 
     def check_domain_for_all(self):
-    # For every event in the scheduler, checks the consistency of the associated domain.
-        for id, event in self.scheduler:
-            domain = self.domains[event.data]
+    # For every domain in domains, checks the consistency
+        for domain in self.domains.itervalues():
             self.check_domain(domain)
 
     def check_event_stoichiometry(self):
-    # checks if the number of particles in the world is equal to the number
-    # of particles represented in the EGFRD simulator
+        ### check scheduler
+        # -check that every event on scheduler is associated with domain or is a non domain related event
+        # -check that every event with domain is also in domains{}
+
+        SMT = 6                 # just some temporary definition to account for non-domain related events
+        self.other_objects = {} # ditto
+        for id, event in self.scheduler:
+            domain_id = event.data
+            if domain_id != SMT:
+                # in case the domain_id is not special, it needs to be in self.domains
+                assert domain_id in self.domains
+            else:
+                # if it is special in needs to be in self.other_objects
+                assert domain_id in self.other_objects
+
+
+        ### performs two checks:
+        # -check that every domain in domains{} has one and only one event in the scheduler
+        # -check that dt, last_time of the domain is consistent with the event time on the scheduler
+        already_in_scheduler = set()        # make a set of domain_ids that we found in the scheduler
+        for domain_id, domain in self.domains.iteritems():
+            # find corresponding event in the scheduler
+            for id, event in self.scheduler:
+                if event.data == domain_id:
+                    # We found the event in the scheduler that is associated with the domain
+                    assert (abs(domain.last_time + domain.dt - event.time) <= TIME_TOLERANCE * event.time)
+                    break
+            else:
+                raise RuntimeError('Event for domain_id %s could not be found in scheduler' % str(domain_id) )
+
+            # make sure that we had not already found it earlier
+            assert domain_id not in already_in_scheduler
+            already_in_scheduler.add(domain_id)
+
+
+    def check_particle_consistency(self):
+        ### Checks the particles consistency between the world and the domains of
+        #   the simulator
+
+        # First, check num particles in domains is equal to num particles in the world
         world_population = self.world.num_particles
         domain_population = 0
-        for id, event in self.scheduler:
-            domain = self.domains[event.data]
+        for domain in self.domains.itervalues():
             domain_population += domain.multiplicity
 
         if world_population != domain_population:
             raise RuntimeError('population %d != domain_population %d' %
                                (world_population, domain_population))
 
+#        # Next, check that every particle in the domains is once and only once in the world.
+#        already_in_domain = set()
+#        world_particles = list(self.world)
+#        for domain in self.domains.itervalues():
+#            for domain_particle in domain.particles:
+#                for world_particle in world_particles:
+#                    if domain_particle == world_particle:
+#                        break
+#                else:
+#                    raise RuntimeError('particle %s not in world' % str(domain_particle))
+#
+#                assert domain_particle not in already_in_domain, 'particle %s twice in domains' % str(domain_particle)
+#                already_in_domain.add(domain_particle)
+#
+#        # This now means that all the particles in domains are represented in the world and that
+#        # all the particles in the domains are unique (no particle is represented in two domains)
+#
+#        assert already_in_domain == len(world_particles)
+        # Since the number of particles in the domains is equal to the number of particles in the
+        # world this now also means that all the particles in the world are represented in the
+        # domains.
+
     def check_shell_matrix(self):
+        ### checks the consistency between the shells in the geometry container and the domains
+        # -check that shells of a domain in domains{} are once and only once in the shell matrix
+        # -check that all shells in the matrix are once and only once in a domain
+
         did_map, shell_map = self.geometrycontainer.get_dids_shells()
 
         shell_population = 0
-        for id, event in self.scheduler:
-            domain = self.domains[event.data]
+        for domain in self.domains.itervalues():
             shell_population += domain.num_shells
+
+            # get the shells associated with the domain according to the geometrycontainer
             shell_ids = did_map[domain.domain_id]
+            for shell_id, shell in domain.shell_list:
+                # check that all shells in the domain are in the matrix and have the proper domain_id
+                assert shell_id in shell_ids
+
+            # check that the number of shells in the shell_list is equal to the number of shells the domain
+            # says it has is equal to the number of shell the geometrycontainer has registered to the domain.
+            assert domain.num_shells == len(list(domain.shell_list))
+            assert domain.num_shells == len(shell_ids)
             if len(shell_ids) != domain.num_shells:
                 diff = set(sid for (sid, _)
                                in domain.shell_list).difference(shell_ids)
@@ -2480,48 +2564,31 @@ rejected moves = %d
                                    (len(shell_ids), domain.num_shells, 
                                     domain.domain_id, diff))
 
+        # check that total number of shells in domains==total number of shells in shell container
         matrix_population = self.geometrycontainer.get_total_num_shells()
         if shell_population != matrix_population:
             raise RuntimeError('num shells (%d) != matrix population (%d)' %
                                (shell_population, matrix_population))
+        # Since the number of shells in the domains is equal to the number of shells in the
+        # geometrycontainer this now also means that all the shells in the geometrycontainer are
+        # represented in the domains.
 
-### check scheduler
-# check that every domain in domains{} has one and only one event in the scheduler
-# check that every event with domain is also in domains{}
-# check that dt, last_time of the domain is consistent with the event time on the scheduler
-# check that every event on scheduler is associated with domain or is a non domain related event
+        # This now also means that the shells of all the cached singles in Pairs are not in the containers.
+
 
 # check that all the cached singles in Pairs are not in domains{}.
 
-### check shell container
-# check that shells of a domain in domains{} are once and only once in the shell matrix
-# check that all shells in the matrix are once and only once in a domain
-# total number of shells in domains==total number of shells in shell container
-# check that the shells of all the cached singles in Pairs are not in the containers
-
-### check shells of domains
-# check that shells of the domain do not overlap with shells of other domains
-# check that shells are not bigger than the allowed maximum
-# check (for Multi's only?) that the shells in a domain are connected (have consecutive overlaps)
-# check that shells of the domain don't overlap with surfaces that are not associated with the domain.
-# check that shells of the domain DO overlap with the structures that it is associated with.
-
 ### check world
-# check num particles in domains is equal to num particles in the world
-# check that every particle in the world is in one and only one domain
-# check that every particle in the domains is once and only once in the world.
 # check that particles do not overlap with cylinderical surfaces unless the domain is associated with the surface
 
 ### check domains
 # check that testShell is of proper type
-# check that the particles are within the shells of the domain
-# check that proper number of shells for domain, most other number of shells==1
 # check that the shell(s) of domain have the proper geometry (sphere/cylinder)
 # check that shell is within minimum and maximum
 # check that shell obeys scaling properties
+# check that the particles are within the shells of the domain
 # check that the position of the shell(s) and particle(s) are within the structures that the particles live on
 # check that dt != 0 unless NonInteractionSingle.is_reset()
-# check event_type != BURST
 # check associated structures are of proper type (plane etc, but also of proper StructureTypeID)
 # check that Green's functions are defined.
 
@@ -2546,6 +2613,9 @@ rejected moves = %d
 
 ### check Interaction
 # check shell.unit_z = +- surface.unit_z
+
+
+
 
 ### check consistency of the model
 # check that the product species of an interaction lives on the interaction surface.
@@ -2619,6 +2689,7 @@ rejected moves = %d
         self.check_shell_matrix()
         self.check_domains()
         self.check_event_stoichiometry()
+        self.check_particle_consistency()
         
         self.check_domain_for_all()
 

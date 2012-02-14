@@ -16,6 +16,7 @@
 #include "Identifier.hpp"
 
 struct ParticleID: public Identifier<ParticleID, unsigned long long, int>
+// The ParticleID is a class for the identification of particles
 {
     typedef Identifier<ParticleID, unsigned long long, int> base_type;
 
@@ -33,6 +34,7 @@ namespace boost {
 
 template<>
 struct hash<ParticleID>
+// Hashing function??
 {
     std::size_t operator()(ParticleID const& val) const
     {
@@ -51,6 +53,7 @@ struct hash<ParticleID>
 template<typename Tstrm_, typename Ttraits_>
 inline std::basic_ostream<Tstrm_, Ttraits_>& operator<<(std::basic_ostream<Tstrm_, Ttraits_>& strm,
         const ParticleID& v)
+// Provides a stream of characters (a string) of the 'particle id' that allows for printing.
 {
     strm << "PID(" << v().first << ":" << v().second << ")";
     return strm;

@@ -38,6 +38,8 @@ public:
     typedef boost::iterator_range<string_map_iterator> attributes_range;
 
 public:
+    // The model class is more or less an implementation of the network rules
+    // The network rules define the possible reactions between species.
     Model();
 
     virtual ~Model();
@@ -48,26 +50,31 @@ public:
     }
 
     void add_species_type(boost::shared_ptr<species_type_type> const& species);
+    // Adds a species to the model
 
     boost::shared_ptr<species_type_type> get_species_type_by_id(species_id_type const& id) const;
+    // Gets a species by the species 'id'
 
     species_type_range get_species_types() const;
+    // Gets all the species in the model
 
     std::string const& operator[](std::string const& name) const;
 
     std::string& operator[](std::string const& name);
+    // Not sure. Get attribute by name?
 
     attributes_range attributes() const
+    // Get all the attributes
     {
         return attributes_range(attrs_.begin(), attrs_.end());
     }
 
 
 public:
-    species_type_id_generator_type species_type_id_generator_;
-    species_type_map_type species_type_map_;
-    boost::scoped_ptr<NetworkRules> network_rules_;
-    string_map_type attrs_;
+    species_type_id_generator_type species_type_id_generator_;  // The id generator which makes sure that all species have a unique id
+    species_type_map_type species_type_map_;                    // ??
+    boost::scoped_ptr<NetworkRules> network_rules_;             // The network rules in the model
+    string_map_type attrs_;                                     // All the attributes
 };
 
 

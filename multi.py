@@ -213,9 +213,9 @@ class Multi(Domain, hasSphericalShell, Others):
         # except:
         #     return False
 
-    def particles(self):
+    def get_particles(self):
         return iter(self.particle_container)
-    particles = property(particles)
+    particles = property(get_particles)
 
     def num_shells(self):
         return len(self.sphere_container)
