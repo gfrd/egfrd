@@ -44,9 +44,9 @@ private:
     //E3; Is 1E3 a good measure for the probability density?!
     static const Real PDENS_TYPICAL = 1;
     // The maximum number of terms in the sum
-    static const int MAX_TERMS = 500;
+    static const uint MAX_TERMS = 500;
     // The minimum
-    static const int MIN_TERMS = 20;
+    static const uint MIN_TERMS = 20;
     // Cutoff distance: When H * sqrt(2Dt) < 1/2*L, use free greensfunction instead of absorbing.
     static const Real CUTOFF_H = 6.0;
 
