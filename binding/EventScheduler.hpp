@@ -7,6 +7,8 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base
 register_event_scheduler_class(char const* name)
@@ -14,6 +16,7 @@ register_event_scheduler_class(char const* name)
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // registering converters
     peer::converters::register_tuple_converter<
             typename impl_type::value_type>();
 
@@ -23,6 +26,7 @@ register_event_scheduler_class(char const* name)
     peer::converters::register_tuple_converter<
             typename impl_type::value_type>();
 
+    // defining the python class
     return class_<impl_type, boost::noncopyable>(name)
         .add_property("time", &impl_type::time)
         .add_property("top",

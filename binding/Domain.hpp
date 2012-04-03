@@ -6,6 +6,8 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_domain_class(char const* name)
 {

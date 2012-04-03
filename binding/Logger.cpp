@@ -8,12 +8,15 @@
 
 namespace binding {
 
+
+////// Registering master function
 boost::python::objects::class_base
 register_logger_class(char const* name)
 {
     using namespace boost::python;
     typedef Logger impl_type;
 
+    // defining the python class
     return class_<impl_type, boost::noncopyable>(name, no_init)
         .add_property("level",
             static_cast<enum impl_type::level(impl_type::*)() const>(

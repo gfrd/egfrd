@@ -83,6 +83,7 @@ noinst_HEADERS = \
 	Sphere.hpp \
 	SphericalSurface.hpp \
 	structure_classes.hpp \
+	structure_id_class.hpp \
 	structure_type_class.hpp \
 	StructureType.hpp \
 	transaction_classes.hpp \
@@ -130,6 +131,7 @@ libbinding_utils_la_SOURCES = \
 	species_type_class.cpp \
 	sphere_class.cpp \
 	structure_classes.cpp \
+	structure_id_class.cpp \
 	structure_type_class.cpp \
 	transaction_classes.cpp \
 	world_class.cpp

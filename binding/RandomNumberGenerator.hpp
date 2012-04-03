@@ -65,6 +65,8 @@ static PyObject* RandomNumberGenerator_normal(Timpl_& impl, Real loc, Real scale
     }
 }
 
+
+////// Registering master function
 template<typename Timpl_>
 static void register_random_number_generator_class(char const* name)
 {

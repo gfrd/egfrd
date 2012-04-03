@@ -44,6 +44,7 @@ struct EGFRDSimulatorTraitsBase: public ParticleSimulatorTraitsBase<Tworld_>
 {
     typedef ParticleSimulatorTraitsBase<Tworld_> base_type;
     typedef Tworld_ world_type;
+
     typedef ShellID shell_id_type;
     typedef DomainID domain_id_type;
     typedef SerialIDGenerator<shell_id_type> shell_id_generator;
@@ -571,11 +572,15 @@ protected:
         position_type draw_com(cylindrical_pair_type const& domain,
                                time_type dt) const
         {
-            boost::shared_ptr<structure_type> const _structure(
+/*            boost::shared_ptr<structure_type> const _structure(
                 world_.get_structure(
                     world_.get_species(
                         domain.particles()[0].second.sid())
                     .structure_id()));
+*/
+            boost::shared_ptr<structure_type> const _structure(
+                world_.get_structure(
+                    domain.particles()[0].second.structure_id()));
             
             cylindrical_surface_type const* const structure(
                 dynamic_cast<cylindrical_surface_type*>(_structure.get()));
@@ -634,11 +639,15 @@ protected:
         position_type draw_com(cylindrical_pair_type const& domain,
                                time_type dt) const
         {
-            boost::shared_ptr<structure_type> const _structure(
+/*            boost::shared_ptr<structure_type> const _structure(
                 world_.get_species(
                     domain.particles()[0].second.sid())
-                .structure_id());
-            
+                .structure_type_id());
+*/            
+            boost::shared_ptr<structure_type> const _structure(
+                world_.get_structure(
+                    domain.particles()[0].second.structure_id()));
+
             cylindrical_surface_type const* const structure(
                 dynamic_cast<cylindrical_surface_type*>(_structure.get()));
 
@@ -703,11 +712,15 @@ protected:
         position_type draw_com(cylindrical_pair_type const& domain,
                                time_type dt)
         {
-            boost::shared_ptr<structure_type> const _structure(
+/*            boost::shared_ptr<structure_type> const _structure(
                 world_.get_structure(
                     world_.get_species(
                         domain.particles()[0].second.sid())
                     .structure_id()));
+*/
+            boost::shared_ptr<structure_type> const _structure(
+                world_.get_structure(
+                    domain.particles()[0].second.structure_id()));
             
             cylindrical_surface_type const* const structure(
                 dynamic_cast<cylindrical_surface_type*>(_structure.get()));
@@ -772,8 +785,7 @@ protected:
         {
             boost::shared_ptr<structure_type> const _structure(
                 world_.get_structure(
-                    world_.get_species(
-                        domain.particles()[0].second.sid()).structure_id()));
+                    domain.particles()[0].second.structure_id()));
             
             cylindrical_surface_type const* const structure(
                 dynamic_cast<cylindrical_surface_type*>(_structure.get()));
@@ -837,11 +849,15 @@ protected:
         position_type draw_com(cylindrical_pair_type const& domain,
                                time_type dt)
         {
-            boost::shared_ptr<structure_type> const _structure(
+/*            boost::shared_ptr<structure_type> const _structure(
                 world_.get_structure(
                     world_.get_species(
                         domain.particles()[0].second.sid())
                     .structure_id()));
+*/
+            boost::shared_ptr<structure_type> const _structure(
+                world_.get_structure(
+                    domain.particles()[0].second.structure_id()));
 
             cylindrical_surface_type const* const structure(
                 dynamic_cast<cylindrical_surface_type*>(_structure.get()));
@@ -1488,8 +1504,8 @@ protected:
             domain_kind& kind;
         };
 
-        species_type const& species((*base_type::world_).get_species(p.second.sid()));
-        dynamic_cast<particle_simulation_structure_type const&>(*(*base_type::world_).get_structure(species.structure_id())).accept(factory(this, p, did, new_single, kind));
+//        species_type const& species((*base_type::world_).get_species(p.second.sid()));
+        dynamic_cast<particle_simulation_structure_type const&>(*(*base_type::world_).get_structure(p.second.structure_id())).accept(factory(this, p, did, new_single, kind));
         boost::shared_ptr<domain_type> const retval(new_single);
         domains_.insert(std::make_pair(did, retval));
         BOOST_ASSERT(kind != NONE);
@@ -1584,8 +1600,8 @@ protected:
             domain_kind& kind;
         };
 
-        species_type const& species((*base_type::world_).get_species(p0.second.sid()));
-        dynamic_cast<particle_simulation_structure_type&>(*(*base_type::world_).get_structure(species.structure_id())).accept(factory(this, p0, p1, com, iv, shell_size, did, new_pair, kind));
+//        species_type const& species((*base_type::world_).get_species(p0.second.sid()));
+        dynamic_cast<particle_simulation_structure_type&>(*(*base_type::world_).get_structure(p0.second.structure_id())).accept(factory(this, p0, p1, com, iv, shell_size, did, new_pair, kind));
 
         boost::shared_ptr<domain_type> const retval(new_pair);
         domains_.insert(std::make_pair(did, retval));
@@ -1826,7 +1842,7 @@ protected:
 
         particle_type const& old(domain.particle().second);
         domain.particle().second = particle_type(old.sid(),
-                particle_shape_type(new_pos, old.radius()), old.D());
+                particle_shape_type(new_pos, old.radius()), old.structure_id(), old.D());
         (*base_type::world_).update_particle(domain.particle());
 
         domain.position() = new_pos;
@@ -2088,7 +2104,7 @@ protected:
                 (*base_type::world_).remove_particle(reactant.first);
                 particle_id_pair product(
                     (*base_type::world_).new_particle(
-                        product_species.id(), reactant.second.position()));
+                        product_species.id(), reactant.second.structure_id(), reactant.second.position()));
                 boost::shared_ptr<single_type> new_domain(create_single(product));
                 add_event(*new_domain, SINGLE_EVENT_ESCAPE);
                 if (base_type::rrec_)
@@ -2119,7 +2135,7 @@ protected:
                 {
                     boost::shared_ptr<structure_type> structure(
                         (*base_type::world_).get_structure(
-                            reactant_species.structure_id()));
+                            reactant.second.structure_id()));
                     position_type vector(
                         structure->random_vector(
                             r01 * traits_type::MINIMAL_SEPARATION_FACTOR,
@@ -2167,9 +2183,9 @@ protected:
 
                 particle_id_pair const pp[] = {
                     (*base_type::world_).new_particle(
-                        product_species[0]->id(), new_particles[0].position()),
+                        product_species[0]->id(), reactant.second.structure_id(), new_particles[0].position()),
                     (*base_type::world_).new_particle(
-                        product_species[1]->id(), new_particles[1].position())
+                        product_species[1]->id(), reactant.second.structure_id(), new_particles[1].position())
                 };
                 // create domains for two particles and add them to
                 // the event queue
@@ -3252,7 +3268,7 @@ protected:
 
                         particle_id_pair const new_particle(
                             (*base_type::world_).new_particle(
-                                new_species.id(), new_com));
+                                new_species.id(), domain.particles()[0].second.structure_id(), new_com));
                         boost::shared_ptr<single_type> new_single(
                             create_single(new_particle));
                         add_event(*new_single, SINGLE_EVENT_ESCAPE);

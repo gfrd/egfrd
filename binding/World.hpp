@@ -14,6 +14,9 @@
 
 namespace binding {
 
+//// Converters. These convert C++ types to something that Python can handle.
+
+// Species_range converter
 template<typename Timpl_>
 struct species_range_converter: public boost::python::default_call_policies
 {
@@ -118,12 +121,14 @@ struct species_range_converter: public boost::python::default_call_policies
         return result;
     }
 
+    // Register the converter.
     static void __register()
     {
         wrapper_type::__class_init__("SpeciesRange", boost::python::scope().ptr());
     }
 };
 
+// Structures_range converter
 template<typename Timpl_>
 struct structures_range_converter: public boost::python::default_call_policies
 {
@@ -228,6 +233,7 @@ struct structures_range_converter: public boost::python::default_call_policies
         return result;
     }
 
+    // Register the converter.
     static void __register()
     {
         wrapper_type::__class_init__("SurfacesRange", boost::python::scope().ptr());
@@ -242,21 +248,33 @@ World_get_particle_ids(T const& world)
 }
 
 
+
+////// Registering master function
 template<typename Timpl_, typename Tbase_, typename Tsim>
 inline boost::python::objects::class_base register_world_class(char const* name)
 {
     using namespace boost::python;
-    typedef Timpl_ impl_type;
+    typedef Timpl_ impl_type;       // The class World that is being wrapped.
+
     typedef species_range_converter<typename impl_type::species_range> species_range_converter_type;
+//    typedef structure_types_range_converter<typename impl_type::structure_types_range> structure_types_range_converter_type;
     typedef structures_range_converter<typename impl_type::structures_range> structures_range_converter_type;
 
+    // registering the converters defined above
     species_range_converter_type::__register();
+//    structure_types_range_converter_type::__register();
     structures_range_converter_type::__register();
 
+    // registering converters from standard boost templates
     class_<std::set<typename impl_type::particle_id_type> >("ParticleIDSet")
         .def(peer::util::set_indexing_suite<std::set<typename impl_type::particle_id_type> >())
         ;
 
+    class_<std::set<typename impl_type::structure_id_type> >("StructureIDSet")
+        .def(peer::util::set_indexing_suite<std::set<typename impl_type::structure_id_type> >())
+        ;
+
+    // defining the python class
     return class_<impl_type, bases<Tbase_>,
                   boost::shared_ptr<impl_type> >(
         "World", init<typename impl_type::length_type, typename impl_type::size_type>())
@@ -268,10 +286,22 @@ inline boost::python::objects::class_base register_world_class(char const* name)
         .add_property("structures",
             make_function(
                 (typename impl_type::structures_range(impl_type::*)() const)&impl_type::get_structures, structures_range_converter_type()))
+//        .add_property("structure_types",
+//            make_function(
+//                (typename impl_type::structure_types_range(impl_type::*)() const)&impl_type::get_structure_types,
+//                 structure_types_range_converter_type()))
         .add_property("particle_ids", &World_get_particle_ids<impl_type>)
-        .def("add_species", &impl_type::add_species)
-        .def("add_structure", &impl_type::add_structure)
         .def("get_particle_ids", &impl_type::get_particle_ids)
+        .def("get_particle_ids_on_struct", &impl_type::get_particle_ids_on_struct)
+        .def("add_species", &impl_type::add_species)
+        // Structure stuff
+        .def("add_structure", &impl_type::add_structure)
+        .def("update_structure", &impl_type::update_structure)      // Not sure if this should be here or in ParticleContainer.hpp
+//        .def("remove_structure", &impl_type::remove_structure)
+        .def("set_def_structure_id", &impl_type::set_def_structure_id)
+        // StructureType stuff
+        .def("add_structure_type", &impl_type::add_structure_type)
+        .def("set_def_structure_type_id", &impl_type::set_def_structure_type_id)
         .def("distance", &impl_type::template distance<typename impl_type::position_type>)
         .def("distance", &impl_type::template distance<typename Tsim::sphere_type>)
         .def("distance", &impl_type::template distance<typename Tsim::cylinder_type>)

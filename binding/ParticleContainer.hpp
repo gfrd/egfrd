@@ -27,6 +27,9 @@
 
 namespace binding {
 
+//// Converters. These convert C++ types to something that Python can handle.
+
+// 
 template<typename Timpl_>
 struct particle_id_pair_generator_converter
 {
@@ -52,11 +55,54 @@ struct particle_id_pair_generator_converter
         }
     };
 
+    // Also need to register the converter.
     static void __register()
     {
         peer::wrappers::generator_wrapper<
                 ptr_generator<native_type, std::auto_ptr<native_type> > >
                 ::__register_class("ParticleIDPairGenerator");
+        boost::python::to_python_converter<
+                native_type*,
+                peer::converters::ptr_generator_to_pyiterator_converter<
+                    native_type, std::auto_ptr<native_type> > >();
+                    
+
+        peer::util::to_native_lvalue_converter<native_type, to_native_converter>();
+    }
+};
+
+// Not sure if this should be defined here or in binding/World.hpp
+template<typename Timpl_>
+struct structure_id_pair_generator_converter
+{
+    typedef Timpl_ native_type;
+
+    struct to_native_converter
+    {
+        static void* convert(PyObject* ptr)
+        {
+            boost::python::handle<> iter(
+                boost::python::allow_null(PyObject_GetIter(ptr)));
+            if (!iter)
+            {
+                boost::python::throw_error_already_set();
+            }
+            return new peer::wrappers::pyiterator_generator<
+                    typename native_type::result_type>(iter);
+        }
+
+        static PyTypeObject const* expected_pytype()
+        {
+            return &PyBaseObject_Type;
+        }
+    };
+
+    // Also need to register the converter.
+    static void __register()
+    {
+        peer::wrappers::generator_wrapper<
+                ptr_generator<native_type, std::auto_ptr<native_type> > >
+                ::__register_class("StructureIDPairGenerator");
         boost::python::to_python_converter<
                 native_type*,
                 peer::converters::ptr_generator_to_pyiterator_converter<
@@ -164,6 +210,7 @@ struct particle_id_pair_and_distance_list_converter
         }
     };
 
+    // Also need to register the converter.
     static void __register()
     {
         to_python_converter::wrapper_type::__class_init__("ParticleIDAndDistanceVector", boost::python::scope().ptr());
@@ -172,6 +219,8 @@ struct particle_id_pair_and_distance_list_converter
     }
 };
 
+
+// ParticleContainer wrapper class
 template<typename Tbase_>
 class ParticleContainerWrapper
     : public Tbase_, public boost::python::wrapper<Tbase_>
@@ -179,30 +228,34 @@ class ParticleContainerWrapper
 public:
     typedef boost::python::wrapper<Tbase_> py_wrapper_type;
     typedef Tbase_ wrapped_type;
-    typedef typename wrapped_type::size_type size_type;
-    typedef typename wrapped_type::length_type length_type;
-    typedef typename wrapped_type::particle_id_type particle_id_type;
-    typedef typename wrapped_type::particle_shape_type particle_shape_type;
-    typedef typename wrapped_type::position_type position_type;
-    typedef typename wrapped_type::species_id_type species_id_type;
-    typedef typename wrapped_type::species_type species_type;
-    typedef typename wrapped_type::structure_id_type structure_id_type;
-    typedef typename wrapped_type::structure_type structure_type;
-    typedef typename wrapped_type::particle_id_pair particle_id_pair;
-    typedef typename wrapped_type::transaction_type transaction_type;
-    typedef typename wrapped_type::particle_id_pair_generator particle_id_pair_generator;
-    typedef typename wrapped_type::particle_id_pair_and_distance_list particle_id_pair_and_distance_list;
-    typedef typename wrapped_type::structure_id_and_distance_pair structure_id_and_distance_pair;
+    // Get types that are defined in the ParticleContainer class that we are wrapping.
+    typedef typename wrapped_type::size_type                            size_type;
+    typedef typename wrapped_type::length_type                          length_type;
+    typedef typename wrapped_type::particle_id_type                     particle_id_type;
+    typedef typename wrapped_type::particle_shape_type                  particle_shape_type;
+    typedef typename wrapped_type::position_type                        position_type;
+    typedef typename wrapped_type::species_type                         species_type;
+    typedef typename wrapped_type::species_id_type                      species_id_type;
+    typedef typename wrapped_type::structure_type                       structure_type;
+    typedef typename wrapped_type::structure_id_type                    structure_id_type;
+    typedef typename wrapped_type::structure_type_type                  structure_type_type;
+    typedef typename wrapped_type::structure_type_id_type               structure_type_id_type;
 
-private:
-    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;
-    typedef select_second<typename structure_map::value_type> surface_second_selector_type;
+    typedef typename wrapped_type::particle_id_pair                     particle_id_pair;
+    typedef typename wrapped_type::structure_id_pair                    structure_id_pair;
+    typedef typename wrapped_type::particle_id_pair_generator           particle_id_pair_generator;
+    typedef typename wrapped_type::structure_id_pair_generator          structure_id_pair_generator;
+    typedef typename wrapped_type::particle_id_pair_and_distance_list   particle_id_pair_and_distance_list;
+    typedef typename wrapped_type::structure_id_and_distance_pair       structure_id_and_distance_pair;
+    typedef typename wrapped_type::structure_id_set                     structure_id_set;
+    typedef typename wrapped_type::structures_range                     structures_range;
+    typedef typename wrapped_type::structure_types_range                structure_types_range;
+
+    typedef typename wrapped_type::transaction_type                     transaction_type;
 
 public:    
-    typedef boost::transform_iterator<surface_second_selector_type,
-            typename structure_map::const_iterator> surface_iterator;
-    typedef sized_iterator_range<surface_iterator> structures_range;
 
+    //
     virtual ~ParticleContainerWrapper() {}
 
     virtual size_type num_particles() const
@@ -230,6 +283,7 @@ public:
         return py_wrapper_type::get_override("get_species")(id).template unchecked<species_type const&>();
     }
 
+    // structure stuff
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
         return py_wrapper_type::get_override("get_structure")(id);
@@ -240,15 +294,43 @@ public:
         return py_wrapper_type::get_override("get_structures")();
     }
 
+    virtual structure_id_set get_structure_ids(structure_type_id_type const& sid) const
+    {
+        return py_wrapper_type::get_override("get_structure_ids")(sid);
+    }
+
+    virtual structure_id_type get_def_structure_id() const
+    {
+        return py_wrapper_type::get_override("get_def_structure_id")();
+    }
+
     virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
     {
         return py_wrapper_type::get_override("get_closest_surface")(pos, ignore);
     }
+    // end structure stuff
+
+    // Begin StructureType stuff
+    virtual structure_type_type get_structure_type(structure_type_id_type const& sid) const
+    {
+        return py_wrapper_type::get_override("get_structure_type")(sid);
+    }
+
+    virtual structure_types_range get_structure_types() const
+    {
+        return py_wrapper_type::get_override("get_structure_types")();
+    }
+
+    virtual structure_type_id_type get_def_structure_type_id() const
+    {
+        return py_wrapper_type::get_override("get_def_structure_type_id")();
+    }
+    // end StructureType stuff
 
     virtual particle_id_pair new_particle(species_id_type const& sid,
-            position_type const& pos)
+            structure_id_type const& structure_id, position_type const& pos)
     {
-        return py_wrapper_type::get_override("new_particle")(sid, pos);
+        return py_wrapper_type::get_override("new_particle")(sid, structure_id, pos);
     }
 
     virtual bool update_particle(particle_id_pair const& pi_pair)
@@ -338,28 +420,44 @@ public:
 };
 
 
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_particle_container_class(
         char const *name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
+
+    // registering converters from standard boost templates.
     peer::converters::register_tuple_converter<typename impl_type::particle_id_pair>();
+    peer::converters::register_tuple_converter<typename impl_type::structure_id_pair>();
     peer::converters::register_tuple_converter<typename impl_type::structure_id_and_distance_pair>();
     peer::converters::register_tuple_converter<typename impl_type::particle_id_pair_and_distance>();
 
+    // register the converters that are defined above (not sure what this does)
     particle_id_pair_and_distance_list_converter<typename impl_type::particle_id_pair_and_distance_list>::__register();
     particle_id_pair_generator_converter<typename impl_type::particle_id_pair_generator>::__register();
+    structure_id_pair_generator_converter<typename impl_type::structure_id_pair_generator>::__register();
 
+    // defining the python class
     return class_<ParticleContainerWrapper<impl_type>, boost::noncopyable>(name)
         .add_property("num_particles", &impl_type::num_particles)
         .add_property("world_size", &impl_type::world_size)
+        // Species stuff
         .def("get_species",
             pure_virtual((typename impl_type::species_type const&(impl_type::*)(typename impl_type::species_id_type const&) const)&impl_type::get_species),
             return_internal_reference<>())
+        // StructureType stuff
+        .def("get_structure_type", pure_virtual(&impl_type::get_structure_type))
+        .def("get_structure_types", pure_virtual(&impl_type::get_structure_types))
+        .def("get_def_structure_type_id", pure_virtual(&impl_type::get_def_structure_type_id))
+        // Structure stuff
         .def("get_structure", pure_virtual(&impl_type::get_structure))
         .def("get_structures", pure_virtual(&impl_type::get_structures))
+        .def("get_structure_ids", pure_virtual(&impl_type::get_structure_ids))
+        .def("get_def_structure_id", pure_virtual(&impl_type::get_def_structure_id))
         .def("get_closest_surface", pure_virtual(&impl_type::get_closest_surface))
+        // Particle stuff
         .def("new_particle", pure_virtual(&impl_type::new_particle))
         .def("update_particle", pure_virtual(&impl_type::update_particle))
         .def("remove_particle", pure_virtual(&impl_type::remove_particle))

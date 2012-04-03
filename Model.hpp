@@ -19,27 +19,29 @@ class NetworkRules;
 class Model: private boost::noncopyable
 {
 public:
-    typedef SpeciesType species_type_type;
-    typedef species_type_type::identifier_type species_id_type;
+    typedef SpeciesType                         species_type_type;
+    typedef species_type_type::identifier_type  species_id_type;
 
 private:
-    typedef SerialIDGenerator<species_id_type> species_type_id_generator_type;
-    typedef std::map<species_id_type, boost::shared_ptr<species_type_type> > species_type_map_type;
-    typedef select_second<species_type_map_type::value_type> species_second_selector_type;
+    typedef SerialIDGenerator<species_id_type>                                  species_type_id_generator_type;
+    typedef std::map<species_id_type, boost::shared_ptr<species_type_type> >    species_type_map_type;
+    typedef select_second<species_type_map_type::value_type>                    species_second_selector_type;
 
-    typedef get_mapper_mf<std::string, std::string>::type string_map_type;
+    typedef get_mapper_mf<std::string, std::string>::type                       string_map_type;
 
 public:
     typedef boost::transform_iterator<species_second_selector_type,
-            species_type_map_type::const_iterator> species_type_iterator;
-    typedef boost::iterator_range<species_type_iterator> species_type_range;
-    typedef NetworkRules network_rules_type;
-    typedef string_map_type::const_iterator string_map_iterator;
-    typedef boost::iterator_range<string_map_iterator> attributes_range;
+            species_type_map_type::const_iterator>                  species_type_iterator;
+    typedef boost::iterator_range<species_type_iterator>            species_type_range;
+    typedef NetworkRules                                            network_rules_type;
+    typedef string_map_type::const_iterator                         string_map_iterator;
+    typedef boost::iterator_range<string_map_iterator>              attributes_range;
 
 public:
     // The model class is more or less an implementation of the network rules
     // The network rules define the possible reactions between species.
+
+    // Constructor
     Model();
 
     virtual ~Model();
@@ -49,32 +51,32 @@ public:
         return *network_rules_;
     }
 
+    // Add a species to the model
     void add_species_type(boost::shared_ptr<species_type_type> const& species);
-    // Adds a species to the model
 
+    // Get a species by the species 'id'
     boost::shared_ptr<species_type_type> get_species_type_by_id(species_id_type const& id) const;
-    // Gets a species by the species 'id'
 
+    // Get all the species in the model
     species_type_range get_species_types() const;
-    // Gets all the species in the model
 
     std::string const& operator[](std::string const& name) const;
 
     std::string& operator[](std::string const& name);
     // Not sure. Get attribute by name?
 
-    attributes_range attributes() const
     // Get all the attributes
+    attributes_range attributes() const
     {
         return attributes_range(attrs_.begin(), attrs_.end());
     }
 
-
+//////// Member variables (why are they public?)
 public:
-    species_type_id_generator_type species_type_id_generator_;  // The id generator which makes sure that all species have a unique id
-    species_type_map_type species_type_map_;                    // ??
+    species_type_id_generator_type  species_type_id_generator_; // The id generator which makes sure that all species have a unique id
+    species_type_map_type           species_type_map_;          // mapping: species_type_id->species_type
     boost::scoped_ptr<NetworkRules> network_rules_;             // The network rules in the model
-    string_map_type attrs_;                                     // All the attributes
+    string_map_type                 attrs_;                     // All the attributes
 };
 
 

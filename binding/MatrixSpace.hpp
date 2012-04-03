@@ -41,6 +41,8 @@
 
 namespace binding {
 
+
+
 struct MatrixSpaceExtrasBase
 {
     template<typename T_, typename Tref_>
@@ -427,6 +429,8 @@ public:
     }
 };
 
+
+////// Registering master function
 template<typename Timpl_>
 inline void register_matrix_space_class(char const* class_name)
 {
@@ -434,6 +438,7 @@ inline void register_matrix_space_class(char const* class_name)
     typedef MatrixSpaceExtras<impl_type> extras_type;
     using namespace boost::python;
 
+    // register converters from standard boost templates
     extras_type::Builders::__register_converter();
 
     std::string const _class_name(class_name);
@@ -446,6 +451,7 @@ inline void register_matrix_space_class(char const* class_name)
             typename extras_type::key_iterator,
             boost::python::object>::__class_init__((_class_name + ".keyiterator").c_str());
 
+    // defining the python class for the matrix space
     class_<impl_type>(class_name,
             init<typename impl_type::length_type,
                  typename impl_type::size_type>())

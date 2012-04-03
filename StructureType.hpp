@@ -22,26 +22,30 @@ private:
 
 public:
     // typedef std::string identifier_type;
-    typedef SpeciesTypeID identifier_type;
-    typedef string_map_type::const_iterator string_map_iterator;
-    typedef boost::iterator_range<string_map_iterator> attributes_range;
+    typedef SpeciesTypeID                               identifier_type;    // NOTE: we use the same identifier as for the species!
+    typedef string_map_type::const_iterator             string_map_iterator;
+    typedef boost::iterator_range<string_map_iterator>  attributes_range;
 
 public:
+    // Constructor
+    StructureType(): model_(0) {}
+ 
+    // Get the id
     identifier_type const& id() const;
 
     std::string const& operator[](std::string const& name) const;
 
     std::string& operator[](std::string const& name);
 
+    // Get all the attributes
     attributes_range attributes() const;
 
+    // Get the particle model to which the structuretype is associated
     ParticleModel* model() const
     {
         return model_;
     }
 
-    StructureType(): model_(0) {}
- 
 protected:
     void bind_to_model(ParticleModel* model, identifier_type const& id)
     {
@@ -49,12 +53,15 @@ protected:
         id_ = id;
     }
 
+
+//////// Member variables
 private:
-    ParticleModel* model_;
-    identifier_type id_;
+    ParticleModel*  model_;         // to what model is it associated
+    identifier_type id_;            // identifier Note that these are only defined if the object is bound to a model.
     string_map_type attrs_;
 };
 
+/////// Inline functions
 template<typename Tchar_, typename Ttraits_>
 inline std::basic_ostream<Tchar_, Ttraits_>&
 operator<<(std::basic_ostream<Tchar_, Ttraits_>& out, const StructureType& v)

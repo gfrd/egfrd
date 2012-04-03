@@ -13,6 +13,8 @@ static void Model___setitem__(Timpl* model, std::string const& key, std::string 
     (*model)[key] = value;
 }
 
+
+////// Registering master function
 template<typename Tmodel_>
 inline void register_model_class(char const* name)
 {
@@ -22,6 +24,7 @@ inline void register_model_class(char const* name)
     docstring_options doc_options;
     doc_options.disable_signatures();
 
+    // defining the python class
     class_<impl_type, boost::noncopyable>(name)
         .add_property("network_rules",
             make_function(&impl_type::network_rules,

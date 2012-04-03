@@ -8,6 +8,7 @@
 
 namespace binding {
 
+// defining the loglevel
 boost::python::objects::enum_base
 register_logger_level_enum(char const* name)
 {
@@ -22,6 +23,8 @@ register_logger_level_enum(char const* name)
         ;
 }
 
+
+////// Registering master function
 boost::python::objects::class_base
 register_logger_manager_class(char const* name)
 {
@@ -31,6 +34,7 @@ register_logger_manager_class(char const* name)
     peer::converters::register_range_to_tuple_converter<
         std::vector<boost::shared_ptr<LogAppender> > >();
 
+    // defining the python class
     return class_<impl_type, boost::shared_ptr<impl_type>, boost::noncopyable>(name, no_init)
         .add_property("level",
             static_cast<enum Logger::level(impl_type::*)() const>(&impl_type::level),

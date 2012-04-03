@@ -6,15 +6,19 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_pair_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // converters from standard boost templates.
     peer::converters::register_range_to_tuple_converter<
             typename impl_type::particle_array_type>();
 
+    // defining the python class
     return class_<impl_type, bases<typename impl_type::base_type>,
            boost::shared_ptr<impl_type>, boost::noncopyable>(name, no_init)
         .add_property("particles",

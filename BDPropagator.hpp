@@ -98,7 +98,7 @@ public:
         if (species.D() == 0.)
             return true;
 
-        position_type const displacement(drawR_free(species));
+        position_type const displacement(drawR_free(pp));
         position_type const new_pos(
             tx_.apply_boundary(
                 add(pp.second.position(), displacement)));
@@ -106,7 +106,7 @@ public:
         particle_id_pair particle_to_update(
                 pp.first, particle_type(species.id(),
                     particle_shape_type(new_pos, species.radius()),
-                    species.D()));
+                    pp.second.structure_id(), species.D()));
         boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(
             tx_.check_overlap(particle_to_update.second.shape(),
                               particle_to_update.first));
@@ -159,9 +159,10 @@ public:
     }
 
 private:
-    position_type drawR_free(species_type const& species)
+    position_type drawR_free(particle_id_pair const& pp)
     {
-        return tx_.get_structure(species.structure_id())->bd_displacement(species.v() * dt_, std::sqrt(2.0 * species.D() * dt_), rng_);
+        species_type const species(tx_.get_species( pp.second.sid()) );
+        return tx_.get_structure(pp.second.structure_id())->bd_displacement(species.v() * dt_, std::sqrt(2.0 * species.D() * dt_), rng_);
     }
 
     bool attempt_reaction(particle_id_pair const& pp)
@@ -197,6 +198,7 @@ private:
                             pp.first, particle_type(products[0],
                                 particle_shape_type(pp.second.position(),
                                                     s0.radius()),
+                                                    pp.second.structure_id(),
                                                     s0.D()));
                         boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(tx_.check_overlap(new_p.second.shape(), new_p.first));
                         if (overlapped && overlapped->size() > 0)
@@ -240,7 +242,7 @@ private:
                             }
 
                             boost::shared_ptr<structure_type> pp_structure( 
-                                tx_.get_structure( tx_.get_species( pp.second.sid() ).structure_id()) );  
+                                tx_.get_structure( pp.second.structure_id()) );  
                
                             position_type m( pp_structure->
                                         dissociation_vector( rng_, r01, dt_, D01, s0.v() - s1.v() ) );
@@ -272,8 +274,8 @@ private:
 
                         tx_.remove_particle(pp.first);
                         const particle_id_pair
-                            npp0(tx_.new_particle(s0.id(), np0)),
-                            npp1(tx_.new_particle(s1.id(), np1));
+                            npp0(tx_.new_particle(s0.id(), pp.second.structure_id(), np0)),
+                            npp1(tx_.new_particle(s1.id(), pp.second.structure_id(), np1));
 
                         if (rrec_)
                         {
@@ -303,7 +305,7 @@ private:
         }
 
         const species_type s0(tx_.get_species(pp0.second.sid())),
-                s1(tx_.get_species(pp1.second.sid()));
+                           s1(tx_.get_species(pp1.second.sid()));
         length_type r01(s0.radius() + s1.radius());
 
         const Real rnd(rng_());
@@ -315,7 +317,7 @@ private:
             reaction_rule_type const& r(*i);
 
             boost::shared_ptr<structure_type> pp_structure( 
-               tx_.get_structure( tx_.get_species( pp0.second.sid() ).structure_id()) );  
+               tx_.get_structure( pp0.second.structure_id()) );  // we assume that both particles live on the same surface
 
             const Real p(pp_structure->p_acceptance( r.k(), dt_, r01, subtract( pp1.second.position(), 
                                                 pp0.second.position() ), s0.D(), s1.D(), s0.v(), s1.v() ));
@@ -339,6 +341,7 @@ private:
                 switch (::size(products))
                 {
                 case 1:
+                // If the number or product of the reaction is one.
                     {
                         const species_id_type product(products[0]);
                         const species_type sp(tx_.get_species(product));
@@ -351,6 +354,7 @@ private:
                                             pp1.second.position(),
                                             pp0.second.position()), s0.D())),
                                     (s0.D() + s1.D()))));
+
                         boost::scoped_ptr<particle_id_pair_and_distance_list> overlapped(
                             tx_.check_overlap(particle_shape_type(new_pos, sp.radius()),
                                               pp0.first, pp1.first));
@@ -371,7 +375,7 @@ private:
 
                         remove_particle(pp0.first);
                         remove_particle(pp1.first);
-                        particle_id_pair npp(tx_.new_particle(product, new_pos));
+                        particle_id_pair npp(tx_.new_particle(product, pp0.second.structure_id(), new_pos));
                         if (rrec_)
                         {
                             (*rrec_)(
@@ -381,6 +385,7 @@ private:
                         break;
                     }
                 case 0:
+                // If the two particles annihilate eachother. Just remove the particles.
                     remove_particle(pp0.first);
                     remove_particle(pp1.first);
                     break;

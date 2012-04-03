@@ -8,6 +8,7 @@ from _gfrd import (
     Cylinder,
     CylindricalShell,
     CylindricalSurface,
+    Plane,
     PlanarSurface,
     CuboidalRegion,
     )
@@ -22,6 +23,7 @@ __all__ = [
     'testSingle',
     'testNonInteractionSingle',
     'testInteractionSingle',
+    'testTransitionSingle',
     'testPair',
     'testSimplePair',
     'testMixedPair2D3D',
@@ -31,6 +33,7 @@ __all__ = [
     'SphericalPairtestShell',
     'PlanarSurfaceSingletestShell',
     'PlanarSurfacePairtestShell',
+    'PlanarSurfaceTransitionSingletestShell',
     'CylindricalSurfaceSingletestShell',
     'CylindricalSurfacePairtestShell',
     'PlanarSurfaceInteractiontestShell',
@@ -65,7 +68,7 @@ class testShellError(Exception):
 # dimensions dependent on the one who asks. The asker and the askee are now both a NonInteractionSingle
 # or an Other.
 # The main difference between the NonInteractionSingles and Others is that the NonInteractionSingle
-# keep the Other domains at a distance such that the probably that the Other domain get bursted is
+# keep the Other domains at a distance such that the probability that the Other domain get bursted is
 # minimized.
 class Others(object):
 # Subclasses of Others are: all Pair, Interaction and Multi domains.
@@ -171,6 +174,21 @@ class testInteractionSingle(testSingle, Others):
 
         # The reference_vector is the normalized vector from the reference_point to the particle
         self.reference_vector = normalize(pos_transposed - self.reference_point)
+
+class testTransitionSingle(testSingle, Others):
+
+    def __init__(self, single, target_structure):
+
+        testSingle.__init__(self, single.pid_particle_pair, single.structure)
+
+        assert (self.structure.sid == target_structure.sid)     # Both structures are of same structure_type
+        self.single = single
+
+        self.origin_structure = self.structure
+        self.target_structure = target_structure
+
+        # Note that we assume the structures are exactly connecting
+        self.distance_to_target_structure = self.world.distance(self.target_structure.shape, self.pid_particle_pair[1].position)
 
 ##############
 class testPair(Others):
@@ -426,6 +444,9 @@ def get_dr_dzright_dzleft_to_SphericalShape(shape, testShell, r, z_right, z_left
     reference_point = testShell.get_referencepoint()
     orientation_vector = testShell.get_orientation_vector()
 
+    # FIXME DIRTY HACK TO MAKE DOMAINS LESS GREEDY
+#    r = min(r, testShell.world.distance(shape.position, reference_point)/2)
+
     # determine on what side the midpoint of the shell is relative to the reference_point
     shell_position_t = testShell.world.cyclic_transpose (shell_position, reference_point)
     ref_to_shell_vec = shell_position_t - reference_point
@@ -576,6 +597,9 @@ def get_radius_to_SphericalShape(shape, testShell, r):
     scale_point = testShell.center
     r_new = testShell.world.distance(shape, scale_point)
 
+    # FIXME DIRTY HACK TO MAKE DOMAINS LESS GREEDY
+#    r_new = min(r_new, testShell.world.distance(shape.position, scale_point)/2)
+
     # if the newly calculated dimensions are smaller than the current one, use them
     return min(r, r_new)
 
@@ -599,6 +623,9 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
     # get the reference point and orientation of the domain to scale
     reference_point = testShell.get_referencepoint()
     orientation_vector = testShell.get_orientation_vector()
+
+    # FIXME DIRTY HACK TO MAKE DOMAINS LESS GREEDY
+#    r = min(r, testShell.world.distance(shape.position, reference_point)/2)
 
     # determine on what side the midpoint of the shell is relative to the reference_point
     shell_position_t = testShell.world.cyclic_transpose (shell_position, reference_point)
@@ -628,35 +655,254 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
         z1 = z_left
         z2 = z_right
 
-    # calculate ref_to_shell_r/z in the cylindrical coordinate system on the right/left side
-    ref_to_shell_z_vec = ref_to_shell_z * orientation_vector
-    ref_to_shell_r_vec = ref_to_shell_vec - ref_to_shell_z_vec
-    ref_to_shell_r = length(ref_to_shell_r_vec)         # the radius is always positive
-    ref_to_shell_z = ref_to_shell_z * direction         # ref_to_shell_z is positive on the scaling side (right/left)
+    relative_orientation = abs(numpy.dot(orientation_vector, shape.unit_z))
+    if feq(relative_orientation, 1.0):
+    ### If the cylinders are oriented parallelly
+
+        # calculate ref_to_shell_r/z in the cylindrical coordinate system on the right/left side
+        ref_to_shell_z_vec = ref_to_shell_z * orientation_vector
+        ref_to_shell_r_vec = ref_to_shell_vec - ref_to_shell_z_vec
+        ref_to_shell_r = length(ref_to_shell_r_vec)         # the radius is always positive
+        ref_to_shell_z = ref_to_shell_z * direction         # ref_to_shell_z is positive on the scaling side (right/left)
 
 
-    # calculate the distances in r/z from the scaling center to the shell
-    scale_center_to_shell_r = ref_to_shell_r - scale_center_r
-    scale_center_to_shell_z = ref_to_shell_z - scale_center_z
+        # calculate the distances in r/z from the scaling center to the shell
+        scale_center_to_shell_r = ref_to_shell_r - scale_center_r
+        scale_center_to_shell_z = ref_to_shell_z - scale_center_z
 
-    # get angles
-    to_edge_angle = math.atan( (scale_center_to_shell_r - shell_radius) / (scale_center_to_shell_z - shell_half_length) )
+        # get angles
+        to_edge_angle = math.atan( (scale_center_to_shell_r - shell_radius) / (scale_center_to_shell_z - shell_half_length) )
 
-    if (scale_center_to_shell_z - shell_half_length) < 0.0:
-        to_edge_angle += Pi           # if the shell was too much to the side we correct the angle to be positive
-    # elif: a negative angle was caused by a negative scale_center_to_shell we want a negative angle -> do nothing
-    # otherwise: shell_angle is ok -> do nothing
+        if (scale_center_to_shell_z - shell_half_length) < 0.0:
+            to_edge_angle += Pi           # if the shell was too much to the side we correct the angle to be positive
+        # elif: a negative angle was caused by a negative scale_center_to_shell we want a negative angle -> do nothing
+        # otherwise: shell_angle is ok -> do nothing
 
-    if to_edge_angle <= scale_angle:
-        # shell hits the scaling cylinder on top
-        z1_new = min(z1, (ref_to_shell_z - shell_half_length))
-        r_new  = min(r,  r1_function(z1_new))           # TODO if z1 hasn't changed we also don't have to recalculate this
+        if to_edge_angle <= scale_angle:
+            # shell hits the scaling cylinder on top
+            z1_new = min(z1, (ref_to_shell_z - shell_half_length))
+            r_new  = min(r,  r1_function(z1_new))           # TODO if z1 hasn't changed we also don't have to recalculate this
+        else:
+            # shell hits the scaling cylinder on the radial side
+            r_new = min(r, (ref_to_shell_r - shell_radius))
+            z1_new = min(z1, z1_function(r_new))
+
+    elif feq(relative_orientation, 0):
+    ### If the cylinders are oriented perpendicularly
+
+        # The local x-axis is defined as the vector parallel to the axis of the shell in the direction from the
+        # reference_point of the scaling cylinder to the cylindrical shell
+        # The local y-axis is defined as the vector parallel to the flat side of the shell, perpendicular to the
+        # axis of the scaling cylinder. It also point from the reference_point of the scaling cylinder to the shell.
+        # The local z-axis is defined as the vector parallel to the axis of the scaling cylinder in the direction
+        # from the reference point to the shell.
+        if numpy.dot(ref_to_shell_vec, shape.unit_z) >= 0:
+            local_x = shape.unit_z
+        else:
+            local_x = -shape.unit_z
+        local_z = orientation_vector * direction
+        cross = numpy.cross(local_x, local_z)
+        if numpy.dot(ref_to_shell_vec, cross) >= 0:
+            local_y = cross
+        else:
+            local_y = -cross
+
+        ref_to_shell_x = numpy.dot(ref_to_shell_vec, local_x)
+        ref_to_shell_y = numpy.dot(ref_to_shell_vec, local_y)
+        ref_to_shell_z = numpy.dot(ref_to_shell_vec, local_z)
+        assert (ref_to_shell_x >= 0.0) and (ref_to_shell_y >= 0.0) and (ref_to_shell_z >= 0.0)  # By the definition of the local coordinate system
+
+        scale_center_to_shell_x = ref_to_shell_x
+        scale_center_to_shell_y = ref_to_shell_y
+        scale_center_to_shell_z = ref_to_shell_z - scale_center_z
+        
+        ref_to_shell_x2 = ref_to_shell_x - shell_half_length
+        ref_to_shell_y2 = ref_to_shell_y - shell_radius
+
+        if (ref_to_shell_x2 < 0) and (ref_to_shell_y2 < 0):
+            # quadrant 1
+#            print "quadrant 1"
+            situation = 4
+
+        elif (ref_to_shell_x2 >= 0) and (ref_to_shell_y2 < 0):
+            # quadrant 2
+#            print "quadrant 2"
+            scale_center_to_shell_x -= scale_center_r
+            scale_center_to_flatend_x = scale_center_to_shell_x - shell_half_length
+            scale_center_to_critpoint_z = scale_center_to_shell_z - math.sqrt(shell_radius**2 - scale_center_to_shell_y**2) 
+            scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius
+
+            # angle1
+            if scale_center_to_critpoint_z == 0:
+                scale_center_to_shell_crit_angle_y = Pi/2
+            else:
+                scale_center_to_shell_crit_angle_y = math.atan(scale_center_to_flatend_x/ scale_center_to_critpoint_z)
+                if scale_center_to_critpoint_z < 0.0:
+                    scale_center_to_shell_crit_angle_y += Pi
+            # angle2
+            if scale_center_to_lowpoint_z == 0:
+                scale_center_to_shell_low_angle_y = Pi/2
+            else:
+                scale_center_to_shell_low_angle_y  = math.atan(scale_center_to_flatend_x/ scale_center_to_lowpoint_z )
+                if scale_center_to_lowpoint_z < 0.0:
+                    scale_center_to_shell_low_angle_y += Pi
+
+
+            if scale_angle <= scale_center_to_shell_crit_angle_y:
+                situation = 1
+            elif scale_center_to_shell_low_angle_y <= scale_angle:
+                situation = 4
+            else:
+                assert scale_center_to_shell_crit_angle_y < scale_angle and \
+                       scale_angle < scale_center_to_shell_low_angle_y
+                situation = 2
+                r1_min = (scale_center_to_shell_x - shell_half_length)*(1.0+TOLERANCE)
+                h1_min = r1_min/math.tan(scale_angle)
+
+        elif (ref_to_shell_x2 < 0) and (ref_to_shell_y2 >= 0):
+            # quadrant 3
+#            print "quadrant 3"
+            scale_center_to_shell_y -= scale_center_r
+            scale_center_to_critpoint_y = scale_center_to_shell_y - shell_radius
+            scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius
+
+            # angle1
+            if scale_center_to_shell_z == 0.0:
+                scale_center_to_shell_crit_angle_x = Pi/2.0
+            else:
+                scale_center_to_shell_crit_angle_x = math.atan(scale_center_to_critpoint_y / scale_center_to_shell_z)
+                if scale_center_to_shell_z < 0.0:
+                    scale_center_to_shell_crit_angle_x += Pi
+            # angle2
+            if scale_center_to_lowpoint_z == 0.0:
+                scale_center_to_shell_low_angle_x = Pi/2.0
+            else:
+                scale_center_to_shell_low_angle_x  = math.atan(scale_center_to_shell_y/scale_center_to_lowpoint_z)
+                if scale_center_to_lowpoint_z < 0.0:
+                    scale_center_to_shell_low_angle_x += Pi
+
+
+            if scale_angle <= scale_center_to_shell_crit_angle_x:
+                situation = 6
+            elif scale_center_to_shell_low_angle_x <= scale_angle:
+                situation = 4
+            else:
+                assert scale_center_to_shell_crit_angle_x < scale_angle and \
+                       scale_angle < scale_center_to_shell_low_angle_x
+                situation = 5
+
+        else:
+            # quadrant 4
+#            print "quadrant 4"
+            assert (ref_to_shell_x2 >= 0) and (ref_to_shell_y2 >= 0)
+
+            scale_center_to_critpoint_r = math.sqrt((scale_center_to_shell_y - shell_radius)**2 + (scale_center_to_shell_x - shell_half_length)**2) - scale_center_r
+            scale_center_to_lowpoint_r = math.sqrt(scale_center_to_shell_y**2 + (scale_center_to_shell_x - shell_half_length)**2) - scale_center_r
+            scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius
+
+            # angle1
+            if scale_center_to_shell_z == 0.0:
+                scale_center_to_shell_crit_angle_xy = Pi/2.0
+            else:
+                scale_center_to_shell_crit_angle_xy = math.atan(scale_center_to_critpoint_r / scale_center_to_shell_z)
+                if scale_center_to_shell_z < 0.0:
+                    scale_center_to_shell_crit_angle_xy += Pi
+            # angle2
+            if scale_center_to_lowpoint_z == 0.0:
+                scale_center_to_shell_low_angle_xy = Pi/2.0
+            else:
+                scale_center_to_shell_low_angle_xy  = math.atan(scale_center_to_lowpoint_r / scale_center_to_lowpoint_z )
+                if scale_center_to_lowpoint_z < 0.0:
+                    scale_center_to_shell_low_angle_xy += Pi
+
+
+            if scale_angle <= scale_center_to_shell_crit_angle_xy:
+                situation = 3
+            elif scale_center_to_shell_low_angle_xy <= scale_angle:
+                situation = 4
+            else:
+                assert scale_center_to_shell_crit_angle_xy < scale_angle and \
+                       scale_angle < scale_center_to_shell_low_angle_xy
+                situation = 2
+                r1_min = math.sqrt((scale_center_to_shell_x-shell_half_length)**2 + (scale_center_to_shell_y-shell_radius)**2)*(1.0+TOLERANCE)
+                h1_min = r1_min/math.tan(scale_angle)
+
+#        print "situation= ", situation
+        #################
+        if situation == 1:
+            # shell hits the scaling cylinder with its flat surface on the radial side
+            r_new = min(r, (ref_to_shell_x - shell_half_length))
+            z1_new = min(z1, z1_function(r_new))
+
+        elif situation == 2:
+            # shell hits the scaling cylinder with its edge on the edge
+            # TODO we have a solution but it can only be found with a root finder -> slow
+            tan_scale_angle = math.tan(scale_angle)
+
+            if scale_angle <= Pi/4.0:
+                def h1(x):
+                    return x - scale_center_to_shell_z + \
+                           math.sqrt(shell_radius**2 - (scale_center_to_shell_y - math.sqrt((x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2) )**2 )
+
+                h_touch = scale_center_z + findroot(h1, h1_min, scale_center_to_shell_z*(1.0-TOLERANCE))
+                z1_new = min(z1, h_touch)
+                r_new  = min(r,  r1_function(z1_new))
+            else:
+                def r1(x):
+                    shell_radius_sq = shell_radius**2
+                    return x/tan_scale_angle - scale_center_to_shell_z + \
+                           math.sqrt(shell_radius_sq - (scale_center_to_shell_y - math.sqrt(x**2 - (scale_center_to_shell_x - shell_half_length)**2))**2)
+
+                r_touch = findroot(r1, r1_min, math.sqrt((scale_center_to_shell_x-shell_half_length)**2 + (scale_center_to_shell_y)**2)*(1.0-TOLERANCE))
+                r_new  = min(r, r_touch)
+                z1_new = min(z1, z1_function(r_new))
+
+        elif situation == 3:
+            # shell hits the scaling cylinder with its edge on the radial side
+            r_new = min(r, math.sqrt( (ref_to_shell_x-shell_half_length)**2 + (ref_to_shell_y - shell_radius)**2))
+            z1_new = min(z1, z1_function(r_new))
+
+        elif situation == 4:
+            # shell hits the scaling cylinder with its round side on the top flat side
+            z1_new = min(z1, (ref_to_shell_z - shell_radius))
+            r_new  = min(r,  r1_function(z1_new))
+
+        elif situation == 5:
+            # shell hist the scaling cylinder with its round side on the edge of the scaling cylinder.
+            shell_radius_sq = shell_radius*shell_radius
+
+            ss_sq = (scale_center_to_shell_z**2 + scale_center_to_shell_y**2)
+            scale_center_to_shell = math.sqrt(ss_sq)
+
+            shell_angle_x = math.atan(scale_center_to_shell_y/scale_center_to_shell_z)
+            angle_diff = shell_angle_x - scale_angle
+            sin_angle_diff = math.sin(angle_diff)
+            cos_angle_diff = math.cos(angle_diff)
+
+            scale_center_shell_dist = (scale_center_to_shell * cos_angle_diff -
+                                       math.sqrt(shell_radius_sq - (ss_sq * sin_angle_diff * sin_angle_diff) ))
+
+            if scale_angle <= Pi/4.0:
+                cos_scale_angle = math.cos(scale_angle)
+                z1_new = min(z1, (scale_center_z + cos_scale_angle * scale_center_shell_dist))
+                r_new  = min(r, r1_function(z1_new))
+            else:
+                sin_scale_angle = math.sin(scale_angle)
+                r_new  = min(r,  (scale_center_r + sin_scale_angle * scale_center_shell_dist))
+                z1_new = min(z1, z1_function(r_new))
+
+        elif situation == 6:
+            # shell hits the scaling cylinder with its round side on the radial side
+            r_new = min(r, (ref_to_shell_y - shell_radius))
+            z1_new = min(z1, z1_function(r_new))
+
+        else:
+            raise RuntimeError('get_dr_dzright_dzleft_to_CylindricalShape: Bad situation for making cylinders against cylinders.')
+
     else:
-        # shell hits the scaling cylinder on the radial side
-        r_new = min(r, (ref_to_shell_r - shell_radius))
-        z1_new = min(z1, z1_function(r_new))
-    z2_new = min(z2, z2_function(r_new))
+        raise NotImplementedError('get_dr_dzright_dzleft_to_CylindricalShape: Cylinders should be oriented parallel or perpendicular.')
 
+    z2_new = min(z2, z2_function(r_new))
 
     # switch the z values in case it's necessary. r doesn't have to be switched.
     r = r_new
@@ -686,7 +932,55 @@ def get_radius_to_CylindricalShape(shape, testShell, r):
     return min(r, r_new)
 
 def get_dr_dzright_dzleft_to_PlanarShape(shape, testShell, r, z_right, z_left):
+    # This function returns the dr, dz_right, dz_left for the cylindrical 'testShell' using the planar 'shape' as its closest
+    # neighbor. Note that it returns the minimum of the newly calculated parameters and the old parameters. The 'testShell' can
+    # therefore only become smaller.
+
+    assert (type(shape) is Plane)
+
+    plane_position = shape.position
+
+    # get the reference point and orientation of the domain to scale
+    reference_point = testShell.get_referencepoint()
+    orientation_vector = testShell.get_orientation_vector()
+
+    # determine what parameter of the cylinder (dr of dz) to scale.
+    relative_orientation = numpy.dot(orientation_vector, shape.unit_z)
+    if feq(relative_orientation, 0):
+
+        distance = testShell.world.distance(shape, reference_point)
+        # FIXME ugly hack to make planar surface singles overlap with membranes
+        if isinstance(testShell, PlanarSurfaceSingletestShell):
+            distance += testShell.pid_particle_pair[1].radius
+
+        # The unit_z of the plane is perpendicular to the cylinder -> scale r
+        r = min(r, distance)
+        z_right = min(z_right, testShell.z_right(r))
+        z_left  = min(z_left,  testShell.z_left (r))
+
+    elif feq(abs(relative_orientation), 1):
+        # The unit_z of the plane is parallel to the axis of the cylinder -> scale z_right/z_left
+
+        # determine on what side the midpoint of the plane is relative to the reference_point
+        plane_position_t = testShell.world.cyclic_transpose (plane_position, reference_point)
+        ref_to_plane_vec = plane_position_t - reference_point
+        ref_to_plane_z = numpy.dot(ref_to_plane_vec, orientation_vector)
+
+        # if the shell is on the side of orientation_vector -> use z_right
+        if ref_to_plane_z >= 0:
+            z_right = min(z_right, testShell.world.distance(shape, reference_point))
+            r       = min(r, testShell.r_right(z_right))
+            z_left  = min(z_left, testShell.z_left(r))
+        else:
+            z_left  = min(z_left, testShell.world.distance(shape, reference_point))
+            r       = min(r, testShell.r_left(z_left))
+            z_right = min(z_right, testShell.z_right(r))
+            
+    else:
+        raise NotImplementedError('Only perpendicular planes are supported.')
+
     return r, z_right, z_left
+
 
 def get_radius_to_PlanarShape(shape, testShell, r):
     # This function returns the radius for the spherical 'testShell' using the planar 'shape' as its closest
@@ -836,6 +1130,33 @@ class SphericalPairtestShell(SphericaltestShell, testSimplePair):
     def get_min_radius(self):
         return self.get_min_pair_size()
 
+#####
+class PlanarSurfaceTransitionSingletestShell(SphericaltestShell, testTransitionSingle):
+
+    def __init__(self, single, target_structure, geometrycontainer, domains):
+        SphericaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
+        testTransitionSingle.__init__(self, single, target_structure)
+
+        assert isinstance(self.origin_structure, PlanarSurface)
+        assert isinstance(self.target_structure, PlanarSurface)
+
+        self.center = self.pid_particle_pair[1].position
+        try:
+            self.radius = self.determine_possible_shell(self.structure.id, [self.single.domain_id],
+                                                        [self.target_structure.id])
+        except ShellmakingError as e:
+            raise testShellError('(PlanarSurfaceTransitionSingle). %s' %
+                                 (str(e)))
+
+    def get_min_radius(self):
+        # The minimal shell size also deterimines the minimal radius of the later 2D domain.
+        # min_offset here is the minimal length that the circular 2D domain protrudes into
+        # the target surface. Make sure that min_offset > 0.0, because only then it is
+        # guaranteed that there is always a certain probability to cross the edge even
+        # if the shell with minimal radius is constructed
+        return self.distance_to_target_structure + self.pid_particle_pair[1].radius
+
+
 ##########################
 class CylindricaltestShell(testShell):
     # The CylindricaltestShell is the geometric aspect of testDomains with a cylindrical shell.
@@ -870,6 +1191,7 @@ class CylindricaltestShell(testShell):
  
         # first check the maximum dr, dz_right, dz_left against the surfaces
         # NOTE: we assume that all relevant surfaces are cylindrical and parallel to the testCylinder
+        # or planar surfaces and parallel to the testCylinder axis
         for surface, distance in neighbor_surfaces:
             # TODO
             if isinstance(surface, CylindricalSurface):
@@ -883,9 +1205,8 @@ class CylindricaltestShell(testShell):
 
             if (dr < min_dr) or (dz_right < min_dz_right) or (dz_left < min_dz_left):
                 raise ShellmakingError('Surface too close to make cylindrical testshell, '
-                                       'surface = %s, dr = %s, dz_right = %s, dz_left = %s, testShell = %s' %
-                                       (surface, dr, dz_right, dz_left, self))
-
+                                       'surface = %s, dr = %s, dz_right = %s, dz_left = %s, testShell = %s, min_dr = %s' %
+                                       (surface, dr, dz_right, dz_left, self, min_dr))
         # TODO first sort the neighbors to distance -> faster to find if we fail
 
         # then check against all the shells of the neighboring domains (remember that domains can have
@@ -1109,6 +1430,7 @@ class PlanarSurfacePairtestShell(CylindricaltestShell, testSimplePair):
 
     def apply_safety(self, r, z_right, z_left):
         return r/SAFETY, z_right, z_left
+
 #####
 class CylindricalSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle):
 

@@ -33,12 +33,15 @@ static void log_appender_call(Timpl& self, enum Logger::level lv,
     self(lv, name, &chunks.front());
 }
 
+
+////// Registering master function
 boost::python::objects::class_base
 register_log_appender_class(char const* name)
 {
     using namespace boost::python;
     typedef LogAppender impl_type;
 
+    // defining the python class
     return class_<impl_type, boost::shared_ptr<impl_type>, boost::noncopyable>(name, no_init)
         .def("flush", &impl_type::flush)
         .def("__call__", &log_appender_call<impl_type>)

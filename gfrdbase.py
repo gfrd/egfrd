@@ -30,7 +30,6 @@ __all__ = [
     'get_surfaces',
     'get_closest_surface',
     'create_network_rules_wrapper',
-    'place_particle'
     ]
 
 World = _gfrd.World
@@ -145,32 +144,47 @@ def create_world(m, matrix_size=10):
 
     """
     m.set_all_repulsive()
-    world_region = m.get_structure("world")
-    if not isinstance(world_region, _gfrd.CuboidalRegion):
-        raise TypeError("the world should be a CuboidalRegion")
 
-    if not numpy.all(world_region.shape.half_extent ==
-                     world_region.shape.half_extent[0]):
-        raise NotImplementedError("non-cuboidal world is not supported")
+    # make the world
+    world = _gfrd.World(m.world_size, matrix_size)
 
-    world_size = world_region.shape.half_extent[0] * 2
+    # copy all structure_types to the world (including the default one) and set the default id.
+    for st in m.structure_types:
+        world.add_structure_type(st)
+    world_structure_type_id = m.get_def_structure_type_id()
+    world.set_def_structure_type_id(world_structure_type_id)
 
-    world = _gfrd.World(world_size, matrix_size)
-
+    # The model (a ParticleModel) now only holds SpeciesTypes
+    # The SpeciesTYpes hold the information that is required for spatial simulations
+    # in auxiliairy string fields. This information is here converted to the right
+    # SpeciesInfo object and added to the world. Not sure this works -> TODO
     for st in m.species_types:
-        try:
-            structure = st["structure"]
-        except _gfrd.NotFound:
-            structure = "world"
+        if st["structure_type"] == "world":
+            # The default structure_type
+            structure_type_id = world_structure_type_id
+        else:
+            # Find the corresponding structure_type between all the structure_types known
+            for stt in m.structure_types:
+                if st["structure_type"] == stt['name']:
+                    structure_type_id = stt.id
+                    break
+            else:
+                raise RuntimeError("StructureType used in Species not found in Model when initializing World.")
+
         world.add_species(
             _gfrd.SpeciesInfo(st.id, 
+                              structure_type_id,    # FIXME not sure this works
                               float(st["D"]), 
                               float(st["radius"]), 
-                              structure,
                               float(st["v"])))
 
-    for r in m.structures.itervalues():
-        world.add_structure(r)
+    # make the default structure: A cuboidal region of the default structure_type
+    # This needs to be done after making the structure_types or add_structure can't
+    # find the proper structure_type.
+    x = numpy.repeat(m.world_size / 2, 3)
+    region = _gfrd.CuboidalRegion("world", world_structure_type_id, _gfrd.Box(x, x))
+    world_structure_id = world.add_structure(region)
+    world.set_def_structure_id(world_structure_id)
 
     world.model = m
     return world
@@ -193,20 +207,23 @@ def throw_in_particles(world, sid, n):
 
     """
     species = world.get_species(sid)
-    structure = world.get_structure(species.structure_id)
+    structure_type = world.get_structure_type(species.structure_type_id)
+    structure_list = list(world.get_structure_ids(structure_type))
 
     if __debug__:
         name = world.model.get_species_type_by_id(sid)["name"]
         if name[0] != '(':
             name = '(' + name + ')'
         log.info('\n\tthrowing in %s particles of type %s to %s' %
-                 (n, name, structure.id))
+                 (n, name, structure_type.id))
 
     # This is a bit messy, but it works.
     i = 0
     while i < int(n):
+        myrandom.shuffle(structure_list)
+        structure = world.get_structure(structure_list[0])
         position = structure.random_position(myrandom.rng)
-        position = apply_boundary(position, world.world_size)
+        position = world.apply_boundary(position)
 
         # Check overlap.
         if not world.check_overlap((position, species.radius)):
@@ -224,7 +241,7 @@ def throw_in_particles(world, sid, n):
                     create = False
             if create:
                 # All checks passed. Create particle.
-                p = world.new_particle(sid, position)
+                p = world.new_particle(sid, structure.id, position)
                 i += 1
                 if __debug__:
                     log.info('(%s,\n %s' % (p[0], p[1]))
@@ -247,33 +264,46 @@ def place_particle(world, sid, position):
 
     """
     species = world.get_species(sid)
-    structure = world.get_structure(species.structure_id)
     radius = species.radius
 
+    # check that particle doesn't overlap with other particles.
     if world.check_overlap((position, radius)):
-        raise NoSpace, 'overlap check failed'
+        raise NoSpace, 'Placing particle failed: overlaps with other particle.'
 
+    surface, distance = get_closest_surface(world, position, [])
     # Check if not too close to a neighbouring structures for particles 
     # added to the world, or added to a self-defined box.
-    if isinstance(structure, _gfrd.CuboidalRegion):
-        surface, distance = get_closest_surface(world, position, [])
+    if species.structure_type_id == world.get_def_structure_type_id():
         if(surface and
            distance < surface.minimal_distance(species.radius)):
             raise RuntimeError('Placing particle failed: %s %s. '
                                'Too close to surface: %s.' %
                                (sid, position, distance))
+        else:
+            structure_id = world.get_def_structure_id()
+    else:
+        # If the particle lives on a surface then the position should be in the closest surface.
+        # The closest surface should also be of the structure_type associated with the species.
+        structure_ids = world.get_structure_ids(world.get_structure_type(species.structure_type_id))
+        if not (surface and 
+                distance < TOLERANCE*radius and 
+                surface.id in structure_ids):
+            raise RuntimeError('Placing particle failed: %s %s. Position should be in structure of structure_type \"%s\".' %
+                                (sid, position, world.get_structure_type(species.structure_type_id)['name']))
+        else:
+            structure_id = surface.id
 
     if __debug__:
-        species = world.get_species(sid)
-        structure = world.get_structure(species.structure_id)
         name = world.model.get_species_type_by_id(sid)["name"]
         if name[0] != '(':
             name = '(' + name + ')'
-        log.info('\n\tplacing particle of type %s to %s at position %s' %
-                 (name, structure.id, position))
+        log.info('\n\tplacing particle of type %s to structure \"%s\" at position %s' %
+                 (name, world.get_structure(structure_id).name, position))
 
-    particle = world.new_particle(sid, position)
+    particle = world.new_particle(sid, structure_id, position)
     return particle
+
+
 
 class ParticleSimulatorBase(object):
     def __init__(self, world, rng, network_rules):
@@ -320,7 +350,7 @@ class ParticleSimulatorBase(object):
               to the user:
                    * SpeciesInfo.id
                    * SpeciesInfo.radius
-                   * SpeciesInfo.structure_id
+                   * SpeciesInfo.structure_type_id
                    * SpeciesInfo.D
                    * SpeciesInfo.v
                 

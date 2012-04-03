@@ -7,12 +7,19 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline void register_reaction_rule_info_class(char const *name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // registering converters from standard boost templates.
+    peer::converters::register_range_to_tuple_converter<typename impl_type::species_id_range>();
+    peer::converters::register_iterable_to_range_converter<typename impl_type::species_id_range>();
+
+    // defining the python class
     class_<impl_type>(name,
         init<typename impl_type::identifier_type,
              typename impl_type::rate_type,
@@ -29,9 +36,6 @@ inline void register_reaction_rule_info_class(char const *name)
             make_function(&impl_type::get_reactants,
                           return_value_policy<return_by_value>()));
 
-    peer::converters::register_range_to_tuple_converter<typename impl_type::species_id_range>();
-
-    peer::converters::register_iterable_to_range_converter<typename impl_type::species_id_range>();
 }
 
 } // namespace binding

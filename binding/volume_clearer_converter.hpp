@@ -8,6 +8,7 @@
 
 namespace binding {
 
+// Defining a wrapper for the volume clearer
 template<typename Tbase_>
 class VolumeClearerWrapper: public Tbase_
 {
@@ -69,6 +70,8 @@ struct volume_clearer_converter
     }
 };
 
+
+////// Registering master function
 template<typename Timpl_>
 void register_volume_clearer_converter()
 {

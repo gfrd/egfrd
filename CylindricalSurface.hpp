@@ -16,13 +16,14 @@ class CylindricalSurface
 public:
     typedef BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> > base_type;
     typedef typename base_type::traits_type traits_type;
-    typedef typename base_type::identifier_type identifier_type;
-    typedef typename base_type::shape_type shape_type;
-    typedef typename base_type::rng_type rng_type;
-    typedef typename base_type::position_type position_type;
-    typedef typename base_type::length_type length_type;
+    typedef typename base_type::identifier_type         identifier_type;        // This is just the name of the structure
+    typedef typename base_type::structure_type_id_type  structure_type_id_type;
+    typedef typename base_type::shape_type              shape_type;
+    typedef typename base_type::rng_type                rng_type;
+    typedef typename base_type::position_type           position_type;
+    typedef typename base_type::length_type             length_type;
     typedef typename Ttraits_::world_type::species_type species_type;
-    typedef std::pair<position_type, position_type> position_pair_type;
+    typedef std::pair<position_type, position_type>     position_pair_type;
 
     virtual position_type random_position(rng_type& rng) const
     // Gives a random position in the cylinder (1D)
@@ -225,8 +226,8 @@ public:
         visitor(*this);
     }
 
-    CylindricalSurface(identifier_type const& id, shape_type const& shape)
-        : base_type(id, shape) {}
+    CylindricalSurface(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
+        : base_type(id, sid, shape) {}
 };
 
 #endif /* CYLINDRICAL_SURFACE_HPP */

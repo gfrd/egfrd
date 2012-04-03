@@ -14,6 +14,8 @@
 
 namespace binding {
 
+
+////// Defining structure with some helper functions.
 template<typename Timpl_>
 struct StructureTypeExtras
 {
@@ -35,6 +37,8 @@ struct StructureTypeExtras
     }
 };
 
+
+////// Registering master function
 template<typename Timpl_>
 static boost::python::objects::class_base register_structure_type_class(
         char const* name)
@@ -43,6 +47,7 @@ static boost::python::objects::class_base register_structure_type_class(
     typedef Timpl_ impl_type;
     typedef StructureTypeExtras<impl_type> extras_type;
 
+    // defining the python class
     return class_<impl_type, boost::shared_ptr<impl_type> >(name, init<>())
         .add_property("id",
                 make_function((typename impl_type::identifier_type const&(impl_type::*)() const)&impl_type::id,

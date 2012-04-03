@@ -151,7 +151,7 @@ public:
 
         BOOST_FOREACH(species_type s, base_type::world_->get_species())
         {
-            if( s.structure_id() != "world" )
+            if( s.structure_type_id() != base_type::world_->get_def_structure_type_id() )
                 continue;
 
             BOOST_FOREACH(boost::shared_ptr<structure_type> structure, base_type::world_->get_structures())
@@ -192,19 +192,19 @@ public:
                 for (typename boost::range_const_iterator<reaction_rules>::type
                 it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
-                    const length_type r01( s0.radius() + s1.radius() );
+//                    const length_type r01( s0.radius() + s1.radius() ); // TODO
                     Real k;
                     
-                    if(s0.structure_id() != s1.structure_id())
+                    if(s0.structure_type_id() != s1.structure_type_id())
                     {
-                        if(s0.structure_id() == "world")
-                            k = base_type::world_->get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                        if(s0.structure_type_id() == base_type::world_->get_def_structure_type_id())
+                            k = 0.001; //TODO k = base_type::world_->get_structure( s0.structure_type_id() )->get_1D_rate_geminate( (*it).k(), r01 );
                         else
-                            k = base_type::world_->get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                            k = 0.001; //TODO k = base_type::world_->get_structure( s1.structure_type_id() )->get_1D_rate_geminate( (*it).k(), r01 );
                     }
                     else
                     {
-                        k = base_type::world_->get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
+                        k = 0.001;     //TODO k = base_type::world_->get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
                     }
                 
                     if ( k_max < k )
@@ -251,11 +251,11 @@ protected:
     }
 
 private:
-    Real dt_factor_;
-    int const num_retries_;
-    length_type reaction_length_factor_;
-    length_type reaction_length_;
-    static Logger& log_;
+    Real            dt_factor_;
+    int const       num_retries_;
+    length_type     reaction_length_factor_;
+    length_type     reaction_length_;
+    static Logger&  log_;
 };
 
 template<typename Ttraits_>

@@ -10,16 +10,20 @@ template<typename Ttraits_>
 class EGFRDSimulatorFactory: public ParticleSimulatorFactory<Ttraits_>
 {
 public:
-    typedef ParticleSimulatorFactory<Ttraits_> base_type;
-    typedef Ttraits_ traits_type;
-    typedef typename traits_type::world_type::traits_type world_traits_type;
-    typedef typename traits_type::world_type world_type;
-    typedef typename traits_type::network_rules_type network_rules_type;
-    typedef typename world_traits_type::length_type length_type;
-    typedef typename world_traits_type::size_type size_type;
-    typedef typename world_traits_type::position_type position_type;
-    typedef typename world_traits_type::rng_type rng_type;
-    typedef CuboidalRegion<traits_type> cuboidal_region_type;
+    typedef ParticleSimulatorFactory<Ttraits_>  base_type;
+    typedef Ttraits_                            traits_type;
+    typedef typename traits_type::world_type    world_type;
+    typedef typename world_type::traits_type    world_traits_type;
+
+    // shorthand typedefs
+    typedef typename world_traits_type::length_type     length_type;
+    typedef typename world_traits_type::size_type       size_type;
+    typedef typename world_traits_type::position_type   position_type;
+    typedef typename world_traits_type::rng_type        rng_type;
+    typedef typename traits_type::network_rules_type    network_rules_type;
+
+    typedef CuboidalRegion<traits_type>                 cuboidal_region_type;
+
 
 public:
     EGFRDSimulatorFactory(rng_type& rng): rng_(rng) {}
@@ -50,7 +54,7 @@ public:
         world->add_structure(
             boost::shared_ptr<cuboidal_region_type>(
                 new cuboidal_region_type(
-                    "world",
+                    "world", model.get_def_structure_type_id(),
                     typename cuboidal_region_type::shape_type(x, x))));
 
         BOOST_FOREACH (boost::shared_ptr<StructureType> st,
@@ -60,18 +64,19 @@ public:
             // TODO: add surfaces to world
         }
 
+        // Making sure that all the species have a structure_type defined?
         BOOST_FOREACH (boost::shared_ptr<SpeciesType> st,
                        model.get_species_types())
         {
-            std::string const& structure_id((*st)["structure"]);
+            structure_type_id_type const& structure_type_id((*st)["structure_type"]);
             world->add_species(
                 typename world_traits_type::species_type(
                     st->id(),
                     boost::lexical_cast<typename world_traits_type::D_type>(
                         (*st)["D"]),
                     boost::lexical_cast<length_type>((*st)["radius"]),
-                    boost::lexical_cast<typename world_traits_type::structure_id_type>(
-                        structure_id.empty() ? "world": structure_id)
+                    boost::lexical_cast<typename world_traits_type::structure_type_id_type>(
+                        structure_type_id.empty() ? model.get_def_structure_type_id(): structure_type_id)
                     ));
         }
 
@@ -82,6 +87,8 @@ public:
             rng_, dissociation_retry_moves);
     }
 
+
+///// Member variables
 protected:
     rng_type& rng_;
 };

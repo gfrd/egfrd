@@ -11,7 +11,7 @@ class VTKLogger:
     """
     """
     def __init__(self, sim, dir='vtkdata', buffer_size=None, show_shells=True, 
-                 extra_particle_step=True, color_dict=None):
+                 extra_particle_step=True, color_dict=None, draw_simulation_box=True):
         """Create a new VTKLogger to visualize a simulation with 
         VTK/ParaView.
 
@@ -62,6 +62,7 @@ class VTKLogger:
         self.show_shells = show_shells
         self.extra_particle_step = extra_particle_step
         self.color_dict = color_dict
+        self.draw_simulation_box = draw_simulation_box
 
         self.vtk_writer = VTK_XML_Serial_Unstructured()
 
@@ -270,8 +271,9 @@ class VTKLogger:
                            self.get_cylindrical_surface_data())
         self.make_snapshot('planar_surfaces',
                            self.get_planar_surface_data())
-        self.make_snapshot('cuboidal_regions', 
-                           self.get_cuboidal_region_data())
+        if self.draw_simulation_box:
+            self.make_snapshot('cuboidal_regions', 
+                               self.get_cuboidal_region_data())
 
         # Finally, write PVD files.
         self.vtk_writer.write_pvd(self.dir + '/' + 'files.pvd', 
@@ -342,16 +344,16 @@ class VTKLogger:
                self.process_cylinders(cylinders, cylinder_colors)
 
     def get_cuboidal_region_data(self):
-        boxes = [self.sim.world.get_structure("world").shape]
+        boxes = [self.sim.world.get_structure(self.sim.world.get_def_structure_id()).shape]
 
         return self.process_boxes(boxes)
 
     def get_planar_surface_data(self):
-        world = self.sim.world.get_structure("world")
+        world_id = self.sim.world.get_def_structure_id()
         boxes = [surface.shape for surface
                                in self.sim.world.structures
                                if isinstance(surface.shape, Plane)
-                               and not surface == world]
+                               and not surface.id == world_id]  # why this here? The world is not a plane!
     
         return self.process_boxes(boxes)
 

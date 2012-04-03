@@ -6,12 +6,14 @@
 
 namespace binding {
 
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_shaped_domain_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // defining the python class
     return class_<impl_type, boost::shared_ptr<impl_type>,
                   boost::noncopyable>(name, no_init)
         .add_property("position", 

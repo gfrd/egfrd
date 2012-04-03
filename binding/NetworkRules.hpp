@@ -5,6 +5,8 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl_>
 boost::python::objects::class_base register_network_rules_class(char const* name)
 {

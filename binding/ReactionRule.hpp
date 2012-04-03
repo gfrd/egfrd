@@ -15,6 +15,9 @@
 
 namespace binding {
 
+//// Converters. These convert C++ types to something that Python can handle.
+
+// 
 template<typename Trr_>
 struct seq_to_reactants_converter
 {
@@ -62,6 +65,8 @@ struct seq_to_reactants_converter
     }
 };
 
+//////
+// structure defining some helper functions.
 template<typename Timpl_>
 struct ReactionRuleExtras
 {
@@ -104,6 +109,8 @@ struct ReactionRuleExtras
     }
 };
 
+
+////// Registering master function
 template<typename Trr_>
 inline void register_reaction_rule_class(const char* name)
 {
@@ -111,6 +118,7 @@ inline void register_reaction_rule_class(const char* name)
     typedef Trr_ impl_type;
     typedef ReactionRuleExtras<impl_type> extras_type;
 
+    // registering the converters from templates defined above.
     typedef std::vector<typename impl_type::species_type_id_type> species_type_id_vector;
     peer::util::to_native_converter<
             typename impl_type::Reactants,
@@ -120,6 +128,7 @@ inline void register_reaction_rule_class(const char* name)
     peer::converters::register_iterable_to_range_converter<
             species_type_id_vector>();
 
+    // defining the class
     class_<impl_type>(name,
             init<typename impl_type::Reactants const&, species_type_id_vector>())
         .add_property("reactants",  

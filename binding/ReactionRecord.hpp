@@ -6,16 +6,20 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl_>
 boost::python::objects::class_base register_reaction_record_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl_ impl_type;
 
+    // registering converters from standard boost templates
     peer::converters::register_range_to_tuple_converter<typename impl_type::reactants_type>();
     peer::converters::register_range_to_tuple_converter<typename impl_type::products_type>();
     peer::converters::register_pyiterable_range_converter<typename impl_type::particle_id_type>();
 
+    // defining the python class
     return class_<impl_type>(name, init<>())
         .def(init<typename impl_type::reaction_rule_id_type const&,
                   peer::wrappers::pyiterable_range<

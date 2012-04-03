@@ -105,6 +105,7 @@ struct particle_id_pair_range_select_first_converter
         }
     };
 
+    // Also need to register the converter
     static void __register()
     {
         wrapper_type::__class_init__("ParticleIDRange", boost::python::scope().ptr());
@@ -114,6 +115,7 @@ struct particle_id_pair_range_select_first_converter
 };
 
 
+////// Registering master function
 void register_world_class()
 {
     register_world_class<World, ParticleContainer, EGFRDSimulator>("World");
@@ -124,4 +126,4 @@ void register_world_class()
     peer::converters::register_iterable_to_range_converter<twofold_container<ParticleID> >();
 }
 
-} // namesapce binding
+} // namespace binding

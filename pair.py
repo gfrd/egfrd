@@ -144,8 +144,10 @@ class Pair(ProtectiveDomain, Others):
                                                   self.pid_particle_pair2[1].radius,
                                                   self.structure,
                                                   unit_z)
+        struct1_id = self.pid_particle_pair1[1].structure_id
+        struct2_id = self.pid_particle_pair2[1].structure_id
 
-        return newpos1, newpos2
+        return newpos1, newpos2, struct1_id, struct2_id
 
     def draw_new_com(self, dt, event_type):
         # draws a new coordinate for the CoM in world coordinates

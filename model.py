@@ -15,7 +15,7 @@ __all__ = [
     'create_surface_binding_reaction_rule',
     'create_surface_unbinding_reaction_rule',
 
-    # From _gfrd. Should be part of the model class.
+    # From _gfrd. Should be part of the world class.
     'create_cuboidal_region',
     'create_cylindrical_surface',
     'create_planar_surface',
@@ -23,14 +23,18 @@ __all__ = [
 
 
 # Define _gfrd docstrings here, much easier to format than in C++.
+# TODO These functions should be moved to gfrdbase.py because structures are no longer a part of the model,
+# but part of the world instead.
 _gfrd.create_cuboidal_region.__doc__ = \
-"""create_cuboidal_region(id, corner, diagonal)
+"""create_cuboidal_region(sid, id, corner, diagonal)
 
 Create and return a new cuboidal Region.
 
 Arguments:
+    - sid
+        the structure type of the cuboidal region.
     - id
-        a descriptive name.
+        the name of the structure
     - corner
         the point [x, y, z] of the cuboidal Region closest to
         [0, 0, 0]. Units: [meters, meters, meters]
@@ -42,13 +46,15 @@ Arguments:
 """
 
 _gfrd.create_cylindrical_surface.__doc__ = \
-"""create_cylindrical_surface(id, corner, radius, orientation, length)
+"""create_cylindrical_surface(sid, id, corner, radius, orientation, length)
 
 Create and return a new cylindrical Surface.
 
 Arguments:
+    - sid
+        the structure type of the cylindrical surface.
     - id
-        a descriptive name.
+        the name of the structure
     - corner
         the point [x, y, z] on the axis of the cylinder closest to 
         [0, 0, 0]. Units: [meters, meters, meters]
@@ -66,13 +72,15 @@ Surfaces are not allowed to touch or overlap.
 """
 
 _gfrd.create_planar_surface.__doc__ = \
-"""create_planar_surface(id, corner, unit_x, unit_y, length_x, length_y)
+"""create_planar_surface(sid, id, corner, unit_x, unit_y, length_x, length_y)
 
 Create and return a new planar Surface.
 
 Arguments:
+    - sid
+        the structure type of the planar surface.
     - id
-        a descriptive name.
+        the name of the structure
     - corner
         the point [x, y, z] on the plane closest to [0, 0, 0]. Units: 
         [meters, meters, meters]
@@ -89,7 +97,7 @@ Arguments:
         the length of the plane along the unit vector unit_y. Should be 
         equal to the world_size. Units: meters.
 
-Surfaces are not allowed to touch or overlap.
+Surfaces are not allowed to overlap.
 
 Todo: allow the user to specify the position of a planar surface 
 relative to a region.
@@ -109,7 +117,7 @@ Arguments:
 
 # Species is just a function, not a class. It seems to be a frontend to the
 # constructor of _gfrd.SpeciesType
-def Species(name, D, radius=0, structure="world", drift=0):
+def Species(name, D, radius=0, structure_type=None, drift=0):
     """Define a new Species (in/on a specific Region or Surface).
 
     Arguments:
@@ -121,7 +129,7 @@ def Species(name, D, radius=0, structure="world", drift=0):
         - radius
             the radius for this Species in/on this Region or Surface. 
             Units: meters.
-        - structure
+        - structure_type
             the Region or Surface in/on which this Species can exist.  
             Optional. If you do not specify a Structure the Species is 
             added to the "world".
@@ -136,12 +144,28 @@ def Species(name, D, radius=0, structure="world", drift=0):
     without an explicit Structure argument.
 
     """
+    # The SpeciesType actually only holds the information needed for a general species
+    # The information needed for spatial simulations (D, r, v etc) is stored in SpeciesInfo
+    # Here it is stored temporarily in string fields and only when the world in create
+    # put in the SpeciesInfo -> TODO SpeciesInfo should be in the ParticleModel
     st = _gfrd.SpeciesType()
     st["name"] = str(name)
     st["D"] = str(D)
     st["v"] = str(drift)
     st["radius"] = str(radius)
-    st["structure"] = structure
+#    st["structure_type"] = str(id(structure_type))  # The most ugly way of getting the reference in there.
+
+    # Particles of a Species whose Surface is not specified will be 
+    # added to the "world". 
+    if structure_type:
+        st["structure_type"] = structure_type['name']  # The most ugly way of getting the reference in there.
+    else:
+        st["structure_type"] = "world"
+
+#    # create the associated SpeciesInfo
+#    si = _gfrd.SpeciesInfo(st.id, structure_type.id,
+#                           D, radius, v)
+
     return st
 
 
@@ -163,37 +187,32 @@ class ParticleModel(_gfrd.ParticleModel):
 
         """
         _gfrd.ParticleModel.__init__(self)
+        # Note that in _gfrd.ParticleModel the default structure_type is
+        # created and added to the model.
+
         self.world_size = world_size
-        self.structures = {}
-
-        # Particles of a Species whose Surface is not specified will be 
-        # added to the "world". Dimensions don't matter, except for 
+        # Dimensions don't matter, except for 
         # visualization.
-        structure_type = _gfrd.StructureType()
-        structure_type['name'] = 'world'
-        _gfrd.ParticleModel.add_structure_type(self, structure_type)
-        
-        x = numpy.repeat(world_size / 2, 3)
-        region = _gfrd.CuboidalRegion('world', _gfrd.Box(x, x))
-        region.sid = structure_type.id
-        
-        self.add_structure(region)
 
-    def add_structure(self, structure):
-        """Add a Structure (Region or Surface) to the ParticleModel.
+#        self.structures = {}
 
-        Arguments:
-            - structure
-              a Region or Surface created with one of the functions
-              model.create_<>_region or model.create_<>_surface.
 
-        """
-        assert isinstance(structure, _gfrd.Structure)
-        self.structures[structure.id] = structure
-        return structure
-
-    def get_structure(self, id): 
-        return self.structures[id]
+### TODO change to add_structure_type
+#    def add_structure(self, structure):
+#        """Add a Structure (Region or Surface) to the ParticleModel.
+#
+#        Arguments:
+#            - structure
+#              a Region or Surface created with one of the functions
+#              model.create_<>_region or model.create_<>_surface.
+#
+#        """
+#        assert isinstance(structure, _gfrd.Structure)
+#        self.structures[structure.id] = structure
+#        return structure
+#
+#    def get_structure(self, id): 
+#        return self.structures[id]
 
     def add_reaction_rule(self, reaction_rule):
         """Add a ReactionRule to the ParticleModel.

@@ -10,12 +10,15 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 void register_bd_simulator_class(char const* name)
 {
     using namespace boost::python;
     using boost::shared_ptr;
     typedef Timpl impl_type;
+
     class_<impl_type, bases<typename impl_type::base_type>, boost::noncopyable>(
             name,
             init<boost::shared_ptr<typename impl_type::world_type>,

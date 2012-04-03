@@ -16,6 +16,7 @@ public:
     typedef T_ length_type;
 
 public:
+    // constructors
     Cylinder()
         : position_(), radius_(0), unit_z_(), half_length_(0) {}
 
@@ -24,6 +25,7 @@ public:
         : position_(position), radius_(radius), unit_z_(unit_z),
           half_length_(half_length) {}
 
+    
     bool operator==(const Cylinder& rhs) const
     {
         return position_ == rhs.position() && radius_ == rhs.radius() && unit_z_ == rhs.unit_z() && half_length_ == rhs.half_length();
@@ -82,13 +84,16 @@ public:
         return strm.str();
     }
 
+/////// Member variables
 private:
-    position_type position_; // centre.
+    position_type position_;    // centre.
     length_type radius_;
-    position_type unit_z_; // Z-unit_z. should be normalized.
+    position_type unit_z_;      // Z-unit_z. should be normalized.
     length_type half_length_;
 };
 
+
+//////// Inline functions
 template<typename Tstrm_, typename T_>
 inline std::basic_ostream<Tstrm_>& operator<<(std::basic_ostream<Tstrm_>& strm,
         const Cylinder<T_>& v)

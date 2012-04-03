@@ -453,7 +453,7 @@ def place_particle(world, sid, position):
               to the user:
                    * SpeciesInfo.id
                    * SpeciesInfo.radius
-                   * SpeciesInfo.structure_id
+                   * SpeciesInfo.structure_type_id
                    * SpeciesInfo.D
                    * SpeciesInfo.v
                 
@@ -1224,24 +1224,24 @@ typedef Tid_ 	identifier_type
 typedef TD_ 	D_type
 typedef TD_ 	v_type
 typedef Tlen_ 	length_type
-typedef Tstructure_id_ 	structure_id_type
+typedef Tstructure_type_id_ 	structure_type_id_type
 
 Public Member Functions
 identifier_type const & 	id () const
 length_type const & 	radius () const
 length_type & 	radius ()
-structure_id_type const & 	structure_id () const
-structure_id_type & 	structure_id ()
+structure_type_id_type const & 	structure_type_id () const
+structure_type_id_type & 	structure_type_id ()
 D_type const & 	D () const
 D_type & 	D ()
 v_type const & 	v () const
 v_type & 	v ()
 bool 	operator== (SpeciesInfo const &rhs) const
 bool 	operator!= (SpeciesInfo const &rhs) const
- 	SpeciesInfo (identifier_type const &id, D_type const &D=0., length_type const &r=0., structure_id_type const &s="", v_type const &v=0.)
+ 	SpeciesInfo (identifier_type const &id, D_type const &D=0., length_type const &r=0., structure_type_id_type const &s= NULL, v_type const &v=0.)
 
-template<typename Tid_, typename TD_, typename Tlen_, typename Tstructure_id_>
-struct SpeciesInfo< Tid_, TD_, Tlen_, Tstructure_id_ >
+template<typename Tid_, typename TD_, typename Tlen_, typename Tstructure_type_id_>
+struct SpeciesInfo< Tid_, TD_, Tlen_, Tstructure_type_id_ >
 \end{verbatim}
 
 \subsection{Particle}

@@ -11,11 +11,14 @@
 
 namespace binding {
 
+//// Converters. These convert C++ types to something that Python can handle.
+
 typedef peer::util::detail::array_to_ndarray_converter<
     WorldTraits::position_type,
     WorldTraits::position_type::value_type, 3>
         position_to_ndarray_converter;
 
+//
 struct ndarray_to_position_converter
 {
     typedef Position native_type;
@@ -57,6 +60,7 @@ struct ndarray_to_position_converter
     }
 };
 
+//
 struct tuple_to_position_converter
 {
     typedef Position native_type;
@@ -86,6 +90,7 @@ struct tuple_to_position_converter
     }
 };
 
+//
 struct list_to_position_converter
 {
     typedef Position native_type;
@@ -115,6 +120,8 @@ struct list_to_position_converter
     }
 };
 
+
+////// Registering master function
 void register_position_converters()
 {
     boost::python::to_python_converter<WorldTraits::position_type,

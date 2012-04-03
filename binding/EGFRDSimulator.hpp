@@ -10,6 +10,9 @@
 
 namespace binding {
 
+//// Converters. These convert C++ types to something that Python can handle.
+
+//
 template<typename Timpl_>
 struct shell_variant_converter
 {
@@ -41,16 +44,20 @@ struct shell_variant_converter
         return boost::python::incref(boost::apply_visitor(visitor(), val).ptr());
     }
 
+    // Also need to register the converter.
     static void __register()
     {
         boost::python::to_python_converter<native_type, shell_variant_converter>();
     }
 };
 
+
+////// Registering master function
 template<typename Timpl>
 void register_egfrd_simulator_class(char const* name)
 {
     using namespace boost::python;
+    // typedefs
     typedef Timpl impl_type;
     typedef std::pair<typename impl_type::shell_id_type, typename impl_type::shell_variant_type> get_shell_result_type;
     enum_<typename impl_type::domain_kind>("DomainKind")
@@ -78,6 +85,8 @@ void register_egfrd_simulator_class(char const* name)
         .value("ESCAPE", impl_type::multi_type::ESCAPE)
         .value("REACTION", impl_type::multi_type::REACTION)
         ;
+
+    // defining the python class
     class_<impl_type, bases<typename impl_type::base_type>, boost::noncopyable>(
             name,
             init<boost::shared_ptr<typename impl_type::world_type>,
@@ -105,6 +114,7 @@ void register_egfrd_simulator_class(char const* name)
                 return_value_policy<return_by_value>())
         ;
 
+    // register wrappers and converters
     peer::wrappers::generator_wrapper<
         ptr_generator<typename impl_type::domain_id_pair_generator,
                       std::auto_ptr<

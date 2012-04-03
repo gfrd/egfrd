@@ -22,19 +22,22 @@ template<typename Tworld_>
 struct ParticleSimulatorTraitsBase
 {
     typedef Tworld_ world_type;
+
+    // shorthand typedefs
     typedef Real rate_type;
     typedef Real time_type;
-    typedef int reaction_rule_id_type;
+    typedef int                                                     reaction_rule_id_type;
     typedef ReactionRuleInfo<
             reaction_rule_id_type,
             typename world_type::traits_type::species_id_type,
-            rate_type> reaction_rule_type;
+            rate_type>                                              reaction_rule_type;
     typedef NetworkRulesWrapper<NetworkRules,
-                                reaction_rule_type> network_rules_type;
+                                reaction_rule_type>                 network_rules_type;
     typedef ReactionRecord<typename world_type::particle_id_type,
-                           reaction_rule_id_type> reaction_record_type;
-    typedef ReactionRecorder<reaction_record_type> reaction_recorder_type;
-    typedef VolumeClearer<typename world_type::particle_shape_type, typename world_type::particle_id_type> volume_clearer_type;
+                           reaction_rule_id_type>                   reaction_record_type;
+    typedef ReactionRecorder<reaction_record_type>                  reaction_recorder_type;
+    typedef VolumeClearer<typename world_type::particle_shape_type,
+                          typename world_type::particle_id_type>    volume_clearer_type;
 
     static const Real MINIMAL_SEPARATION_FACTOR = (1.0 + 1e-7);
 };
@@ -46,10 +49,11 @@ template<typename Ttraits_>
 struct ImmutativeStructureVisitor
 {
     typedef Ttraits_ traits_type;
-    typedef typename ParticleSimulator<traits_type>::spherical_surface_type spherical_surface_type;
-    typedef typename ParticleSimulator<traits_type>::cylindrical_surface_type cylindrical_surface_type;
-    typedef typename ParticleSimulator<traits_type>::planar_surface_type planar_surface_type;
-    typedef typename ParticleSimulator<traits_type>::cuboidal_region_type cuboidal_region_type;
+    typedef typename ParticleSimulator<traits_type>::spherical_surface_type     spherical_surface_type;
+    typedef typename ParticleSimulator<traits_type>::cylindrical_surface_type   cylindrical_surface_type;
+    typedef typename ParticleSimulator<traits_type>::planar_surface_type        planar_surface_type;
+    typedef typename ParticleSimulator<traits_type>::cuboidal_region_type       cuboidal_region_type;
+
 
     virtual ~ImmutativeStructureVisitor() {}
 
@@ -66,10 +70,11 @@ template<typename Ttraits_>
 struct MutativeStructureVisitor
 {
     typedef Ttraits_ traits_type;
-    typedef typename ParticleSimulator<traits_type>::spherical_surface_type spherical_surface_type;
-    typedef typename ParticleSimulator<traits_type>::cylindrical_surface_type cylindrical_surface_type;
-    typedef typename ParticleSimulator<traits_type>::planar_surface_type planar_surface_type;
-    typedef typename ParticleSimulator<traits_type>::cuboidal_region_type cuboidal_region_type;
+    typedef typename ParticleSimulator<traits_type>::spherical_surface_type     spherical_surface_type;
+    typedef typename ParticleSimulator<traits_type>::cylindrical_surface_type   cylindrical_surface_type;
+    typedef typename ParticleSimulator<traits_type>::planar_surface_type        planar_surface_type;
+    typedef typename ParticleSimulator<traits_type>::cuboidal_region_type       cuboidal_region_type;
+
 
     virtual ~MutativeStructureVisitor() {}
 
@@ -86,24 +91,27 @@ template<typename Ttraits_>
 class ParticleSimulator
 {
 public:
-    typedef Ttraits_ traits_type;
-    typedef typename traits_type::world_type world_type;
-    typedef Sphere<typename world_type::length_type> sphere_type;
-    typedef Cylinder<typename world_type::length_type> cylinder_type;
-    typedef Box<typename world_type::length_type> box_type;
-    typedef Plane<typename world_type::length_type> plane_type;
-    typedef ParticleSimulationStructure<traits_type> particle_simulation_structure_type;
-    typedef Surface<traits_type> surface_type;
-    typedef Region<traits_type> region_type;
-    typedef SphericalSurface<traits_type> spherical_surface_type;
-    typedef CylindricalSurface<traits_type> cylindrical_surface_type;
-    typedef PlanarSurface<traits_type> planar_surface_type;
-    typedef CuboidalRegion<traits_type> cuboidal_region_type;
-    typedef typename traits_type::network_rules_type network_rules_type;
-    typedef typename world_type::traits_type::rng_type rng_type;
-    typedef typename traits_type::time_type time_type;
-    typedef typename traits_type::reaction_record_type reaction_record_type;
-    typedef typename traits_type::reaction_recorder_type reaction_recorder_type;
+    typedef Ttraits_                            traits_type;
+    typedef typename traits_type::world_type    world_type;
+
+    // shorthand typedefs
+    typedef Sphere<typename world_type::length_type>    sphere_type;
+    typedef Cylinder<typename world_type::length_type>  cylinder_type;
+    typedef Box<typename world_type::length_type>       box_type;
+    typedef Plane<typename world_type::length_type>     plane_type;
+    typedef ParticleSimulationStructure<traits_type>    particle_simulation_structure_type;
+    typedef Surface<traits_type>                        surface_type;
+    typedef Region<traits_type>                         region_type;
+    typedef SphericalSurface<traits_type>               spherical_surface_type;
+    typedef CylindricalSurface<traits_type>             cylindrical_surface_type;
+    typedef PlanarSurface<traits_type>                  planar_surface_type;
+    typedef CuboidalRegion<traits_type>                 cuboidal_region_type;
+
+    typedef typename traits_type::network_rules_type    network_rules_type;
+    typedef typename world_type::traits_type::rng_type  rng_type;
+    typedef typename traits_type::time_type             time_type;
+    typedef typename traits_type::reaction_record_type      reaction_record_type;
+    typedef typename traits_type::reaction_recorder_type    reaction_recorder_type;
     typedef typename traits_type::volume_clearer_type volume_clearer_type;
 
 public:
@@ -169,6 +177,8 @@ public:
 
     virtual bool step(time_type upto) = 0;
 
+
+////// Member variables
 protected:
     boost::shared_ptr<world_type> world_;
     boost::shared_ptr<network_rules_type const> network_rules_;

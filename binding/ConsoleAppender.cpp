@@ -9,6 +9,8 @@
 
 namespace binding {
 
+
+////// Registering master function
 boost::python::objects::class_base
 register_console_appender_class(char const* name)
 {

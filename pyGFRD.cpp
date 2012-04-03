@@ -63,8 +63,24 @@
 #include "binding/sphere_class.hpp"
 #include "binding/structure_classes.hpp"
 #include "binding/structure_type_class.hpp"
+#include "binding/structure_id_class.hpp"
 #include "binding/transaction_classes.hpp"
 #include "binding/world_class.hpp"
+
+/////////////////
+// This is the masterfile that takes care of the binding of the C++ classes to Python
+/////////////////
+
+// Every 'register_...' line executes some code that makes the class/datastructure avaiable to python
+// The 'register_...classes' methods are defined in the 'binding/....class(es).cpp' files, but usually directly
+// call another (parameterized) 'register' method that is defined in the corresponding binding/....hpp file.
+// For example:
+// pyGFRD.cpp -> register_particle_class()
+//                  |_ binding/particle_class.cpp -> ParticleWrapper<Particle>::__register_class("Particle")
+//                                                      |_ binding/Particle.hpp
+//
+// The file 'binding/Particle.hpp' now finally defines 'register_class' and includes all the things it needs to
+// function properly. This includes converters for datatypes and other stuff.
 
 namespace b = binding;
 
@@ -114,6 +130,7 @@ BOOST_PYTHON_MODULE(_gfrd)
     b::register_transaction_classes();
     b::register_world_class();
     b::register_structure_classes();
+    b::register_structure_id_class();
     b::register_structure_type_class();
     b::register_module_functions();
     b::register_volume_clearer_classes();

@@ -4,11 +4,14 @@
 #include <boost/python.hpp>
 #include "../SerialIDGenerator.hpp"
 
+
+////// Registering master function
 template<typename T>
 inline void register_serial_id_generator_class(char const* class_name)
 {
     using namespace boost::python;
 
+    // defining the python class
     class_<SerialIDGenerator<T> >(class_name, init<int>())
         .def("__call__", &SerialIDGenerator<T>::operator())
         ;

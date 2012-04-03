@@ -22,9 +22,9 @@ private:
     typedef get_mapper_mf<std::string, std::string>::type string_map_type;
 
 public:
-    typedef SpeciesTypeID identifier_type;                          // The identifier
-    typedef string_map_type::const_iterator string_map_iterator;
-    typedef boost::iterator_range<string_map_iterator> attributes_range;
+    typedef SpeciesTypeID                               identifier_type;    // The identifier. Note that we also use this for structures.
+    typedef string_map_type::const_iterator             string_map_iterator;
+    typedef boost::iterator_range<string_map_iterator>  attributes_range;
 
 public:
     identifier_type const& id() const;
@@ -54,7 +54,7 @@ protected:
     }
 
 
-////////// Member variables
+//////// Member variables
 private:
     Model* model_;              // The model to which the species type is bound
     identifier_type id_;        // The id of the species type
@@ -62,6 +62,7 @@ private:
 };
 
 
+//////// Inline functions
 template<typename Tchar_, typename Ttraits_>
 inline std::basic_ostream<Tchar_, Ttraits_>&
 operator<<(std::basic_ostream<Tchar_, Ttraits_>& out, const SpeciesType& v)

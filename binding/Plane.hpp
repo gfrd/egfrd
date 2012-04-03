@@ -8,18 +8,22 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_plane_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // registering converters from standard boost templates.
     to_python_converter<boost::array<typename impl_type::length_type, 2>,
             peer::util::detail::to_ndarray_converter<
                 boost::array<typename impl_type::length_type, 2> > >();
     peer::converters::register_iterable_to_ra_container_converter<
             boost::array<typename impl_type::length_type, 2>, 2>();
 
+    // defining the python class
     return class_<impl_type>(name)
         .def(init<typename impl_type::position_type, 
                   typename impl_type::position_type, 

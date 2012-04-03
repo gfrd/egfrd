@@ -5,6 +5,8 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::object register_event_class(char const* name)
 {

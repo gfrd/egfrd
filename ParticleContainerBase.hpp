@@ -13,12 +13,14 @@
 template<typename Ttraits_>
 struct ParticleContainerUtils
 {
+    // The structure is parameterized with the traits of the world
     typedef Ttraits_ traits_type;
-    typedef typename traits_type::length_type length_type;
-    typedef typename traits_type::particle_type particle_type;
-    typedef typename traits_type::particle_id_type particle_id_type;
-    typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
-    typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
+    // shorthand names for all the types that we use
+    typedef typename traits_type::length_type                   length_type;
+    typedef typename traits_type::particle_type                 particle_type;
+    typedef typename traits_type::particle_id_type              particle_id_type;
+    typedef std::pair<const particle_id_type, particle_type>    particle_id_pair;
+    typedef std::pair<particle_id_pair, length_type>            particle_id_pair_and_distance;
     typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
 
     struct distance_comparator:
@@ -39,9 +41,12 @@ struct ParticleContainerUtils
         const_caster c_;
     };
 
+
+
     template<typename Tset_>
     struct overlap_checker
     {
+        // The constructor
         overlap_checker(Tset_ const& ignore = Tset_()): ignore_(ignore), result_(0) {}
 
         template<typename Titer_>
@@ -73,39 +78,51 @@ struct ParticleContainerUtils
     };
 };
 
+
 template<typename Tderived_, typename Ttraits_ = typename Tderived_::traits_type>
 class ParticleContainerBase
     : public ParticleContainer<Ttraits_>
 {
+// This inherits from the ParticleContainer class which is just an abstract data type.
+// Here most of the methods of the ParticleContainer are actually implemented.
 public:
     typedef ParticleContainerUtils<Ttraits_> utils;
     typedef ParticleContainer<Ttraits_> base_type;
     typedef Ttraits_ traits_type;
-    typedef typename traits_type::length_type length_type;
-    typedef typename traits_type::species_type species_type;
-    typedef typename traits_type::position_type position_type;
-    typedef typename traits_type::particle_type particle_type;
-    typedef typename traits_type::particle_id_type particle_id_type;
-    typedef typename traits_type::particle_id_generator particle_id_generator;
-    typedef typename traits_type::species_id_type species_id_type;
+
+    // define some shorthands for all the types from the traits that we use.
+    typedef typename traits_type::length_type               length_type;
+    typedef typename traits_type::species_type              species_type;
+    typedef typename traits_type::position_type             position_type;
+    typedef typename traits_type::particle_type             particle_type;
+    typedef typename traits_type::particle_id_type          particle_id_type;
+    typedef typename traits_type::particle_id_generator     particle_id_generator;
+    typedef typename traits_type::species_id_type           species_id_type;
     typedef typename traits_type::particle_type::shape_type particle_shape_type;
-    typedef typename traits_type::size_type size_type;
-    typedef typename traits_type::structure_id_type structure_id_type;
-    typedef typename traits_type::structure_type structure_type;
-    typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
-    typedef Transaction<traits_type> transaction_type;
+    typedef typename traits_type::size_type                 size_type;
+    typedef typename traits_type::structure_id_type         structure_id_type;
+    typedef typename traits_type::structure_type            structure_type;
+    typedef typename base_type::particle_id_set             particle_id_set;
+    typedef typename base_type::structure_id_set            structure_id_set;
+    typedef typename base_type::structure_id_pair           structure_id_pair;
+    typedef typename base_type::structure_types_range       structure_types_range;
+//    typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
+    typedef typename base_type::particle_id_pair            particle_id_pair;
+    typedef Transaction<traits_type>                        transaction_type;
 
     typedef MatrixSpace<particle_type, particle_id_type, get_mapper_mf> particle_matrix_type;
-    typedef abstract_limited_generator<particle_id_pair> particle_id_pair_generator;
-    typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
+    typedef abstract_limited_generator<particle_id_pair>                particle_id_pair_generator;
+    typedef std::pair<particle_id_pair, length_type>                    particle_id_pair_and_distance;
     typedef sized_iterator_range<typename particle_matrix_type::const_iterator> particle_id_pair_range;
 
     typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
 
 protected:
+// Implementation of the methods.
 public:
     ParticleContainerBase(length_type world_size, size_type size)
         : pmat_(world_size, size) {}
+    // constructor
 
     virtual size_type num_particles() const
     {
@@ -159,6 +176,7 @@ public:
         return traits_type::cyclic_transpose(p0, p1, world_size());
     }
 
+    // THIS SEEMS STRANGE TO PUT THIS HERE. 
     template<typename T1_>
     T1_ calculate_pair_CoM(
         T1_ const& p1, T1_ const& p2, 
@@ -237,7 +255,7 @@ public:
         return pmat_.end() != pmat_.find(id);
     }
 
-    virtual transaction_type* create_transaction();
+    virtual transaction_type* create_transaction();     // The implementation is below as an inline function?
 
     virtual particle_id_pair_generator* get_particles() const
     {
@@ -259,10 +277,16 @@ public:
         return pmat_.erase(id);
     }
 
+
+
+///////// Member variables
 protected:
-    particle_matrix_type pmat_;
+    particle_matrix_type pmat_;         // just the structure (MatrixSpace) containing the particles.
 };
 
+
+
+//////// Inline methods are defined separately
 template<typename Tderived_, typename Ttraits_>
 inline Transaction<Ttraits_>*
 ParticleContainerBase<Tderived_, Ttraits_>::create_transaction()

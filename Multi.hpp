@@ -26,46 +26,57 @@ class MultiParticleContainer
 {
 public:
     typedef ParticleContainerUtils<typename Ttraits_::world_type::traits_type> utils;
-    typedef typename Ttraits_::world_type world_type;
-    typedef typename world_type::traits_type traits_type;
-    typedef typename traits_type::particle_type particle_type;
-    typedef typename particle_type::shape_type particle_shape_type;
-    typedef typename traits_type::species_type species_type;
-    typedef typename traits_type::species_id_type species_id_type;
-    typedef typename traits_type::position_type position_type;
-    typedef typename traits_type::particle_id_type particle_id_type;
-    typedef typename traits_type::length_type length_type;
-    typedef typename traits_type::size_type size_type;
-    typedef typename traits_type::structure_id_type structure_id_type;
-    typedef typename traits_type::structure_type structure_type;
-    typedef typename Ttraits_::network_rules_type network_rules_type;
-    typedef typename Ttraits_::reaction_rule_type reaction_rule_type;
+    typedef typename Ttraits_::world_type       world_type;
+    typedef typename world_type::traits_type    traits_type;
+
+    // shorthands types for used types
+    typedef typename traits_type::length_type               length_type;
+    typedef typename traits_type::size_type                 size_type;
+    typedef typename traits_type::position_type             position_type;
+    typedef typename traits_type::species_type              species_type;
+    typedef typename traits_type::species_id_type           species_id_type;
+    typedef typename traits_type::particle_type             particle_type;
+    typedef typename traits_type::particle_id_type          particle_id_type;
+    typedef typename traits_type::structure_type_type       structure_type_type;
+    typedef typename traits_type::structure_type_id_type    structure_type_id_type;
+    typedef typename traits_type::structure_type            structure_type;
+    typedef typename traits_type::structure_id_type         structure_id_type;
+
+    typedef typename particle_type::shape_type              particle_shape_type;
+    typedef Transaction<traits_type>                        transaction_type;
+
+    // types inherited from the ParticleContainerBase class
+    typedef typename world_type::particle_container_type::structure_types_range             structure_types_range;
+    typedef typename world_type::particle_container_type::structures_range                  structures_range;
+    typedef typename world_type::particle_container_type::particle_id_pair                  particle_id_pair;
+    typedef typename world_type::particle_container_type::structure_id_pair                 structure_id_pair;
+    typedef typename world_type::particle_container_type::structure_id_and_distance_pair    structure_id_and_distance_pair;
+    typedef typename world_type::particle_container_type::structure_id_set                  structure_id_set;
+
+    typedef typename Ttraits_::network_rules_type       network_rules_type;
+    typedef typename Ttraits_::reaction_rule_type       reaction_rule_type;
     typedef typename network_rules_type::reaction_rules reaction_rules;      
-    typedef typename Ttraits_::world_type::particle_container_type::structure_id_and_distance_pair structure_id_and_distance_pair;
-    typedef std::pair<const particle_id_type, particle_type> particle_id_pair;
-    typedef Transaction<traits_type> transaction_type;
-    typedef abstract_limited_generator<particle_id_pair> particle_id_pair_generator;
-    typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
-    typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
-    typedef std::map<particle_id_type, particle_type> particle_map;
-    typedef sized_iterator_range<typename particle_map::const_iterator> particle_id_pair_range;
+
+    typedef abstract_limited_generator<particle_id_pair>                    particle_id_pair_generator;
+    typedef std::pair<particle_id_pair, length_type>                        particle_id_pair_and_distance;
+    typedef unassignable_adapter<particle_id_pair_and_distance,
+                                 get_default_impl::std::vector>             particle_id_pair_and_distance_list;
+    typedef std::map<particle_id_type, particle_type>                       particle_map;
+    typedef sized_iterator_range<typename particle_map::const_iterator>     particle_id_pair_range;
     typedef std::pair<const Real, const Real> real_pair;
 
 private:
-    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;
-    typedef select_second<typename structure_map::value_type> surface_second_selector_type;
-    typedef std::map<species_id_type, species_type> species_map;
-    typedef select_second<typename species_map::value_type> species_second_selector_type;
+    typedef std::map<species_id_type, species_type>                         species_map;
+    typedef select_second<typename species_map::value_type>                 species_second_selector_type;
 
 public:    
-    typedef boost::transform_iterator<surface_second_selector_type,
-            typename structure_map::const_iterator> surface_iterator;
-    typedef sized_iterator_range<surface_iterator> structures_range;
     typedef boost::transform_iterator<species_second_selector_type,
-        typename species_map::const_iterator> species_iterator;
-    typedef sized_iterator_range<species_iterator> species_range;
+        typename species_map::const_iterator>                               species_iterator;
+    typedef sized_iterator_range<species_iterator>                          species_range;
 
 
+
+    //
     virtual ~MultiParticleContainer() {}
 
     virtual size_type num_particles() const
@@ -78,30 +89,56 @@ public:
         return world_.world_size();
     }
     
+    // Species stuff
     virtual species_type const& get_species(species_id_type const& id) const
     {
         return world_.get_species(id);
     }
 
+    // Start structure stuff
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
         return world_.get_structure(id);
     }
-    
     virtual structures_range get_structures() const
     {
-        return world_.get_structures();
+        return world_.get_structures();     // TODO now gets all structures in world, -> make structure local to Multi
     }
-    
+    virtual structure_id_set get_structure_ids(structure_type_id_type const& sid) const
+    {
+        return world_.get_structure_ids(sid);
+    }
+    // virtual structure_id_type add_structure(structure_type const& structure); // TODO add structure from the world to multi
+    virtual structure_id_type get_def_structure_id() const
+    {
+        return world_.get_def_structure_id();
+    }
     virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
     {        
-        return world_.get_closest_surface( pos, ignore );
+        return world_.get_closest_surface( pos, ignore );   // TODO loop only over 'local' surfaces
     }
+    // End structure stuff
+
+    // StructureType stuff
+    // virtual bool add_structure_type(structure_type_type const& structure_type); // TODO add structure_type from the world to multi
+    virtual structure_type_type get_structure_type(structure_type_id_type const& sid) const
+    {
+        return world_.get_structure_type(sid);      // TODO make local just like structures.
+    }
+    virtual structure_types_range get_structure_types() const
+    {
+        return world_.get_structure_types();        // TODO ditto
+    }
+    virtual structure_type_id_type get_def_structure_type_id() const
+    {
+        return world_.get_def_structure_type_id();  // This information stays in the world.
+    }
+
         
-    virtual particle_id_pair new_particle(species_id_type const& sid,
+    virtual particle_id_pair new_particle(species_id_type const& sid, structure_id_type const& structure_id,
             position_type const& pos)
     {
-        particle_id_pair const retval(world_.new_particle(sid, pos));
+        particle_id_pair const retval(world_.new_particle(sid, structure_id, pos));
         particles_.insert(retval);
 	    add_species_to_multi(sid);
         return retval;
@@ -263,13 +300,13 @@ public:
         
         BOOST_FOREACH(particle_id_pair pp, get_particles_range())
         {
-            species_type const s( pp.second.sid() );
+            species_type const s( get_species(pp.second.sid()) );
             structure_id_and_distance_pair const strc_id_and_dist( 
-                get_closest_surface( pp.second.position(), s.structure_id() ) );
+                get_closest_surface( pp.second.position(), pp.second.structure_id() ) );    // only ignore structure that the particle is on.
                 
-            if( strc_id_and_dist.second < 2.0 * s.radius() && s.structure_id() == "world" )
+            if( strc_id_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
             {
-                species_id_type const strc_sid( get_structure( strc_id_and_dist.first )->sid() );
+                structure_type_id_type const strc_sid( get_structure( strc_id_and_dist.first )->sid() );
                 reaction_rules const& rrules(rules.query_reaction_rule( s.id(), strc_sid ));
                 if (::size(rrules) == 0)
                     continue;
@@ -307,16 +344,16 @@ public:
                     const length_type r01( s0.radius() + s1.radius() );
                     Real k;
                     
-                    if(s0.structure_id() != s1.structure_id())
+                    if(s0.structure_type_id() != s1.structure_type_id())
                     {
-                        if(s0.structure_id() == "world")
-                            k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                        if(s0.structure_type_id() == get_def_structure_type_id())
+                            k = 0.001;  // TODO k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
                         else
-                            k = get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                            k = 0.001;  // TODO k = get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
                     }
                     else
                     {
-                        k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
+                        k = 0.001;      // TODO k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
                     }
                 
                     if ( k_max < k )
@@ -338,7 +375,7 @@ public:
        (3) particles escape the multi with a maximum step size in the order of the 
            reaction length. (Dmax * dt ~ (ssf * r_min)**2 ).
        
-       TODO:This function should be a method of the Multi Class, but I put it in the mpc such that we can use it in python.
+       TODO:This function should be a method of the Multi Class, but I put it in the mpc (multi particle container) such that we can use it in python.
        
        PROBLEM: for certain parameters (large k) dt can be very small and the simulation will slow down.
     */    
@@ -363,56 +400,66 @@ public:
         return real_pair(dt, step_size_factor * r_min);
     }
 
+    // The constructor
     MultiParticleContainer(world_type& world): world_(world) {}
 
+////// Member variables
 private:
-    world_type& world_;
-    particle_map particles_;
-    species_map species_;
+    world_type&         world_;     // reference to the world. The MultiParticleContainer reflects a part of the World(ParticleContainer)
+    particle_map        particles_; // local copy of the particles (the particles in the Multi are a subset of the particles in the world)
+    species_map         species_;   // local copy of the species
 };
 
+
+
+
+////////////////////////
 template<typename Tsim_>
 class Multi: public Domain<typename Tsim_::traits_type>
 {
 public:
     typedef Tsim_ simulator_type;
-    typedef typename simulator_type::traits_type traits_type;
-    typedef Domain<traits_type> base_type;
-    typedef typename traits_type::world_type::particle_type particle_type;
-    typedef typename particle_type::shape_type particle_shape_type;
-    typedef typename traits_type::world_type::species_type species_type;
-    typedef typename traits_type::world_type::species_id_type species_id_type;
-    typedef typename traits_type::world_type::position_type position_type;
-    typedef typename traits_type::world_type::particle_id_type particle_id_type;
-    typedef typename traits_type::world_type::length_type length_type;
-    typedef typename traits_type::world_type::size_type size_type;
-    typedef typename traits_type::world_type::structure_type structure_type;
-    typedef typename traits_type::world_type::particle_id_pair particle_id_pair;
-    typedef typename traits_type::network_rules_type network_rules_type;
-    typedef typename traits_type::reaction_rule_type reaction_rule_type;
-    typedef typename network_rules_type::reaction_rules reaction_rules;   
-    typedef typename traits_type::shell_id_type shell_id_type;
-    typedef typename traits_type::domain_id_type identifier_type;
+    typedef typename simulator_type::traits_type    traits_type;
+    typedef typename traits_type::world_type        world_type;
+    typedef Domain<traits_type>                     base_type;
+
+    // shorthand typenames that we use a lot
+    typedef typename world_type::length_type           length_type;
+    typedef typename world_type::size_type             size_type;
+    typedef typename world_type::position_type         position_type;
+    typedef typename world_type::particle_type         particle_type;
+    typedef typename world_type::particle_id_type      particle_id_type;
+    typedef typename particle_type::shape_type         particle_shape_type;
+    typedef typename world_type::species_type          species_type;
+    typedef typename world_type::species_id_type       species_id_type;
+    typedef typename world_type::structure_type        structure_type;
+    typedef typename world_type::particle_id_pair      particle_id_pair;
+    typedef typename traits_type::network_rules_type                network_rules_type;
+    typedef typename traits_type::reaction_rule_type                reaction_rule_type;
+    typedef typename network_rules_type::reaction_rules             reaction_rules;   
+    typedef typename traits_type::shell_id_type                     shell_id_type;
+    typedef typename traits_type::domain_id_type                    identifier_type;
     typedef typename traits_type::template shell_generator<
-        typename simulator_type::sphere_type>::type spherical_shell_type;
-    typedef std::pair<const typename traits_type::shell_id_type, spherical_shell_type> spherical_shell_id_pair;
-    typedef std::pair<particle_id_pair, length_type> particle_id_pair_and_distance;
-    typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
+        typename simulator_type::sphere_type>::type                 spherical_shell_type;
+
+    typedef std::pair<const typename traits_type::shell_id_type, spherical_shell_type>  spherical_shell_id_pair;
+    typedef std::pair<particle_id_pair, length_type>                                            particle_id_pair_and_distance;
+    typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector>  particle_id_pair_and_distance_list;
     typedef typename traits_type::reaction_record_type reaction_record_type;
-    typedef std::pair<const Real, const Real> real_pair;
+    typedef std::pair<const Real, const Real>                                                   real_pair;
 
 private:
-    typedef std::map<species_id_type, species_type> species_map;
-    typedef select_second<typename species_map::value_type> species_second_selector_type;
+    typedef std::map<species_id_type, species_type>                             species_map;
+    typedef select_second<typename species_map::value_type>                     species_second_selector_type;
             
 public:
-    typedef std::map<shell_id_type, spherical_shell_type> spherical_shell_map;
-    typedef sized_iterator_range<typename spherical_shell_map::const_iterator> spherical_shell_id_pair_range;
-    typedef MultiParticleContainer<traits_type> multi_particle_container_type;
-    typedef typename traits_type::world_type world_type;
     typedef boost::transform_iterator<species_second_selector_type,
-        typename species_map::const_iterator> species_iterator;
-    typedef sized_iterator_range<species_iterator> species_range;
+                                      typename species_map::const_iterator>     species_iterator;
+    typedef sized_iterator_range<species_iterator>                              species_range;
+
+    typedef std::map<shell_id_type, spherical_shell_type>                       spherical_shell_map;
+    typedef sized_iterator_range<typename spherical_shell_map::const_iterator>  spherical_shell_id_pair_range;
+    typedef MultiParticleContainer<traits_type>                                 multi_particle_container_type;
     
     enum event_kind
     {

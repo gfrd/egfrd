@@ -8,14 +8,18 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl, typename Tworld>
 boost::python::objects::class_base register_multi_particle_container_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // registering converters from standard boost templates
     peer::converters::register_tuple_converter<typename impl_type::real_pair>();
 
+    // defining the python class
     return class_<impl_type, bases<typename Tworld::particle_container_type>,
            boost::noncopyable>(name, init<Tworld&>())
         .def("determine_dt_and_reaction_length",&impl_type::determine_dt_and_reaction_length)

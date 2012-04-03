@@ -5,6 +5,9 @@
 
 namespace binding {
 
+////// Helper functions
+
+// makes a set consisting of a single particle?
 template<typename Timpl>
 static void single_set_particle(Timpl& impl, typename Timpl::particle_id_pair const& pair)
 {
@@ -12,12 +15,15 @@ static void single_set_particle(Timpl& impl, typename Timpl::particle_id_pair co
     impl.particle().second = pair.second;
 }
 
+
+////// Registering master function
 template<typename Timpl>
 inline boost::python::objects::class_base register_single_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // defining the python class
     return class_<impl_type, bases<typename impl_type::base_type>,
            boost::shared_ptr<impl_type>, boost::noncopyable>(name, no_init)
         .add_property("particle",

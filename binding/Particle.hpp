@@ -35,6 +35,9 @@ namespace binding {
 template<typename Timpl_>
 class ParticleWrapper
 {
+// This is a class that wraps Timpl (the Particle class) such that Python can handle it.
+// Timpl_ is the implemented class (Particle in this case)
+
 public:
     struct to_python_converter
     {
@@ -95,16 +98,17 @@ public:
         return reinterpret_cast<PyObject*>(new ParticleWrapper(impl));
     }
 
+    // Python constructor method?
     static PyObject* __new__(PyTypeObject* klass, PyObject* arg, PyObject* kwarg)
     {
         PyObject* retval = NULL;
         switch (PyTuple_Size(arg))
         {
         default:
-            PyErr_SetString(PyExc_TypeError, "the number of arguments must be either 0 or 5");
+            PyErr_SetString(PyExc_TypeError, "the number of arguments must be either 0 or 6");
             return NULL;
 
-        case 5:
+        case 6:
             retval = create();
             if (set_position(reinterpret_cast<ParticleWrapper*>(retval), 
                         PyTuple_GetItem(arg, 0), 0)
@@ -115,7 +119,9 @@ public:
                 || set_v(reinterpret_cast<ParticleWrapper*>(retval), 
                         PyTuple_GetItem(arg, 3), 0)
                 || set_sid(reinterpret_cast<ParticleWrapper*>(retval), 
-                        PyTuple_GetItem(arg, 4), 0))
+                        PyTuple_GetItem(arg, 4), 0)
+                || set_structure_id(reinterpret_cast<ParticleWrapper*>(retval), 
+                        PyTuple_GetItem(arg, 5), 0))
             {
                 ParticleWrapper::operator delete(retval);
                 return NULL;
@@ -146,11 +152,13 @@ public:
         return __str__(self);
     }
 
+    // Python destructor method?
     static void __dealloc__(ParticleWrapper* self)
     {
         delete self;
     }
 
+    // Methods used to implement the getters/setters for Python (I think)
     static PyObject* get_position(ParticleWrapper* self)
     {
         typename Timpl_::position_type const& pos(self->impl_.position());
@@ -265,12 +273,31 @@ public:
         return -1;
     }
 
+    // Getter and setter for the structure_id, the id of the structure that the particle lives on.
+    static PyObject* get_structure_id(ParticleWrapper* self)
+    {
+        return boost::python::incref(
+            boost::python::object(self->impl_.structure_id()).ptr());
+    }
+
+    static int set_structure_id(ParticleWrapper* self, PyObject* val, void *)
+    try
+    {
+        self->impl_.structure_id() = boost::python::extract<typename Timpl_::structure_id_type>(val);
+        return 0;
+    }
+    catch (boost::python::error_already_set const&)
+    {
+        return -1;
+    }
+
+
     static PyObject* __getstate__(ParticleWrapper* self)
     try
     {
         return boost::python::incref(
             boost::python::make_tuple(
-                boost::python::borrowed(get_position(self)),
+                boost::python::borrowed(get_position(self)),        // why here only position, radius and sid??
                 boost::python::borrowed(get_radius(self)),
                 boost::python::borrowed(get_sid(self))).ptr());
     }
@@ -302,13 +329,14 @@ public:
     }
 
     static Py_ssize_t __sq_len__(PyObject *self)
+    // Give the size of the object (6 fields/properties)
     {
-        return 5;           // I think this is the number of elements (and not the max index)
+        return 6;           // I think this is the number of elements (and not the max index)
     }
 
     static PyObject* __sq_item__(PyObject *self, Py_ssize_t idx)
     {
-        if (idx < 0 || idx >= 5)
+        if (idx < 0 || idx >= 6)
         {
             PyErr_SetString(PyExc_IndexError, "index out of range");
             return NULL;
@@ -326,13 +354,15 @@ public:
             return get_v(reinterpret_cast<ParticleWrapper*>(self));
         case 4:
             return get_sid(reinterpret_cast<ParticleWrapper*>(self));
+        case 5:
+            return get_structure_id(reinterpret_cast<ParticleWrapper*>(self));
         }
         return NULL; // never get here
     }
 
     static int __sq_ass_item__(PyObject *self, Py_ssize_t idx, PyObject *val)
     {
-        if (idx < 0 || idx >= 5)
+        if (idx < 0 || idx >= 6)
         {
             PyErr_SetString(PyExc_IndexError, "index out of range");
             return -1;
@@ -350,6 +380,8 @@ public:
             return set_v(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         case 4:
             return set_sid(reinterpret_cast<ParticleWrapper*>(self), val, 0);
+        case 5:
+            return set_structure_id(reinterpret_cast<ParticleWrapper*>(self), val, 0);
         }
 
         return -1; // never get here
@@ -425,6 +457,7 @@ PyMethodDef ParticleWrapper<Timpl_>::__methods__[] = {
 
 template<typename Timpl_>
 PyGetSetDef ParticleWrapper<Timpl_>::__getsets__[] = {
+// Defines the list of getters and setters for Python?
     {
         const_cast<char*>("position"),
         (getter)ParticleWrapper::get_position,
@@ -459,6 +492,12 @@ PyGetSetDef ParticleWrapper<Timpl_>::__getsets__[] = {
         const_cast<char*>("sid"),
         (getter)ParticleWrapper::get_sid,
         (setter)ParticleWrapper::set_sid,
+        const_cast<char*>("")
+    },
+    {
+        const_cast<char*>("structure_id"),
+        (getter)ParticleWrapper::get_structure_id,
+        (setter)ParticleWrapper::set_structure_id,
         const_cast<char*>("")
     },
     { NULL }

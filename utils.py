@@ -2,6 +2,7 @@
 import math
 import numpy
 import scipy
+import scipy.optimize
 import myrandom
 
 import _gfrd
@@ -257,6 +258,9 @@ def calculate_pair_CoM(pos1, pos2, D1, D2, world_size):
     return _gfrd.calculate_pair_CoM(pos1, pos2, D1, D2, world_size);
 
 apply_boundary = _gfrd.apply_boundary
+
+def findroot(f, a, b):
+    return scipy.optimize.brentq(f, a, b)
 
 def permutate(seq):
     # permutate a sequence and return a list of the permutations

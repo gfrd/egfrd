@@ -6,6 +6,7 @@
 
 namespace binding {
 
+////// Some helper functions (why are these templater, why here and not downstairs?)
 template<typename Timpl_>
 static boost::python::object Sphere___getitem__(Timpl_ const& obj, int index)
 {
@@ -30,12 +31,15 @@ static std::string Sphere___str__(Timpl_* impl)
     return boost::lexical_cast<std::string>(*impl);
 }
 
+
+////// Registering master function
 template<typename Timpl_>
 inline boost::python::objects::class_base register_sphere_class(char const *name)
 {
     using namespace boost::python;
     typedef Timpl_ impl_type;
 
+    // defining the python class
     return class_<impl_type>(name)
         .def(init<typename impl_type::position_type, 
                   typename impl_type::length_type>())

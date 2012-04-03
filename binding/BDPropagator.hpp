@@ -9,28 +9,34 @@
 
 namespace binding {
 
+// Not sure what this does
 template<typename Timpl_>
 static void BDPropagator_propagate_all(Timpl_& self)
 {
     while (self());
 }
 
+
+////// Registering master function
 template<typename Timpl_>
 inline boost::python::objects::class_base register_bd_propagator_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl_ impl_type;
-    typedef typename impl_type::traits_type simulator_traits_type;
-    typedef typename simulator_traits_type::world_type world_type;
-    typedef typename world_type::particle_id_type particle_id_type;
-    typedef typename simulator_traits_type::network_rules_type network_rules_type;
-    typedef typename world_type::traits_type::rng_type rng_type;
-    typedef typename simulator_traits_type::time_type time_type;
-    typedef typename world_type::particle_container_type particle_container_type;
-    typedef typename impl_type::reaction_recorder_type reaction_recorder_type;
-    typedef typename impl_type::volume_clearer_type volume_clearer_type;
 
+    typedef typename impl_type::traits_type                     simulator_traits_type;
+    typedef typename impl_type::reaction_recorder_type          reaction_recorder_type;
+    typedef typename impl_type::volume_clearer_type             volume_clearer_type;
+    typedef typename simulator_traits_type::world_type          world_type;
+    typedef typename simulator_traits_type::network_rules_type  network_rules_type;
+    typedef typename simulator_traits_type::time_type           time_type;
+    typedef typename world_type::particle_id_type               particle_id_type;
+    typedef typename world_type::particle_container_type        particle_container_type;
+    typedef typename world_type::traits_type::rng_type          rng_type;
+
+    // registering range converter from standard boost template
     peer::converters::register_pyiterable_range_converter<particle_id_type>();
+
     return class_<impl_type, boost::noncopyable>(
         name, init<
             particle_container_type&, network_rules_type const&, rng_type&,

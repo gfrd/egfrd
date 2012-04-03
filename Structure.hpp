@@ -20,40 +20,57 @@ class Structure
 {
 public:
     typedef Ttraits_ traits_type;
-    typedef typename traits_type::rng_type rng_type;
-    typedef typename traits_type::structure_id_type identifier_type;
-    typedef typename traits_type::length_type length_type;
-    typedef typename traits_type::position_type position_type;
-    typedef typename traits_type::base_type::species_type species_type;
-    typedef SpeciesTypeID species_id_type;
-    typedef std::pair<position_type, length_type> projected_type;
-    typedef std::pair<position_type, position_type> position_pair_type;
+    // shorthands for types that we use
+    typedef typename traits_type::rng_type                  rng_type;
+    typedef typename traits_type::structure_name_type       identifier_type;
+    typedef typename traits_type::structure_id_type         structure_id_type;
+    typedef typename traits_type::length_type               length_type;
+    typedef typename traits_type::position_type             position_type;
+    typedef typename traits_type::base_type::species_type   species_type;
+    typedef typename traits_type::structure_type_id_type    structure_type_id_type;
+    typedef std::pair<position_type, length_type>           projected_type;
+    typedef std::pair<position_type, position_type>         position_pair_type;
 
 public:
     virtual ~Structure() {}
 
-    identifier_type const& id() const
+    identifier_type const& name()
     {
         return id_;
     }
 
-    species_id_type const& sid() const
+    structure_id_type const& real_id() const
+    {
+        if (!real_id_)
+        {
+            throw illegal_state("ID for structure not defined");
+        }
+        return real_id_;
+    }
+
+    void set_id(structure_id_type const& id)
+    {
+        real_id_ = id;
+    }
+
+    // Get the StructureType of the structure
+    structure_type_id_type const& sid() const
     {
         if (!sid_)
         {
-            throw illegal_state("not bound to SpeciesType");
+            throw illegal_state("not bound to StructureType");
         }
         return sid_;
     }
 
-    species_id_type& sid()
+    structure_type_id_type& sid()
     {
         return sid_;
     }
 
     virtual bool operator==(Structure const& rhs) const
     {
-        return id_ == rhs.id();
+        return real_id_ == rhs.real_id() && sid_ == rhs.sid();
     }
 
     bool operator!=(Structure const& rhs) const
@@ -108,24 +125,30 @@ public:
 #elif defined(HAVE_BOOST_FUNCTIONAL_HASH_HPP)
         using boost::hash;
 #endif
-        return hash<identifier_type>()(id_);
+        return hash<identifier_type>()(id_) ^
+               hash<structure_type_id_type>()(sid_);
     }
 
     virtual std::string as_string() const
     {
         std::ostringstream out;
-        out << "Structure(" << id() << ")";
+        out << "Structure(" << real_id() << ", " << sid() << ")";
         return out.str();
     }
 
-    Structure(identifier_type const& id)
-        : id_(id) {}
+    // Constructor
+    Structure(identifier_type const& id, structure_type_id_type const& sid)
+        : id_(id), sid_(sid) {}
 
+////// Member variables
 protected:
-    identifier_type id_;
-    species_id_type sid_;
+    structure_id_type       real_id_;   // id of the structure
+    identifier_type         id_;        // This is now just the name
+    structure_type_id_type  sid_;       // id of the structure_type of the structure
 };
 
+
+//////// Inline functions
 template<typename Tstrm, typename Ttraits, typename T_traits>
 inline std::basic_ostream<Tstrm, Ttraits>& operator<<(std::basic_ostream<Tstrm, Ttraits>& strm, const Structure<T_traits>& v)
 {

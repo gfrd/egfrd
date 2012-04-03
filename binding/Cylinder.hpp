@@ -6,12 +6,15 @@
 
 namespace binding {
 
+// A template to perform string conversions?
 template<typename Timpl_>
 static std::string Cylinder___str__(Timpl_* impl)
 {
     return boost::lexical_cast<std::string>(*impl);
 }
 
+
+////// Registering master function
 template<typename Timpl_>
 inline boost::python::objects::class_base register_cylinder_class(char const* name)
 {

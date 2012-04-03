@@ -9,12 +9,15 @@
 
 namespace binding {
 
+
+////// Registering master function
 template<typename Timpl>
 void register_particle_simulator_class(char const* name)
 {
     using namespace boost::python;
     typedef Timpl impl_type;
 
+    // defining the python class
     class_<impl_type, boost::noncopyable>(name, no_init)
         .add_property("world",
             make_function(

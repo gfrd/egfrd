@@ -45,20 +45,22 @@ typedef ::not_found NotFound;
 typedef ::already_exists AlreadyExists;
 typedef ::illegal_state IllegalState;
 typedef ::GSLRandomNumberGenerator GSLRandomNumberGenerator;
-typedef ::CyclicWorldTraits<Real, Real> WorldTraits;
-typedef WorldTraits::particle_type Particle;
-typedef WorldTraits::structure_id_type StructureID;
-typedef WorldTraits::species_id_type SpeciesID;
-typedef WorldTraits::species_type SpeciesInfo;
-typedef WorldTraits::structure_type Structure;
-typedef StructureType::identifier_type StructureTypeID;
-typedef WorldTraits::length_type Length;
-typedef WorldTraits::position_type Position;
-typedef ::World<WorldTraits> World;
-typedef ::Model Model;
-typedef ::ParticleModel ParticleModel;
-typedef ::NetworkRules NetworkRules;
-typedef NetworkRules::reaction_rule_generator ReactionRuleGenerator;
+typedef ::CyclicWorldTraits<Real, Real> WorldTraits;            // parameterize the World traits here -> determines many types!!
+typedef WorldTraits::particle_type      Particle;
+typedef WorldTraits::structure_id_type  StructureID;
+typedef WorldTraits::species_id_type    SpeciesID;
+typedef WorldTraits::species_type       SpeciesInfo;
+typedef WorldTraits::structure_type     Structure;
+typedef StructureType::identifier_type  StructureTypeID;
+typedef WorldTraits::length_type        Length;
+typedef WorldTraits::position_type      Position;
+typedef ::World<WorldTraits> World;                             // plug in the WorldTraits type to get a fully specified World type.
+
+typedef ::Model                                 Model;
+typedef ::ParticleModel                         ParticleModel;
+typedef ::NetworkRules                          NetworkRules;
+typedef NetworkRules::reaction_rule_generator   ReactionRuleGenerator;
+
 typedef World::transaction_type Transaction;
 typedef World::base_type::base_type ParticleContainer; 
 typedef ::TransactionImpl<ParticleContainer> TransactionImpl;
@@ -67,10 +69,12 @@ typedef ::ParticleSimulator<EGFRDSimulatorTraits> ParticleSimulator;
 typedef ::BDSimulator<EGFRDSimulatorTraits> BDSimulator;
 typedef ::EGFRDSimulator<EGFRDSimulatorTraits> EGFRDSimulator;
 typedef ::MultiParticleContainer<EGFRDSimulatorTraits> MultiParticleContainer;
-typedef EGFRDSimulator::box_type Box;
-typedef EGFRDSimulator::sphere_type Sphere;
-typedef EGFRDSimulator::cylinder_type Cylinder;
-typedef EGFRDSimulator::plane_type Plane;
+
+typedef EGFRDSimulator::box_type        Box;
+typedef EGFRDSimulator::sphere_type     Sphere;
+typedef EGFRDSimulator::cylinder_type   Cylinder;
+typedef EGFRDSimulator::plane_type      Plane;
+
 typedef ::BDPropagator<EGFRDSimulatorTraits> BDPropagator;
 typedef ::newBDPropagator<EGFRDSimulatorTraits> newBDPropagator;
 typedef EGFRDSimulatorTraits::shell_id_type ShellID;
@@ -92,12 +96,14 @@ typedef ::MatrixSpace<SphericalShell, ShellID> SphericalShellContainer;
 typedef ::MatrixSpace<CylindricalShell, ShellID> CylindricalShellContainer;
 typedef ::StructureUtils<EGFRDSimulator> StructureUtils;
 typedef EGFRDSimulator::particle_simulation_structure_type ParticleSimulationStructure;
-typedef EGFRDSimulator::surface_type Surface;
-typedef EGFRDSimulator::region_type Region;
-typedef EGFRDSimulator::planar_surface_type PlanarSurface;
-typedef EGFRDSimulator::spherical_surface_type SphericalSurface;
-typedef EGFRDSimulator::cylindrical_surface_type CylindricalSurface;
-typedef EGFRDSimulator::cuboidal_region_type CuboidalRegion;
+
+typedef EGFRDSimulator::surface_type                Surface;
+typedef EGFRDSimulator::region_type                 Region;
+typedef EGFRDSimulator::planar_surface_type         PlanarSurface;
+typedef EGFRDSimulator::spherical_surface_type      SphericalSurface;
+typedef EGFRDSimulator::cylindrical_surface_type    CylindricalSurface;
+typedef EGFRDSimulator::cuboidal_region_type        CuboidalRegion;
+
 typedef EGFRDSimulatorTraits::reaction_record_type ReactionRecord;
 typedef EGFRDSimulatorTraits::reaction_recorder_type ReactionRecorder;
 typedef EGFRDSimulatorTraits::volume_clearer_type VolumeClearer;
