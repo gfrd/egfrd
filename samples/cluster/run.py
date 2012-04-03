@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 # Rebinding to a cluster
-
+#
 # Run by:
 # $ python run.py [N] [runs] [outFilename] [Logmode, default=False]
 #

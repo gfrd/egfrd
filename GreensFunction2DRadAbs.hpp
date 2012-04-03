@@ -57,7 +57,7 @@ private:
     // Left boundary of 1st search interval 1st root
     static const Real SCAN_START = 0.001;     
     // Length of the scanning interval relative to estimated interval
-    static const Real FRACTION_SCAN_INTERVAL = .5;
+    static const Real FRACTION_SCAN_INTERVAL = .5; // TODO CHANGED THIS FROM .5 to .2
     
     // Other paramters
     // After CONVERGENCE_ASSUMED subsequent roots that lay within +/- 
@@ -189,9 +189,13 @@ public:
 
 //    const Real getAlpha0( const RealVector::size_type i ) const;
 
-    virtual Real givePDF( const Real theta,
+    Real givePDFTheta( const Real theta,
 					   const Real r, 
 					   const Real t ) const;    
+					   
+    Real givePDFR( const Real r, const Real t ) const;
+    
+    void dumpRoots( int n );
 
 protected:
 

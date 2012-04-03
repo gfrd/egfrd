@@ -25,7 +25,7 @@ import _gfrd
 
 # Constants
 # ===============================
-sigma = 1e-4        # Diameter particle; more realistic would be e-9
+sigma = 1e-9        # Diameter particle
 D = 1e-12           # Diffusion constant
 N = 1000            # Number of steps simulation will last
 world_size = 1e-3   # Lengths of simulation box

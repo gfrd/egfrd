@@ -2,7 +2,7 @@ from single import Single
 from pair import Pair
 from multi import Multi
 from egfrd import EGFRDSimulator
-from gillespie import GillespieSimulator
+#from gillespie import GillespieSimulator
 import _gfrd
 
 # get methods return an iterator, dump methods return a string.
@@ -116,9 +116,12 @@ def get_particles(sim, identifier=None):
             all (particle identifier, particle)-pairs will be returned.
 
     """
-    if isinstance(sim, GillespieSimulator):
-        raise RuntimeError('GillespieSimulator does not keep track '
-                           'of individual particles.')
+# TODO: Code below leads to crash in some situations, currently
+#       Gillespie simulator is not implemented, so code can be
+#       left out.
+#    if isinstance(sim, GillespieSimulator):
+#        raise RuntimeError('GillespieSimulator does not keep track '
+#                           'of individual particles.')
 
     if identifier == None:
         return sim.world
