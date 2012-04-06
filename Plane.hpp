@@ -167,13 +167,106 @@ public:
         strm.precision(precision);
         strm << *this;
         return strm.str();
-    }
+    }   
 
 protected:
     position_type position_;
     boost::array<position_type, 3> units_;
     boost::array<length_type, 2> half_extent_;
 };
+
+
+template<typename T_>
+inline std::pair<typename Plane<T_>::position_type, bool>
+deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typename Plane<T_>::position_type const& d)
+// This routine deflects a displacement on a plane.
+// If the displacement vector intersects with the plane (starting from r0) the part
+// ranging out of the plane will be deflected into the plane, always into the direction
+// towards the plane center.
+// ATTENTION! As for now, this only works for displacement vectors perpendicular to the plane
+{
+  
+   // Type abbreviations
+   typedef typename Plane<T_>::length_type length_type;
+   typedef typename Plane<T_>::position_type position_type;
+      
+   // Plane properties to make use of
+   position_type center_pt = obj.position();
+   position_type u_x = obj.unit_x();
+   position_type u_y = obj.unit_y();
+   position_type u_z = obj.unit_z();   
+   
+   // Variables used for calculation
+   position_type intersect_pt;          // the point at which the displacement vector intersects the edge
+   position_type d_out, d_edge, d_perp; // the part of the displacement ranging out of the plane and
+                                        // the components parallel and perpendicular to the edge
+   position_type d_edge_n;              // normalized d_edge                                        
+   position_type icv;                   // = intersect_to_center_vector
+   position_type icv_edge, icv_perp;    // the components of icv parallel and perpendicular to the edge
+   
+   position_type new_pos;
+   
+   length_type intersect_parameter;
+   length_type l_edge, l_perp;
+   
+   bool changeflag = false;
+   
+   // Calculate the intersection parameter and intersection point.
+   // r0 is the origin position, d is a displacement vector.
+   // If intersect_parameter <= 1 we have an intersection.
+   if(dot_product(d, u_z) != 0.0)
+      intersect_parameter = divide( dot_product(subtract(center_pt, r0), u_z), dot_product(d, u_z) );
+   else
+      intersect_parameter = (length_type)INT_MAX;       // infinity, displacement is parallel to edge
+      
+   
+   // Check whether the displacement actually crosses the plane;
+   // If not, just return original position plus displacement;
+   // if yes, calculate the deflection.
+   if(intersect_parameter > 1.0){
+     
+        // No intersection; the new position is just r0+displacement
+        new_pos = add(r0, d);
+        changeflag = false;
+   }
+   else{
+    
+        // Calculate the intersection point and the part of the displacement
+        // that ranges out of the target plane.
+        // Project all points that are supposed to be in the plane into it,
+        // just to be sure.
+        intersect_pt = projected_point( obj, add(r0, multiply(d, intersect_parameter)) ).first;
+        d_out = multiply(d, subtract(1.0, intersect_parameter));
+        
+        // Calculate the length of the component of d_out perpendicular to the edge
+        // and the vector of the component parallel to the edge
+        l_perp = dot_product(d_out, u_z);       // note that this can be positive or negative,
+                                                // depending on whether u_z points in or out!
+        d_edge = subtract(d_out, multiply(u_z, l_perp));
+        d_edge_n = normalize(d_edge);
+        
+        // Find the vector pointing from the edge towards the center of the plane, which is
+        // the component of (center_pt - intersect_pt) perpendicular to the edge.
+        // First we calculate the component parallel to the edge
+        icv = subtract(center_pt, intersect_pt);
+        icv_edge = multiply(d_edge_n, dot_product(icv, d_edge_n));
+        icv_perp = subtract(icv, icv_edge);
+        
+        // Calculate the component perpendicular to the edge in the plane.
+        // Note that l_perp can be pos. or neg. while icv_perp always points towards
+        // the center of the plane; therefore use abs(l_perp).
+        d_perp = multiply( normalize(icv_perp), abs(l_perp) );
+        
+        // Construct the new position vector, make sure it's in the plane to
+        // avoid trouble with periodic boundary conditions
+        new_pos = projected_point(obj, add(intersect_pt, add(d_edge, d_perp)) ).first;        
+        changeflag = true;
+   }
+   
+   
+   // for now this returns the new position without changes
+   return std::make_pair( new_pos, changeflag );
+}
 
 template<typename T_>
 inline boost::array<typename Plane<T_>::length_type, 3>

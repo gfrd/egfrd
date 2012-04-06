@@ -35,12 +35,13 @@ template<typename Ttraits_, typename Tshape_>
 class BasicRegionImpl: public Region<Ttraits_>
 {
 public:
-    typedef Region<Ttraits_> base_type;
-    typedef Tshape_ shape_type;
+    typedef Region<Ttraits_>                            base_type;
+    typedef Tshape_                                     shape_type;
     typedef typename base_type::identifier_type         identifier_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
-    typedef typename base_type::length_type length_type;
-    typedef typename base_type::position_type position_type;
+    typedef typename base_type::length_type             length_type;
+    typedef typename base_type::position_type           position_type;
+    typedef std::pair<position_type, bool>              position_flag_pair_type;
 
 public:
     virtual ~BasicRegionImpl() {}
@@ -65,7 +66,9 @@ public:
     }
 
     virtual std::size_t hash() const
-    {
+    {    // Displacements are not deflected on cylinders (yet),
+    // but this function has to be defined for every shape to be used in structure
+    // For now it just returns the new position
 #if defined(HAVE_TR1_FUNCTIONAL)
         using std::tr1::hash;
 #elif defined(HAVE_STD_HASH)
@@ -98,6 +101,11 @@ public:
     virtual length_type distance(position_type const& pos) const
     {
         return ::distance(shape(), pos);
+    }
+    
+    virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const
+    {
+        return ::deflect(shape(), pos0, displacement);
     }
     
     virtual position_type const& structure_position() const

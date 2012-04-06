@@ -103,6 +103,16 @@ distance(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
 }
 
 template<typename T_>
+inline std::pair<typename Sphere<T_>::position_type, bool>
+deflect(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& r0, typename Sphere<T_>::position_type const& d)
+{
+    // Displacements are not deflected on spheres (yet),
+    // but this function has to be defined for every shape to be used in structure.
+    // For now it just returns the new position. The changeflag = 0.
+    return std::make_pair( add(r0, d), false );
+}
+
+template<typename T_>
 inline Sphere<T_> const& shape(Sphere<T_> const& shape)
 {
     return shape;
