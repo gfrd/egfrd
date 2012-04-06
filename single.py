@@ -11,7 +11,7 @@ from _greens_functions import *
 from greens_function_wrapper import *
 from constants import EventType
 from utils import *
-from edgetools import *
+from transitiontools import *
 
 from domain import (
     Domain,
@@ -948,7 +948,7 @@ class CylindricalSurfaceSink(InteractionSingle):
         return 'CylindricalSurfaceSink ' + Single.__str__(self)
 
 
-class TransitionSingle(Single, EdgeTools, Others):
+class TransitionSingle(Single, TransitionTools, Others):
     """TransitionSingles are used when a particle changes from
        one structure to another. The difference to an InteractionSingle
        is that the transition process is instantaneous, i.e. the 
@@ -965,7 +965,7 @@ class TransitionSingle(Single, EdgeTools, Others):
     def __init__(self, domain_id, shell_id, testShell, reactionrules):
 
         Single.__init__(self, domain_id, shell_id, reactionrules)
-        EdgeTools.__init__(self, testShell, self.pid_particle_pair[1].position)
+        TransitionTools.__init__(self, testShell, self.pid_particle_pair[1].position)
         # Note: for the Others superclass nothing is to be initialized.
 
     def determine_next_event(self):
@@ -1027,7 +1027,7 @@ class PlanarSurfaceTransitionSingle(TransitionSingle, hasSphericalShell):
             displacement = self.create_position_vector(r)
 
             # Now check whether the new position is in the surface of origin;
-            # if not, transform it to the target surface (function inherited from EdgeTools)
+            # if not, transform it to the target surface (function inherited from TransitionTools)
             newpos, new_structure_id = self.process_new_position_vector(oldpos, displacement)
 
         return newpos, new_structure_id

@@ -65,7 +65,9 @@ public:
     }
 
     virtual std::size_t hash() const
-    {
+    {    // Displacements are not deflected on cylinders (yet),
+    // but this function has to be defined for every shape to be used in structure
+    // For now it just returns the new position
 #if defined(HAVE_TR1_FUNCTIONAL)
         using std::tr1::hash;
 #elif defined(HAVE_STD_HASH)
@@ -98,6 +100,11 @@ public:
     virtual length_type distance(position_type const& pos) const
     {
         return ::distance(shape(), pos);
+    }
+    
+    virtual position_type deflect(position_type const& pos0, position_type const& displacement) const
+    {
+        return ::deflect(shape(), pos0, displacement);
     }
     
     virtual position_type const& structure_position() const

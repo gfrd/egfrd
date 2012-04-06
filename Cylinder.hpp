@@ -200,6 +200,18 @@ distance(Cylinder<T_> const& obj,
     return distance;
 }
 
+template<typename T_>
+inline typename Cylinder<T_>::position_type
+deflect(Cylinder<T_> const& obj,
+        typename Cylinder<T_>::position_type const& r0,
+        typename Cylinder<T_>::position_type const& d  )
+{
+    // Displacements are not deflected on cylinders (yet),
+    // but this function has to be defined for every shape to be used in structure.
+    // For now it just returns the new position.
+    return add(r0, d);
+}
+
 template<typename T, typename Trng>
 inline typename Cylinder<T>::position_type
 random_position(Cylinder<T> const& shape, Trng& rng)

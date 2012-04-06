@@ -277,6 +277,18 @@ distance(Box<T_> const& obj, typename Box<T_>::position_type const& pos)
     }
 }
 
+template<typename T_>
+inline typename Box<T_>::position_type
+deflect(Box<T_> const& obj,
+        typename Box<T_>::position_type const& r0,
+        typename Box<T_>::position_type const& d  )
+{
+    // Displacements are not deflected on cuboidal regions,
+    // but this function has to be defined for every shape to be used in structure.
+    // For now it just returns the new position.
+    return add(r0, d);
+}
+
 template<typename T, typename Trng>
 inline typename Box<T>::position_type
 random_position(Box<T> const& shape, Trng& rng)

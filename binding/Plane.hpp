@@ -101,8 +101,9 @@ inline boost::python::objects::class_base register_plane_class(char const* name)
                     impl_type,
                     typename impl_type::position_type,
                     &impl_type::unit_z,
-                    &impl_type::unit_z>::set));
-
+                    &impl_type::unit_z>::set))
+        ;
+                        
 }
 
 } // namespace binding
