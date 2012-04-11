@@ -22,18 +22,19 @@ public:
     typedef Ttraits_ traits_type;
     typedef ParticleSimulator<Ttraits_> base_type;
     typedef typename traits_type::world_type world_type;
-    typedef typename world_type::traits_type::rng_type rng_type;
-    typedef typename world_type::species_id_type species_id_type;
-    typedef typename world_type::species_type species_type;
-    typedef typename world_type::length_type length_type;
-    typedef typename world_type::structure_type structure_type;
-    typedef typename traits_type::time_type time_type;  
-    typedef typename traits_type::network_rules_type network_rules_type;
-    typedef typename traits_type::reaction_rule_type reaction_rule_type;
-    typedef typename network_rules_type::reaction_rules reaction_rules;
-    typedef typename traits_type::rate_type rate_type;
-    typedef typename traits_type::reaction_record_type reaction_record_type;
-    typedef typename traits_type::reaction_recorder_type reaction_recorder_type;
+
+    typedef typename world_type::traits_type::rng_type      rng_type;
+    typedef typename world_type::species_id_type            species_id_type;
+    typedef typename world_type::species_type               species_type;
+    typedef typename world_type::length_type                length_type;
+    typedef typename world_type::structure_type             structure_type;
+    typedef typename traits_type::time_type                 time_type;  
+    typedef typename traits_type::network_rules_type        network_rules_type;
+    typedef typename traits_type::reaction_rule_type        reaction_rule_type;
+    typedef typename network_rules_type::reaction_rules     reaction_rules;
+    typedef typename traits_type::rate_type                 rate_type;
+    typedef typename traits_type::reaction_record_type      reaction_record_type;
+    typedef typename traits_type::reaction_recorder_type    reaction_recorder_type;
     typedef std::pair<const Real, const Real> real_pair;
 
 public:

@@ -191,7 +191,7 @@ public:
         return pp01;
     }
 
-    /* Determine if particle has bouned from the surface. */
+    /* Determine if particle has crossed the 'surface' of the structure. */
     virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
         length_type const& dist_to_surface, length_type const& particle_radius) const
     {       

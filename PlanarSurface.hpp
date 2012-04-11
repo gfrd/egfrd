@@ -174,7 +174,7 @@ public:
         
     }
     
-    /* Determine if particle has bouned from the surface */
+    /* Determine if particle has moved through the surface */
     virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
         length_type const& dist_to_surface, length_type const& particle_radius) const
     {       

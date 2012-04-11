@@ -117,7 +117,7 @@ GreensFunction2DRadAbs::f_alpha0( const Real alpha ) const
 	const Real s_An( sigma * alpha );
 	const Real a_An( a * alpha );
 	// Needed? TODO
-	const Real h_s( h * sigma);
+//	const Real h_s( h * sigma);
 
 	const double J0_s_An (gsl_sf_bessel_J0(s_An));
 	const double J1_s_An (gsl_sf_bessel_J1(s_An));
@@ -518,7 +518,7 @@ GreensFunction2DRadAbs::getAlphaRoot0( const Real low,  // root lies between low
 		 EPSILON/L_TYPICAL, EPSILON, "GreensFunction2DRadAbs::getAlphaRoot0" ) );
     gsl_root_fsolver_free( solver );
     
-    const Real sigma(getSigma());
+//    const Real sigma(getSigma());
     return alpha; 
 }    
 
@@ -622,7 +622,7 @@ const Real GreensFunction2DRadAbs::getAlpha( size_t n,               // order
                                              RealVector::size_type i // ith root
                                            ) const 
 {
-    const Real sigma(getSigma());
+//    const Real sigma(this->getSigma());
     Real current_root_, low, high;   
     
     // # "Administration"
@@ -1584,7 +1584,7 @@ GreensFunction2DRadAbs::givePDFTheta( const Real theta,
 {
     const Real sigma( this->getSigma() );
     const Real a( this->geta() );
-    const Real D( this->getD() );
+//    const Real D( this->getD() );
     const Real r0( this->getr0() );
 
 	// input parameter range checks.
@@ -1613,14 +1613,14 @@ GreensFunction2DRadAbs::givePDFTheta( const Real theta,
 // Output the PDF of r, given time t has passed.
 Real GreensFunction2DRadAbs::givePDFR( const Real r, const Real t ) const
 {
-    const Real D( this->getD() );
-    const Real sigma( getSigma() );
-    const Real a( this->geta() );
+//    const Real D( this->getD() );
+//    const Real sigma( this->getSigma() );
+//    const Real a( this->geta() );
     const Real r0( this->getr0() );
 
     if( t == 0.0 )		// if no time has passed
     {
-	return r0;
+	    return r0;
     }
 
     const Real psurv( p_survival( t ) );	// calculate the survival probability at this time

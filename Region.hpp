@@ -103,16 +103,17 @@ public:
         return ::distance(shape(), pos);
     }
     
+    virtual position_type const& position() const
+    {
+        return shape_.position();
+    }
+
     virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const
     {
         return ::deflect(shape(), pos0, displacement);
     }
     
-    virtual position_type const& structure_position() const
-    {
-        return shape_.position();
-    }
-
+    // The constructor
     BasicRegionImpl(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
         : base_type(id, sid), shape_(shape) {}
 

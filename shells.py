@@ -291,8 +291,8 @@ class testMixedPair2D3D(testPair):
     def __init__(self, single2D, single3D):
 
         if __debug__: 
-		assert isinstance(single2D.structure, PlanarSurface) 
-        	assert isinstance(single3D.structure, CuboidalRegion) 
+            assert isinstance(single2D.structure, PlanarSurface) 
+            assert isinstance(single3D.structure, CuboidalRegion) 
         self.surface   = single2D.structure         # note that these need to be initialized before calling testPair.__init__
         self.structure = single3D.structure         # since then these are needed for calculating the transform
 

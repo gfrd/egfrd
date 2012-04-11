@@ -219,11 +219,10 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
    else
       intersect_parameter = (length_type)INT_MAX;       // infinity, displacement is parallel to edge
       
-   
    // Check whether the displacement actually crosses the plane;
    // If not, just return original position plus displacement;
    // if yes, calculate the deflection.
-   if(intersect_parameter > 1.0){
+   if(intersect_parameter > 1.0 || intersect_parameter < 0.0){
      
         // No intersection; the new position is just r0+displacement
         new_pos = add(r0, d);

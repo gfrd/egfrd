@@ -94,7 +94,11 @@ class BDSimulatorCore(object):
             assert not self.tx.check_overlap(pp)
 
 class BDSimulator(ParticleSimulatorBase):
-    def __init__(self, world, rng, network_rules):
+    def __init__(self, world, rng, network_rules=None):
+
+        if network_rules == None:
+            network_rules = NetworkRulesWrapper(world.model.network_rules)
+
         ParticleSimulatorBase.__init__(self, world, rng, network_rules)
         self.is_dirty = True
         self.core = BDSimulatorCore(self.world, self.rng, self.network_rules,

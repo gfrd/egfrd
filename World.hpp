@@ -368,8 +368,8 @@ public:
 
         structure_id_type structure_id(structidgen_());
         structure->set_id(structure_id);
-        if (update_structure(std::make_pair(structure_id, structure)))
-            return structure_id;
+        update_structure(std::make_pair(structure_id, structure));
+        return structure_id;
     }
     // update structure
     virtual bool update_structure(structure_id_pair const& structid_pair)
@@ -453,6 +453,7 @@ public:
         default_structure_id_ = id;
     }
     // Get the closest surface(surface is a subclass of structures)
+    // TODO change this to get all the surfaces within a certain distance of the particle.
     virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
     {       
         length_type const world_size( base_type::world_size() );
@@ -464,7 +465,7 @@ public:
             if( structure->real_id() == ignore)
                 continue;
             
-            position_type const cyc_pos(cyclic_transpose(pos, structure->structure_position(), world_size));
+            position_type const cyc_pos(cyclic_transpose(pos, structure->position(), world_size));
             length_type const dist( fabs( structure->projected_point_on_surface( cyc_pos ).second ) );
                 
             if( dist < ret_dist )
