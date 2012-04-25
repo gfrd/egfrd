@@ -591,8 +591,9 @@ class InteractionSingle(Single, hasCylindricalShell, Others):
         self.intrule = None
         self.interaction_ktot = self.calc_ktot(interactionrules)
 
-        self.surface = self.testShell.surface           # The surface with which the particle is
-                                                        # trying to interact
+        self.origin_structure = self.testShell.origin_structure
+        self.target_structure = self.testShell.target_structure 
+             # The surface with which the particle is trying to interact
 
     def get_interaction_rule(self):
         if self.intrule == None:
@@ -712,7 +713,7 @@ class PlanarSurfaceInteraction(InteractionSingle):
             x, y = random_vector2D(r)
             # express the r vector in the unit vectors of the surface to make sure the particle is
             # parallel to the surface (due to numerical problem)
-            vector_r = x * self.surface.shape.unit_x + y * self.surface.shape.unit_y
+            vector_r = x * self.target_structure.shape.unit_x + y * self.target_structure.shape.unit_y
 
             # calculate z vector
             z_surface = -self.get_inner_dz_left()       # left side of the inner domain
@@ -742,7 +743,7 @@ class PlanarSurfaceInteraction(InteractionSingle):
             newpos = self.shell.shape.position + vector_r + vector_z
 
         # The structure on which the particle ended is always the same as on which it began.
-        structure_id = self.structure.id
+        structure_id = self.origin_structure.id
 
         return newpos, structure_id
 
@@ -771,7 +772,7 @@ class CylindricalSurfaceInteraction(InteractionSingle):
         # r0 is the distance from the center of the cylinder to the center of the particle
         # z0 is known to be zero (the particle being in the center of the shell in the z direction)
         self.unit_r = self.testShell.reference_vector    
-        self.r0     = self.testShell.particle_surface_distance + self.surface.shape.radius
+        self.r0     = self.testShell.particle_surface_distance + self.target_structure.shape.radius
         self.z0     = 0.0
 
     def get_inner_dz_left(self):
@@ -781,7 +782,7 @@ class CylindricalSurfaceInteraction(InteractionSingle):
         return self.shell.shape.half_length - self.pid_particle_pair[1].radius
 
     def get_inner_sigma(self):
-        return self.surface.shape.radius + self.pid_particle_pair[1].radius
+        return self.target_structure.shape.radius + self.pid_particle_pair[1].radius
 
     def greens_function(self):
         # The greens function not used for the interaction but for the other coordinate
@@ -845,7 +846,7 @@ class CylindricalSurfaceInteraction(InteractionSingle):
             newpos = self.shell.shape.position + z_vector + r_vector
 
         # The structure on which the particle ended is always the same as on which it began.
-        structure_id = self.structure.id
+        structure_id = self.origin_structure.id
 
         return newpos, structure_id
 
@@ -940,7 +941,7 @@ class CylindricalSurfaceSink(InteractionSingle):
             newpos = self.shell.shape.position + z_vector
 
         # The structure on which the particle ended is always the same as on which it began.
-        structure_id = self.structure.id
+        structure_id = self.origin_structure.id
 
         return newpos, structure_id
 
@@ -1004,9 +1005,9 @@ class PlanarSurfaceTransitionSingle(TransitionSingle, hasSphericalShell):
         oldpos = self.pid_particle_pair[1].position
 
         if self.D == 0:
-            newpos, new_structure_id = oldpos, self.structure.id
+            newpos, new_structure_id = oldpos, self.origin_structure.id
         elif event_type == EventType.SINGLE_REACTION and len(self.reactionrule.products) == 0:
-            newpos, new_structure_id = oldpos, self.structure.id
+            newpos, new_structure_id = oldpos, self.origin_structure.id
         else:
             # Calculate r
             if event_type == EventType.SINGLE_ESCAPE:
@@ -1036,7 +1037,7 @@ class PlanarSurfaceTransitionSingle(TransitionSingle, hasSphericalShell):
         # project the vector onto the surface unit vectors to make sure
         # that the coordinates are in the surface
         x, y = random_vector2D(r)
-        return x * self.structure.shape.unit_x + y * self.structure.shape.unit_y
+        return x * self.origin_structure.shape.unit_x + y * self.origin_structure.shape.unit_y
 
     def __str__(self):
         return 'PlanarSurfaceTransition' + Single.__str__(self)

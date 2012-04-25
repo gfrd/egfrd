@@ -44,6 +44,7 @@ from shells import (
     PlanarSurfaceSingletestShell,
     PlanarSurfacePairtestShell,
     PlanarSurfaceTransitionSingletestShell,
+    PlanarSurfaceTransitionPairtestShell,
     CylindricalSurfaceSingletestShell,
     CylindricalSurfacePairtestShell,
     PlanarSurfaceInteractiontestShell,
@@ -73,21 +74,21 @@ def create_default_single(domain_id, shell_id, pid_particle_pair, structure, rea
         return CylindricalSurfaceSingle (domain_id, shell_id, testSingle, reaction_rules)
 
 ### Interactions
-def try_default_testinteraction(single, surface, geometrycontainer, domains):
+def try_default_testinteraction(single, target_structure, geometrycontainer, domains):
     if isinstance(single.structure, CuboidalRegion):
-        if isinstance(surface, PlanarSurface):
-            return PlanarSurfaceInteractiontestShell(single, surface, geometrycontainer, domains)
-        elif isinstance(surface, CylindricalSurface):
-            return CylindricalSurfaceInteractiontestShell(single, surface, geometrycontainer, domains)
+        if isinstance(target_structure, PlanarSurface):
+            return PlanarSurfaceInteractiontestShell(single, target_structure, geometrycontainer, domains)
+        elif isinstance(target_structure, CylindricalSurface):
+            return CylindricalSurfaceInteractiontestShell(single, target_structure, geometrycontainer, domains)
         else:
-            raise testShellError('(Interaction). Combination of (3D particle, surface) is not supported')
+            raise testShellError('(Interaction). Combination of (3D particle, target_structure) is not supported')
     elif isinstance(single.structure, PlanarSurface):
-        raise testShellError('(Interaction). Combination of (2D particle, surface) is not supported')
+        raise testShellError('(Interaction). Combination of (2D particle, target_structure) is not supported')
     elif isinstance(single.structure, CylindricalSurface):
-        if isinstance(surface, CylindricalSurface):     # TODO differentiate between a sink and a cap
-            return CylindricalSurfaceSinktestShell (single, surface, geometrycontainer, domains)
+        if isinstance(target_structure, CylindricalSurface):     # TODO differentiate between a sink and a cap
+            return CylindricalSurfaceSinktestShell (single, target_structure, geometrycontainer, domains)
         else:
-            raise testShellError('(Interaction). Combination of (1D particle, surface) is not supported')
+            raise testShellError('(Interaction). Combination of (1D particle, target_structure) is not supported')
     else:
         raise testShellError('(Interaction). structure of particle was of invalid type')
 
@@ -102,14 +103,14 @@ def create_default_interaction(domain_id, shell_id, testShell, reaction_rules, i
 ### Transitions
 def try_default_testtransition(single, target_structure, geometrycontainer, domains):
     if isinstance(single.structure, CuboidalRegion):        
-            raise testShellError('(Transition). Combination of (3D particle, surface) is not supported')
+            raise testShellError('(Transition). Combination of (3D particle, target_structure) is not supported')
     elif isinstance(single.structure, PlanarSurface):
         if isinstance(target_structure, PlanarSurface):
             return PlanarSurfaceTransitionSingletestShell(single, target_structure, geometrycontainer, domains)
         else:
-            raise testShellError('(Transition). Combination of (2D particle, surface other than plane) is not supported')
+            raise testShellError('(Transition). Combination of (2D particle, target_structure other than plane) is not supported')
     elif isinstance(single.structure, CylindricalSurface):        
-            raise testShellError('(Transition). Combination of (1D particle, surface) is not supported')
+            raise testShellError('(Transition). Combination of (1D particle, target_structure) is not supported')
     else:
         raise testShellError('(Transition). structure of particle was of invalid type')
 
@@ -126,6 +127,8 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
             return PlanarSurfacePairtestShell(single1, single2, geometrycontainer, domains)
         elif isinstance(single1.structure, CylindricalSurface):
             return CylindricalSurfacePairtestShell(single1, single2, geometrycontainer, domains)
+    elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, PlanarSurface)):
+        return PlanarSurfaceTransitionPairtestShell(single1, single2, geometrycontainer, domains) 
     elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
         return MixedPair2D3DtestShell(single1, single2, geometrycontainer, domains) 
     elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
@@ -137,14 +140,16 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
 def create_default_pair(domain_id, shell_id, testShell, reaction_rules):
     # Either SphericalPair, PlanarSurfacePair, or CylindricalSurfacePair.
     if   isinstance(testShell, SphericalPairtestShell):
-        return SphericalPair          (domain_id, shell_id, testShell, reaction_rules)
+        return SphericalPair               (domain_id, shell_id, testShell, reaction_rules)
     elif isinstance(testShell, PlanarSurfacePairtestShell):
-        return PlanarSurfacePair      (domain_id, shell_id, testShell, reaction_rules)
+        return PlanarSurfacePair           (domain_id, shell_id, testShell, reaction_rules)
+    elif isinstance(testShell, PlanarSurfaceTransitionPairtestShell):
+        return PlanarSurfaceTransitionPair (domain_id, shell_id, testShell, reaction_rules)
     elif isinstance(testShell, CylindricalSurfacePairtestShell):
-        return CylindricalSurfacePair (domain_id, shell_id, testShell, reaction_rules)
+        return CylindricalSurfacePair      (domain_id, shell_id, testShell, reaction_rules)
     # or MixedPair (3D/2D)
     elif isinstance(testShell, MixedPair2D3DtestShell):
-        return MixedPair2D3D          (domain_id, shell_id, testShell, reaction_rules)
+        return MixedPair2D3D               (domain_id, shell_id, testShell, reaction_rules)
 
 
 class DomainEvent(Event):
@@ -499,8 +504,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         species_id = testShell.pid_particle_pair[1].sid
         reaction_rules = self.network_rules.query_reaction_rule(species_id)
         # get reaction rules for interaction
-        surfacetype_id = testShell.surface.sid
-        interaction_rules = self.network_rules.query_reaction_rule(species_id, surfacetype_id)
+        structure_type_id = testShell.target_structure.sid
+        interaction_rules = self.network_rules.query_reaction_rule(species_id, structure_type_id)
 
         # 2. Create and register the interaction domain.
         # The type of the interaction that will be created 
@@ -928,7 +933,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             product_structure_type_id = product_species.structure_type_id
 
             # 1.5 get new position and structure_id of particle
-            # If the particle falls of a surface (non CuboidalRegion)
+            # If the particle falls off a surface (non CuboidalRegion)
             if product_structure_type_id != reactant_structure_type_id:
                 assert (product_structure_type_id == self.world.get_def_structure_type_id())
 
@@ -1066,9 +1071,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                         # determine the side of the membrane the dissociation takes place
                         unit_z = reactant_structure.shape.unit_z * myrandom.choice(-1, 1)
-                        newposA, newposB = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
-                                                                           productA_radius, productB_radius,
-                                                                           reactant_structure, unit_z)
+                        newposA, newposB, sidA, sidB = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
+                                                                                       productA_radius, productB_radius,
+                                                                                       reactant_structure, reactant_structure,
+                                                                                       unit_z)
+                        # the second reactant_structure parameter passed is ignored here
+
                         if default:
                             newpos1, newpos2 = newposA, newposB
                         else:
@@ -1082,9 +1090,11 @@ class EGFRDSimulator(ParticleSimulatorBase):
                         iv = random_vector(particle_radius12 * MixedPair1D3D.calc_r_scaling_factor(DA, DB))
                         iv *= MINIMAL_SEPARATION_FACTOR
 
-                        newposA, newposB = MixedPair1D3D.do_back_transform(reactant_pos, iv, DA, DB,
-                                                                           productA_radius, productB_radius,
-                                                                           reactant_structure)
+                        newposA, newposB, sidA, sidB = MixedPair1D3D.do_back_transform(reactant_pos, iv, DA, DB,
+                                                                                       productA_radius, productB_radius,
+                                                                                       reactant_structure, reactant_structure)
+                        # the second reactant_structure parameter passed is ignored here
+                        # TODO: Why is there no unit_z passed here?
 
                         newposB = self.world.apply_boundary(newposB)
                         if __debug__:
@@ -1101,7 +1111,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     raise RuntimeError('fire_single_reaction: Can not decay from 3D to other structure')
 
             # 1.5 Get new positions and structure_ids of particles
-            #     If the two particles stay on the same structure as the reactant.
+            #     If the two particles stay on the same structure type as the reactant
+            #     (but not necessarily on the same structure!)
             else:
                 # generate new positions in the structure
                 # TODO Make this into a generator
@@ -1113,15 +1124,73 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     iv *= MINIMAL_SEPARATION_FACTOR
 
                     unit_z = reactant_structure.shape.unit_z    # not used
-                    newpos1, newpos2 = SimplePair.do_back_transform(reactant_pos, iv, D1, D2,
-                                                                    product1_radius, product2_radius,
-                                                                    reactant_structure, unit_z)
+                    newpos1, newpos2, sid1, sid2 = SimplePair.do_back_transform(reactant_pos, iv, D1, D2,
+                                                                                product1_radius, product2_radius,
+                                                                                reactant_structure, reactant_structure,
+                                                                                unit_z)
+                    # for the SimplePair do_back_transform() requires that the two structures passed are the same
+                    # because it will check for this!
 
-                    product_pos_list.append((newpos1, newpos2))
+                    # If reactant_structure is a finite PlanarSurface the new position potentially can
+                    # lie outside of the plane. The two product particles then will end up on different
+                    # planes of the same structure_type.
+                    #
+                    # In this case we have to:
+                    #
+                    # (1) Check whether one of the new positions are out of plane reactant_structure
+                    #     (note that this can be the case for at most one of the particles).
+                    # (2) If yes, find the plane that they should be deflected to, which is
+                    #     the closest one with respect to the new position.
+                    # (3) Calculate the new postions again using the correct back transform function.
+                    if isinstance(reactant_structure, PlanarSurface):
 
-                # structure_ids are the same as reactant. TODO this is not necessarily true in the corners.
-                product1_structure_id = reactant_structure_id
-                product2_structure_id = reactant_structure_id
+                        dist1 = self.world.distance(reactant_structure.shape, newpos1)
+                        dist2 = self.world.distance(reactant_structure.shape, newpos2)
+
+                        newpos1_is_out = 0
+                        newpos2_is_out = 0
+                        if(dist1 > 0.0):
+                            newpos1_is_out = 1
+                            out_pos = newpos1
+                            in_pos  = newpos2
+
+                        if(dist2 > 0.0):
+                            newpos2_is_out = 1
+                            out_pos = newpos2
+                            in_pos  = newpos1
+
+                        assert(newpos1_is_out * newpos2_is_out == 0)
+                            # at most one particle should be out if the CoM did not move out of the plane!
+
+                        if(newpos1_is_out or newpos2_is_out):
+
+                            # Get the closest plane
+                            neighbors = []
+                            neighbors = self.geometrycontainer.get_neighbor_surfaces(out_pos, reactant_structure.id, ignores=[])
+
+                            neighbor_planes = []
+                            for structure, structure_distance in neighbors:
+                                if isinstance(structure, PlanarSurface):
+                                    neighbor_planes.append((structure, structure_distance))
+                        
+                            neighbor_planes = sorted(neighbor_planes, key=lambda plane_and_dist: plane_and_dist[1])
+                            target_structure, _  = neighbor_planes[0]
+
+                            # Recalculate the back transform taking into account the deflection
+                            newpos1, newpos2, sid1, sid2 = PlanarSurfaceTransitionPair.do_back_transform(reactant_pos, iv,
+                                                                                                         D1, D2,
+                                                                                                         product1_radius, product2_radius,
+                                                                                                         reactant_structure, target_structure,
+                                                                                                         unit_z)
+
+                        # If none of the new pos. is out the call to SimplePair.do_back_transform() should have
+                        # produced the correct positions.
+
+                # End of special treatment for PlanarSurface particles
+                                        
+                product_pos_list.append((newpos1, newpos2))
+                product1_structure_id = sid1
+                product2_structure_id = sid2
 
 
             # 2. make space for the products. 
@@ -1224,18 +1293,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # 1. get product info
             product_species      = self.world.get_species(rr.products[0])
             product_radius       = product_species.radius
-            product_surface      = single.surface
+            product_structure    = single.target_structure
 
             # TODO make sure that the product species lives on the same type of the interaction surface
 #            product_structure_type = self.world.get_structure(product_species.structure_id)
-#            assert (single.surface.sid == self.world.get_structure(product_species.structure_id)), \
+#            assert (single.target_structure.sid == self.world.get_structure(product_species.structure_id)), \
 #                   'Product particle should live on the surface of interaction after the reaction.'
 
             # 1.5 get new position and structure_id of particle
-            transposed_pos       = self.world.cyclic_transpose(reactant_pos, product_surface.shape.position)
-            product_pos, _       = product_surface.projected_point(transposed_pos)
+            transposed_pos       = self.world.cyclic_transpose(reactant_pos, product_structure.shape.position)
+            product_pos, _       = product_structure.projected_point(transposed_pos)
             product_pos          = self.world.apply_boundary(product_pos)        # not sure this is still necessary
-            product_structure_id = product_surface.id
+            product_structure_id = product_structure.id
 
             # 2. burst the volume that will contain the products.
             #    Note that an interaction domain is already sized such that it includes the
@@ -1459,29 +1528,25 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # Note that we do not differentiate between directions. This means that we
         # look around in a sphere, the horizons are spherical.
         pair_interaction_partners = []
-#        pair_interaction_partners_ids = [] # HACK
         for domain, _ in neighbor_distances:
             if (isinstance (domain, NonInteractionSingle) and domain.is_reset()):
                 # distance from the center of the particles/domains
                 pair_distance = self.world.distance(single_pos, domain.shell.shape.position)
-                pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * SINGLE_SHELL_FACTOR
+                pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * SINGLE_SHELL_FACTOR * 5 # HACK
                 pair_interaction_partners.append((domain, pair_distance - pair_horizon))
         
         for surface, surface_distance in surface_distances:
             if isinstance(surface, PlanarSurface):
                 # with a planar surface it is the center of mass that 'looks around'
-                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0) #* 2.0  # HACK!!! The * 2 factor is added manually! REMOVE THIS!
+                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0)
             else:
                 # with a cylindrical surface it is the surface of the particle
                 surface_horizon = single_radius * SINGLE_SHELL_FACTOR
             if isinstance(surface, PlanarSurface) and isinstance(single.structure, PlanarSurface):        # HACK
                 surface_horizon = single_radius * SINGLE_SHELL_FACTOR * 2
             pair_interaction_partners.append((surface, surface_distance - surface_horizon))
-#            pair_interaction_partners_ids.append((surface.id, surface_distance)) # HACK
 
         pair_interaction_partners = sorted(pair_interaction_partners, key=lambda domain_overlap: domain_overlap[1])
-
-#        log.debug('pair_interaction_partners: %s' % str(pair_interaction_partners_ids)) # HACK
 
         # For each particles/particle or particle/surface pair, check if a pair or interaction can be
         # made. Note that we check the closest one first and only check if the object are within the horizon
@@ -1496,7 +1561,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
             if isinstance(obj, NonInteractionSingle):
                 # try making a Pair (can be Mixed Pair or Normal Pair)
                 domain = self.try_pair (single, obj)
-                # TODO: Include formation of "PlanarSurfaceTransitionPair"
 
             elif isinstance(obj, PlanarSurface) and isinstance(single.structure, PlanarSurface):
                 domain = self.try_transition(single, obj)
@@ -1504,9 +1568,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
             elif isinstance(obj, CylindricalSurface) or isinstance(obj, PlanarSurface):
                 # try making an Interaction
                 domain = self.try_interaction (single, obj)
-#                # if this fails try a Transition between two surfaces
-#                if not domain:
-#                    domain = self.try_transition (single, obj)
 
 
         if not domain:
@@ -2095,23 +2156,23 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return zero_singles_fin, ignore
 
 
-    def try_interaction(self, single, surface):
-    # Try to form an interaction between the 'single' particle and the 'surface'. The interaction can be a:
+    def try_interaction(self, single, target_structure):
+    # Try to form an interaction between the 'single' particle and the 'target_structure'. The interaction can be a:
     # -CylindricalSurfaceInteraction
     # -PlanarSurfaceInteraction
 
         if __debug__:
-           log.debug('trying to form Interaction(%s, %s)' % (single.pid_particle_pair[1], surface))
+           log.debug('trying to form Interaction(%s, %s)' % (single.pid_particle_pair[1], target_structure))
 
 
         ### 1. Attempt to make a testShell. If it fails it will throw an exception.
         try:
-            testShell = try_default_testinteraction(single, surface, self.geometrycontainer, self.domains)
+            testShell = try_default_testinteraction(single, target_structure, self.geometrycontainer, self.domains)
         except testShellError as e:
             testShell = None
             if __debug__:
                 log.debug('%s not formed %s' % \
-                          ('Interaction(%s, %s)' % (single.pid_particle_pair[0], surface),
+                          ('Interaction(%s, %s)' % (single.pid_particle_pair[0], target_structure),
                           str(e) ))
 
 
@@ -2512,11 +2573,11 @@ rejected moves = %d
         elif isinstance(domain, InteractionSingle) or isinstance(domain, MixedPair2D3D):
             # Ignore surface of the particle and interaction surface
             ignores = []
-            associated = [domain.structure.id, domain.surface.id]
-        elif isinstance(domain, PlanarSurfaceTransitionSingle):
+            associated = [domain.origin_structure.id, domain.target_structure.id]
+        elif isinstance(domain, PlanarSurfaceTransitionSingle) or isinstance(domain, PlanarSurfaceTransitionPair):
             # Ignore surface of the particle and interaction surface
             ignores = []
-            associated = [domain.origin_structure.id, domain.target_structure.id]
+            associated = [domain.structure1.id, domain.structure2.id]
         else:
             # Ignore the structure that the particles are associated with
             ignores = []

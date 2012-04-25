@@ -268,6 +268,42 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
 }
 
 template<typename T_>
+inline typename Plane<T_>::position_type
+deflect_back(Plane<T_> const& obj, typename Plane<T_>::position_type const& r, typename Plane<T_>::position_type const& u_z)
+// This function projects a vector onto plane obj and prolongates the projection by adding the part of it orthogonal
+// to the plane rotated by 90 degrees towards the outward of plane obj; it thus performs the deflection transition backward.
+// The function is meant to be used to calculate the shortest distance between two particles on different orthogonal planes
+// by projecting an orthogonal position back into the plane; note that the shortest distance in general is not simply the sum
+// of the projections of the interparticle vector on the two planes.
+// ATTENTION: u_z must be the normal vector of the plane that the particle at pos. r lives on!
+// The function will only yield meaningful results if the input information is provided correctly!
+{
+     // Type abbreviations
+    typedef typename Plane<T_>::length_type length_type;
+    typedef typename Plane<T_>::position_type position_type;
+    typedef std::pair<position_type, length_type> projected_type;
+    
+    projected_type r_proj(projected_point(obj, r));
+    position_type  dc(subtract(r_proj.first, obj.position()));
+                   // vector pointing towards the projection of r on plane obj
+                   // from the center of the latter
+    
+    position_type u_perp;    // unit vector pointing away from the edge between the two planes
+    position_type r_new;    // r1 projected into plane 0 + rotated orthogonal part of it
+
+    // TODO: Assert that u_z is perpendicular to obj.unit_z ?
+    
+    // Find the unit vector perpendicular to the edge by comparing with u_z
+    // (u_z might point outwards or inwards with respect to plane obj)
+    if(dot_product(dc, u_z) > 0.0)     u_perp = u_z;
+    else                               u_perp = multiply(u_z, -1.0);        
+    
+    r_new = add(r_proj.first, multiply(u_perp, abs(r_proj.second)) );
+    
+    return projected_point(obj, r_new).first;
+}
+
+template<typename T_>
 inline boost::array<typename Plane<T_>::length_type, 3>
 to_internal(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
 // The function calculates the coefficients to express 'pos' into the base of the plane 'obj'

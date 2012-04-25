@@ -30,6 +30,8 @@ class TransitionTools :
         # Might be used internally by classes inheriting from here
         self.origin_structure  = testShell.origin_structure
         self.target_structure  = testShell.target_structure
+        self.structure1        = testShell.structure1
+        self.structure2        = testShell.structure2
 
         self.origin_center = self.origin_structure.shape.position
         self.target_center = self.target_structure.shape.position
