@@ -128,6 +128,118 @@ struct species_range_converter: public boost::python::default_call_policies
     }
 };
 
+// Structure_types_range converter
+template<typename Timpl_>
+struct structure_types_range_converter: public boost::python::default_call_policies
+{
+    typedef Timpl_ native_type;
+
+    template<typename T_>
+    struct policy
+    {
+        typedef typename boost::range_size<T_>::type size_type;
+        typedef typename boost::range_value<T_>::type value_type;
+        typedef value_type const& reference;
+        typedef value_type const& const_reference;
+        typedef typename boost::range_const_iterator<T_>::type iterator;
+        typedef typename boost::range_const_iterator<T_>::type const_iterator;
+
+        static size_type size(T_ const& c)
+        {
+            return ::size(c);
+        }
+
+        static void set(T_& c, size_type i, const_reference v)
+        {
+            PyErr_SetString(PyExc_TypeError, "object does not support indexing");
+            boost::python::throw_error_already_set();
+        }
+
+        static reference get(T_ const& c, size_type i)
+        {
+            PyErr_SetString(PyExc_TypeError, "object does not support indexing");
+            boost::python::throw_error_already_set();
+            throw 0;
+        }
+
+        static iterator begin(T_ const& c)
+        {
+            return boost::begin(c);
+        }
+
+        static iterator end(T_ const& c)
+        {
+            return boost::end(c);
+        }
+    };
+
+    struct instance_holder
+    {
+        instance_holder(native_type const& instance,
+                        boost::python::handle<> owner)
+            : instance_(instance), owner_(owner) {}
+
+        native_type const& operator*() const
+        {
+            return instance_;
+        }
+
+        native_type const* operator->() const
+        {
+            return &(**this);
+        }
+
+        native_type& operator*()
+        {
+            PyErr_SetString(PyExc_RuntimeError, "object is immutable");
+            boost::python::throw_error_already_set();
+            return *static_cast<native_type*>(0);
+        }
+
+        native_type* operator->()
+        {
+            return &(**this);
+        }
+
+        native_type instance_;
+        boost::python::handle<> owner_;
+    };
+
+    typedef peer::wrappers::stl_container_wrapper<native_type, instance_holder, peer::wrappers::default_policy_generator<policy> > wrapper_type;
+
+    struct result_converter
+    {
+        template<typename T_>
+        struct apply
+        {
+            struct type {
+                PyObject* operator()(native_type const& val) const
+                {
+                    return wrapper_type::create(instance_holder(val, boost::python::handle<>()));
+                }
+
+                PyTypeObject const* get_pytype() const
+                {
+                    return &wrapper_type::__class__;
+                }
+            };
+        };
+    };
+
+    template<typename Targs>
+    static PyObject* postcall(Targs const& arg, PyObject* result)
+    {
+        reinterpret_cast<wrapper_type*>(result)->ptr().owner_ = boost::python::handle<>(boost::python::borrowed(PyTuple_GET_ITEM(arg, 0)));
+        return result;
+    }
+
+    // Register the converter.
+    static void __register()
+    {
+        wrapper_type::__class_init__("StructureTypesRange", boost::python::scope().ptr());
+    }
+};
+
 // Structures_range converter
 template<typename Timpl_>
 struct structures_range_converter: public boost::python::default_call_policies
@@ -236,7 +348,7 @@ struct structures_range_converter: public boost::python::default_call_policies
     // Register the converter.
     static void __register()
     {
-        wrapper_type::__class_init__("SurfacesRange", boost::python::scope().ptr());
+        wrapper_type::__class_init__("StructuresRange", boost::python::scope().ptr());
     }
 };
 
@@ -257,12 +369,12 @@ inline boost::python::objects::class_base register_world_class(char const* name)
     typedef Timpl_ impl_type;       // The class World that is being wrapped.
 
     typedef species_range_converter<typename impl_type::species_range> species_range_converter_type;
-//    typedef structure_types_range_converter<typename impl_type::structure_types_range> structure_types_range_converter_type;
+    typedef structure_types_range_converter<typename impl_type::structure_types_range> structure_types_range_converter_type;
     typedef structures_range_converter<typename impl_type::structures_range> structures_range_converter_type;
 
     // registering the converters defined above
     species_range_converter_type::__register();
-//    structure_types_range_converter_type::__register();
+    structure_types_range_converter_type::__register();
     structures_range_converter_type::__register();
 
     // registering converters from standard boost templates
@@ -286,19 +398,17 @@ inline boost::python::objects::class_base register_world_class(char const* name)
         .add_property("structures",
             make_function(
                 (typename impl_type::structures_range(impl_type::*)() const)&impl_type::get_structures, structures_range_converter_type()))
-//        .add_property("structure_types",
-//            make_function(
-//                (typename impl_type::structure_types_range(impl_type::*)() const)&impl_type::get_structure_types,
-//                 structure_types_range_converter_type()))
+        .add_property("structure_types",
+            make_function(
+                (typename impl_type::structure_types_range(impl_type::*)() const)&impl_type::get_structure_types,
+                 structure_types_range_converter_type()))
         .add_property("particle_ids", &World_get_particle_ids<impl_type>)
         .def("get_particle_ids", &impl_type::get_particle_ids)
         .def("get_particle_ids_on_struct", &impl_type::get_particle_ids_on_struct)
         .def("add_species", &impl_type::add_species)
         // Structure stuff
         .def("add_structure", &impl_type::add_structure)
-        .def("update_structure", &impl_type::update_structure)      // Not sure if this should be here or in ParticleContainer.hpp
-//        .def("remove_structure", &impl_type::remove_structure)
-        .def("set_def_structure_id", &impl_type::set_def_structure_id)
+        .def("set_def_structure", &impl_type::set_def_structure)
         // StructureType stuff
         .def("add_structure_type", &impl_type::add_structure_type)
         .def("set_def_structure_type_id", &impl_type::set_def_structure_type_id)

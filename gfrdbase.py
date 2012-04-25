@@ -26,9 +26,10 @@ __all__ = [
     'place_particle',
     'NoSpace',
     'create_world',
+    'create_box',
     'ParticleSimulatorBase',
-    'get_surfaces',
-    'get_closest_surface',
+    'get_all_surfaces',
+    'get_neighbor_surfaces',
     'create_network_rules_wrapper',
     ]
 
@@ -80,35 +81,30 @@ def p_free(r, t, D):
     jacobian = 4.0 * numpy.pi * rsq
 
     return p * jacobian
+
+def get_neighbor_surfaces(world, pos, current_struct_id, ignores=[]):
     
-def get_surfaces(world, pos, ignore=[]):
-    
+    if ignores:
+        ignore = ignores[0]
+    else:
+        ignore = world.get_def_structure_id()   # smt random
+
+    surface_distances = [(structure, distance) for ((id, structure), distance) in world.get_close_structures(pos, current_struct_id, ignore)]
+
+    return surface_distances
+
+def get_all_surfaces(world, pos, ignores=[]):
+
     surface_distances = []
 
     for surface in world.structures:
-        if isinstance(surface, _gfrd.Surface) and surface.id not in ignore:
+        if isinstance(surface, _gfrd.Surface) and surface.id not in ignores:
             pos_transposed = \
                 world.cyclic_transpose(pos, surface.shape.position)
             distance = world.distance(surface.shape, pos_transposed)
             surface_distances.append((surface, distance))
 
     return surface_distances
-
-def get_closest_surface(world, pos, ignore=[]):
-    """Return
-      - closest surface
-      - distance to closest surface
-    
-    We can not use matrix_space, it would miss a surface if the 
-    origin of the surface would not be in the same or neighboring 
-    cells as pos."""
-
-    surface_distances = get_surfaces(world, pos, ignore)
-
-    if surface_distances:
-        return min(surface_distances, key=lambda surface_dist: surface_dist[1])
-    else:
-        return None, numpy.inf
 
 def create_world(m, matrix_size=10):
     """Create a world object.
@@ -157,13 +153,14 @@ def create_world(m, matrix_size=10):
     # The model (a ParticleModel) now only holds SpeciesTypes
     # The SpeciesTYpes hold the information that is required for spatial simulations
     # in auxiliairy string fields. This information is here converted to the right
-    # SpeciesInfo object and added to the world. Not sure this works -> TODO
+    # SpeciesInfo object and added to the world.
     for st in m.species_types:
         if st["structure_type"] == "world":
             # The default structure_type
             structure_type_id = world_structure_type_id
         else:
             # Find the corresponding structure_type between all the structure_types known
+            # FIXME: ugly hack
             for stt in m.structure_types:
                 if st["structure_type"] == stt['name']:
                     structure_type_id = stt.id
@@ -173,7 +170,7 @@ def create_world(m, matrix_size=10):
 
         world.add_species(
             _gfrd.SpeciesInfo(st.id, 
-                              structure_type_id,    # FIXME not sure this works
+                              structure_type_id,
                               float(st["D"]), 
                               float(st["radius"]), 
                               float(st["v"])))
@@ -182,12 +179,40 @@ def create_world(m, matrix_size=10):
     # This needs to be done after making the structure_types or add_structure can't
     # find the proper structure_type.
     x = numpy.repeat(m.world_size / 2, 3)
-    region = _gfrd.CuboidalRegion("world", world_structure_type_id, _gfrd.Box(x, x))
-    world_structure_id = world.add_structure(region)
-    world.set_def_structure_id(world_structure_id)
+    region = _gfrd.CuboidalRegion("world", world_structure_type_id, world.get_def_structure_id(), _gfrd.Box(x, x))
+    world.set_def_structure(region)
 
     world.model = m
     return world
+
+def create_box(world, structure_type, center, size):
+    # Creates a box of PlanarSurface sections and adds it to the world.
+    # size is a vector in x, y, z
+
+    # assert that the center and size is ok
+    center = numpy.array(center)
+    size   = numpy.array(size)
+    assert all(0 < center) and all(center < world.world_size)
+    assert all(0 < size)   and all(size < world.world_size)
+    assert all(0 < center - size/2.0) and all(center + size/2.0 < world.world_size)
+
+    sid = structure_type.id
+    name = 'box'
+    def_struct_id = world.get_def_structure_id()
+    
+    front  = model.create_planar_surface(sid, name+'_front', [center[0] + size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 1, 0], [0, 0, 1], size[1], size[2], def_struct_id)
+    back   = model.create_planar_surface(sid, name+'_back',  [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 0, 1], [0, 1, 0], size[2], size[1], def_struct_id)
+    right  = model.create_planar_surface(sid, name+'_right', [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [1, 0, 0], [0, 0, 1], size[0], size[2], def_struct_id)
+    left   = model.create_planar_surface(sid, name+'_left',  [center[0] - size[0]/2, center[1] + size[1]/2, center[2] - size[2]/2], [0, 0, 1], [1, 0, 0], size[2], size[0], def_struct_id)
+    top    = model.create_planar_surface(sid, name+'_top',   [center[0] - size[0]/2, center[1] - size[1]/2, center[2] + size[2]/2], [1, 0, 0], [0, 1, 0], size[0], size[1], def_struct_id)
+    bottom = model.create_planar_surface(sid, name+'_bottom',[center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 1, 0], [1, 0, 0], size[1], size[0], def_struct_id)
+    world.add_structure(front)
+    world.add_structure(back)
+    world.add_structure(right)
+    world.add_structure(left)
+    world.add_structure(top)
+    world.add_structure(bottom)
+
 
 def create_network_rules_wrapper(model):
     return _gfrd.NetworkRulesWrapper(model.network_rules)
@@ -217,7 +242,7 @@ def throw_in_particles(world, sid, n):
         log.info('\n\tthrowing in %s particles of type %s to %s' %
                  (n, name, structure_type.id))
 
-    # This is a bit messy, but it works.
+    # This is messy, but it works.
     i = 0
     while i < int(n):
         myrandom.shuffle(structure_list)
@@ -225,20 +250,26 @@ def throw_in_particles(world, sid, n):
         position = structure.random_position(myrandom.rng)
         position = world.apply_boundary(position)
 
+        surfaces = get_neighbor_surfaces(world, position, structure.id, [])
+        if surfaces:
+            surface, distance = surfaces[0]
+        else:
+            surface, distance = None, 0
+
         # Check overlap.
         if not world.check_overlap((position, species.radius)):
             create = True
             # Check if not too close to a neighbouring structures for 
             # particles added to the world, or added to a self-defined 
             # box.
-            if isinstance(structure, _gfrd.CuboidalRegion):
-                surface, distance = get_closest_surface(world, position, [])
-                if(surface and
-                   distance < surface.minimal_distance(species.radius)):
-                    if __debug__:
-                        log.info('\t%d-th particle rejected. Too close to '
-                                 'surface. I will keep trying.' % i)
-                    create = False
+            # FIXME replace by check_surface_overlap
+            if (isinstance(structure, _gfrd.CuboidalRegion) and \
+                surface and \
+                distance < surface.minimal_distance(species.radius)):
+                if __debug__:
+                    log.info('\t%d-th particle rejected. Too close to '
+                             'surface. I will keep trying.' % i)
+                create = False
             if create:
                 # All checks passed. Create particle.
                 p = world.new_particle(sid, structure.id, position)
@@ -270,7 +301,12 @@ def place_particle(world, sid, position):
     if world.check_overlap((position, radius)):
         raise NoSpace, 'Placing particle failed: overlaps with other particle.'
 
-    surface, distance = get_closest_surface(world, position, [])
+    surfaces = get_all_surfaces(world, position, [])
+    if surfaces:
+        surface, distance = surfaces[0]
+    else:
+        surface, distance = None, numpy.inf
+
     # Check if not too close to a neighbouring structures for particles 
     # added to the world, or added to a self-defined box.
     if species.structure_type_id == world.get_def_structure_type_id():

@@ -150,7 +150,19 @@ public:
             // get 'connecting' structure and apply deflection. Should we do this recursively until the coordinate stays in the currents structure?
             // This actually kinda similar to the boundary condition application.
             new_pos = tx_.apply_boundary( add( old_pos, displacement ) );
-            new_structure_id = pp.second.structure_id(); //pp_structure->deflect();
+/*            const structure_id_type target_struct_id(pp_structure->get_target_structure(new_pos));
+            const structure_id_type target_struct_id(pp_structure->get_target_structure(new_pos));
+
+            if (target_struct_id != pp_structure.id())
+            // The particle jumped to a new position outside of the current surface.
+            {
+                const structure_type target_structure(tx_.get_structure(target_struct_id));
+                new_structure_id = target_struct_id;
+                const position_flag_pair_type newpos_flag (target_structure->deflect(old_pos, displacement));
+                new_pos = newpos_flag.first;
+            }
+            // Else, just use the current information.
+*/
         }
         else
         {
@@ -203,6 +215,8 @@ public:
                     tx_.check_overlap( particle_shape_type( new_pos, r0 + reaction_length_ ), pp.first) );
             overlapped.swap( overlapped_after_bounce );     // FIXME is there no better way?
                                             
+            // NOTE that it is asserted that the particle overlap criterium for the particle with other particles
+            // and surfaces is False!
             particles_in_overlap = overlapped ? overlapped->size(): 0; 
             
             // re-get the reaction partners (structures), at old position. TODO don't just do this when in the bulk.
@@ -260,7 +274,7 @@ public:
                 else                
                 {
                     LOG_DEBUG(("Particle attempted an interaction with the non-interactive surface %s.", 
-                               boost::lexical_cast<std::string>(closest_surf->real_id()).c_str()));     // TODO is this the correct interpretation?
+                               boost::lexical_cast<std::string>(closest_surf->id()).c_str()));     // TODO is this the correct interpretation?
                 }
             }
 
@@ -793,7 +807,7 @@ private:
                         // Process changes
                         tx_.remove_particle(pp.first);
                         // Make new particle in interaction surface 
-                        const particle_id_pair product_particle( tx_.new_particle(product_species.id(), surface->real_id(), new_pos) );
+                        const particle_id_pair product_particle( tx_.new_particle(product_species.id(), surface->id(), new_pos) );
                         // Record changes
                         if (rrec_)
                         {

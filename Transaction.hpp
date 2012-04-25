@@ -32,8 +32,6 @@ public:
 
     typedef std::pair<const particle_id_type, particle_type>    particle_id_pair;
     typedef abstract_limited_generator<particle_id_pair>        particle_id_pair_generator;
-    typedef std::pair<particle_id_pair, length_type>            particle_id_pair_and_distance;
-    typedef unassignable_adapter<particle_id_pair_and_distance, get_default_impl::std::vector> particle_id_pair_and_distance_list;
 
     virtual ~Transaction() {}
 
@@ -68,11 +66,11 @@ public:
     typedef typename traits_type::structure_type            structure_type;
     typedef typename traits_type::structure_id_type         structure_id_type;
 
+    typedef typename particle_container_type::particle_id_pair_and_distance_list    particle_id_pair_and_distance_list;
+    typedef typename particle_container_type::structure_id_pair_and_distance_list   structure_id_pair_and_distance_list;
+
     typedef std::pair<const particle_id_type, particle_type>    particle_id_pair;
     typedef abstract_limited_generator<particle_id_pair>        particle_id_pair_generator;
-    typedef std::pair<particle_id_pair, length_type>            particle_id_pair_and_distance;
-    typedef unassignable_adapter<particle_id_pair_and_distance,
-                                 get_default_impl::std::vector> particle_id_pair_and_distance_list;
     typedef std::pair<structure_id_type, length_type>           structure_id_and_distance_pair;
 
 private:
@@ -92,6 +90,7 @@ public:
             typename structure_type_map::const_iterator>                    structure_type_iterator;
     typedef typename particle_container_type::structure_types_range         structure_types_range;
     typedef typename particle_container_type::structure_id_set              structure_id_set;
+    typedef typename particle_container_type::structure_id_pair             structure_id_pair;
 
 
     // Particle Stuff
@@ -170,6 +169,12 @@ public:
         return pc_.check_overlap(s, ignore1, ignore2);
     }
 
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma) const
+    {
+        return pc_.check_surface_overlap(s, old_pos, current, sigma);
+    }
+
     virtual Transaction<traits_type>* create_transaction()
     {
         return new TransactionImpl<particle_container_type>(*this);
@@ -209,6 +214,14 @@ public:
     {
         return pc_.get_structures();
     }    
+    virtual bool update_structure(structure_id_pair const& structid_pair)
+    {
+        return pc_.update_structure(structid_pair);
+    }
+    virtual bool remove_structure(structure_id_type const& id)
+    {
+        return pc_.remove_structure(id);
+    }
     virtual structure_id_set get_structure_ids(structure_type_id_type const& sid) const
     {
         return pc_.get_structure_ids(sid);
@@ -220,6 +233,11 @@ public:
     virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
     {
         return pc_.get_closest_surface( pos, ignore );
+    }
+    virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
+                                                                      structure_id_type const& ignore) const
+    {
+        return pc_.get_close_structures(pos, current_struct_id, ignore);
     }
     // End structure stuff
 

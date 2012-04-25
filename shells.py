@@ -14,6 +14,9 @@ from _gfrd import (
     )
 
 from utils import *
+from gfrdbase import (
+    get_neighbor_surfaces,
+    )
 
 __all__ = [
     'ShellmakingError',
@@ -1101,7 +1104,7 @@ class testShell(object):
         radius = self.get_searchradius()
 
         neighbor_domains  = self.geometrycontainer.get_neighbor_domains(searchpoint, self.domains, ignore)
-        neighbor_surfaces = self.geometrycontainer.get_neighbor_surfaces(searchpoint, base_structure_id, ignores)
+        neighbor_surfaces = get_neighbor_surfaces(self.world, searchpoint, base_structure_id, ignores)
         return neighbor_domains, neighbor_surfaces
 
     def get_orientation_vector(self):

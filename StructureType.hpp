@@ -21,17 +21,27 @@ private:
     typedef get_mapper_mf<std::string, std::string>::type string_map_type;
 
 public:
-    // typedef std::string identifier_type;
     typedef SpeciesTypeID                               identifier_type;    // NOTE: we use the same identifier as for the species!
     typedef string_map_type::const_iterator             string_map_iterator;
     typedef boost::iterator_range<string_map_iterator>  attributes_range;
+    typedef identifier_type                             structure_type_id_type;
 
 public:
     // Constructor
+    // TODO should add StructureType as property of StructureType so that we can
+    //      build a hyarchie of StructureTypes living in Structuretypes just like structure living in structures.
     StructureType(): model_(0) {}
  
     // Get the id
     identifier_type const& id() const;
+
+    // Get the id of the structure type the structure_type lives on/in
+    structure_type_id_type const& structure_type_id() const;
+
+    // Check equality/inequality
+    bool operator==(StructureType const& rhs) const;
+
+    bool operator!=(StructureType const& rhs) const;
 
     std::string const& operator[](std::string const& name) const;
 
@@ -56,9 +66,10 @@ protected:
 
 //////// Member variables
 private:
-    ParticleModel*  model_;         // to what model is it associated
-    identifier_type id_;            // identifier Note that these are only defined if the object is bound to a model.
-    string_map_type attrs_;
+    ParticleModel*          model_;             // to what model is it associated
+    identifier_type         id_;                // identifier Note that these are only defined if the object is bound to a model.
+    structure_type_id_type  structure_type_id_; // The structure type that the structure_type lives on/in
+    string_map_type         attrs_;
 };
 
 /////// Inline functions

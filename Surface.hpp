@@ -21,7 +21,8 @@ class Surface: public ParticleSimulationStructure<Ttraits_>
 {
 public:
     typedef ParticleSimulationStructure<Ttraits_>       base_type;
-    typedef typename base_type::identifier_type         identifier_type;    // This is just a string
+    typedef typename base_type::structure_name_type     structure_name_type;    // This is just a string
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::length_type             length_type;
 
@@ -29,7 +30,8 @@ public:
     virtual ~Surface() {}
 
     // Constructor
-    Surface(identifier_type const& id, structure_type_id_type const& sid): base_type(id, sid) {}
+    Surface(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id):
+         base_type(name, sid, parent_struct_id) {}
 
     virtual length_type minimal_distance(length_type const& radius) const = 0;
 };
@@ -45,7 +47,8 @@ public:
     typedef Surface<Ttraits_> base_type;
     typedef Tshape_ shape_type;
 
-    typedef typename base_type::identifier_type         identifier_type;
+    typedef typename base_type::structure_name_type     structure_name_type;
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::length_type             length_type;
     typedef typename base_type::position_type           position_type;
@@ -69,7 +72,7 @@ public:
     {
         BasicSurfaceImpl const* _rhs(dynamic_cast<BasicSurfaceImpl const*>(&rhs));
         return _rhs &&
-               base_type::real_id_ == rhs.real_id() &&
+               base_type::id_ == rhs.id() &&
                base_type::sid_ == rhs.sid() &&
                shape_ == _rhs->shape();
     }
@@ -83,7 +86,7 @@ public:
 #elif defined(HAVE_BOOST_FUNCTIONAL_HASH_HPP)
         using boost::hash;
 #endif
-        return hash<identifier_type>()(base_type::id_) ^
+        return hash<structure_name_type>()(base_type::name_) ^
                hash<structure_type_id_type>()(base_type::sid_) ^
                hash<shape_type>()(shape());
     }
@@ -91,7 +94,7 @@ public:
     virtual std::string as_string() const
     {
         std::ostringstream out;
-        out << "Surface(" << base_type::real_id_ << ":" << shape() << ")";
+        out << "Surface(" << base_type::id_ << ":" << shape() << ")";
         return out.str();
     }
 
@@ -126,8 +129,8 @@ public:
     }
     
     // Constructor
-    BasicSurfaceImpl(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
-        : base_type(id, sid), shape_(shape) {}
+    BasicSurfaceImpl(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
+        : base_type(name, sid, parent_struct_id), shape_(shape) {}
 
 protected:
     shape_type shape_;

@@ -13,6 +13,29 @@ StructureType::identifier_type const& StructureType::id() const
     return id_;
 }
     
+StructureType::structure_type_id_type const& StructureType::structure_type_id() const
+{
+    if (!structure_type_id_)
+    {
+        throw illegal_state("no structure_type defined");
+    }
+    return structure_type_id_;
+}
+
+// Check equality/inequality
+bool StructureType::operator==(StructureType const& rhs) const
+{
+    return id_ == rhs.id() &&
+           structure_type_id_ == rhs.structure_type_id() &&
+           model_ == rhs.model();
+}
+
+bool StructureType::operator!=(StructureType const& rhs) const
+{
+    return !operator==(rhs);
+}
+
+
 std::string const& StructureType::operator[](std::string const& name) const
 {
     string_map_type::const_iterator i(attrs_.find(name));

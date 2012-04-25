@@ -16,7 +16,8 @@ class CylindricalSurface
 public:
     typedef BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> > base_type;
     typedef typename base_type::traits_type traits_type;
-    typedef typename base_type::identifier_type         identifier_type;        // This is just the name of the structure
+    typedef typename base_type::structure_name_type     structure_name_type;        // This is just the name of the structure
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::shape_type              shape_type;
     typedef typename base_type::rng_type                rng_type;
@@ -209,6 +210,12 @@ public:
             return false;
     }
 
+    // This should replace above two methods.
+    virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const
+    {
+        return base_type::distance(new_pos);
+    }
+
     virtual length_type minimal_distance(length_type const& radius) const
     {
         length_type cylinder_radius = base_type::shape().radius();
@@ -226,8 +233,8 @@ public:
         visitor(*this);
     }
 
-    CylindricalSurface(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
-        : base_type(id, sid, shape) {}
+    CylindricalSurface(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
+        : base_type(name, sid, parent_struct_id, shape) {}
 };
 
 #endif /* CYLINDRICAL_SURFACE_HPP */

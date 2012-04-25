@@ -19,14 +19,16 @@ class Region: public ParticleSimulationStructure<Ttraits_>
 {
 public:
     typedef ParticleSimulationStructure<Ttraits_>       base_type;
-    typedef typename base_type::identifier_type         identifier_type;
+    typedef typename base_type::structure_name_type     structure_name_type;
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
 
 public:
     virtual ~Region() {}
 
     // Constructor
-    Region(identifier_type const& id, structure_type_id_type const& sid): base_type(id, sid) {}
+    Region(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id)
+        : base_type(name, sid, parent_struct_id) {}
 };
 
 
@@ -37,7 +39,8 @@ class BasicRegionImpl: public Region<Ttraits_>
 public:
     typedef Region<Ttraits_>                            base_type;
     typedef Tshape_                                     shape_type;
-    typedef typename base_type::identifier_type         identifier_type;
+    typedef typename base_type::structure_name_type     structure_name_type;
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::length_type             length_type;
     typedef typename base_type::position_type           position_type;
@@ -60,7 +63,7 @@ public:
     {
         BasicRegionImpl const* _rhs(dynamic_cast<BasicRegionImpl const*>(&rhs));
         return _rhs &&
-               base_type::real_id_ == rhs.real_id() &&
+               base_type::id_ == rhs.id() &&
                base_type::sid_ == rhs.sid() &&
                shape_ == _rhs->shape();
     }
@@ -76,7 +79,7 @@ public:
 #elif defined(HAVE_BOOST_FUNCTIONAL_HASH_HPP)
         using boost::hash;
 #endif
-        return hash<identifier_type>()(base_type::id_) ^
+        return hash<structure_name_type>()(base_type::name_) ^
                hash<structure_type_id_type>()(base_type::sid_) ^
                hash<shape_type>()(shape());
     }
@@ -84,7 +87,7 @@ public:
     virtual std::string as_string() const
     {
         std::ostringstream out;
-        out << "Region(" << base_type::real_id_ << ":" << shape() << ")";
+        out << "Region(" << base_type::id_ << ":" << shape() << ")";
         return out.str();
     }
 
@@ -120,8 +123,8 @@ public:
     
 
     // The constructor
-    BasicRegionImpl(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
-        : base_type(id, sid), shape_(shape) {}
+    BasicRegionImpl(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
+        : base_type(name, sid, parent_struct_id), shape_(shape) {}
 
 protected:
     shape_type shape_;

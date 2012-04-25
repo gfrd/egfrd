@@ -34,19 +34,22 @@ public:
     typedef typename particle_type::shape_type                  particle_shape_type;
     typedef Transaction<traits_type>                            transaction_type;
 
+    typedef std::set<particle_id_type>                                              particle_id_set;
     typedef std::pair<const particle_id_type, particle_type>                        particle_id_pair;
     typedef abstract_limited_generator<particle_id_pair>                            particle_id_pair_generator;
     typedef std::pair<particle_id_pair, length_type>                                particle_id_pair_and_distance;
     typedef unassignable_adapter<particle_id_pair_and_distance,
                                  get_default_impl::std::vector>                     particle_id_pair_and_distance_list;
-    typedef std::set<particle_id_type>                                              particle_id_set;
+    typedef std::set<structure_id_type>                                             structure_id_set;
     typedef std::pair<const structure_id_type, boost::shared_ptr<structure_type> >  structure_id_pair;
     typedef abstract_limited_generator<structure_id_pair>                           structure_id_pair_generator;
-    typedef std::pair<structure_id_type, length_type>                               structure_id_and_distance_pair;
-    typedef std::set<structure_id_type>                                             structure_id_set;
+    typedef std::pair<structure_id_type, length_type>                               structure_id_and_distance_pair; // TODO remove
+    typedef std::pair<structure_id_pair, length_type>                               structure_id_pair_and_distance;
+    typedef unassignable_adapter<structure_id_pair_and_distance,
+                                 get_default_impl::std::vector>                     structure_id_pair_and_distance_list;
+    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> >     structure_map;
 
 private:
-    typedef std::map<structure_id_type, boost::shared_ptr<structure_type> >     structure_map;
     typedef select_second<typename structure_map::value_type>                   structure_second_selector_type;
     typedef boost::transform_iterator<structure_second_selector_type,
             typename structure_map::const_iterator>                             structure_iterator;
@@ -86,11 +89,21 @@ public:
     
     virtual structures_range get_structures() const = 0;
 
+    virtual bool update_structure(structure_id_pair const& structid_pair) = 0;
+
+    virtual bool remove_structure(structure_id_type const& id) = 0;
+
     virtual structure_id_set get_structure_ids(structure_type_id_type const& sid) const = 0;
 
     virtual structure_id_type get_def_structure_id() const = 0;
 
     virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const = 0;
+
+    virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
+                                                                      structure_id_type const& ignore) const = 0;
+
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma) const = 0;
 
     // Particle stuff
     virtual particle_id_pair new_particle(species_id_type const& sid, structure_id_type const& structure_id,

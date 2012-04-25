@@ -1511,9 +1511,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 1.0 Get neighboring domains and surfaces
         neighbor_distances = self.geometrycontainer.get_neighbor_domains(single_pos, self.domains, ignore=[single.domain_id, ])
         # Get also surfaces but only if the particle is in 3D
-#        surface_distances = []
-#        if isinstance(single, SphericalSingle):
-        surface_distances = self.geometrycontainer.get_neighbor_surfaces(single_pos, single.structure.id, ignores=[])
+        surface_distances = get_neighbor_surfaces(self.world, single_pos, single.structure.id, ignores=[])
 
         # 2.3 We prefer to make NonInteractionSingles for efficiency.
         #     But if objects (Shells and surfaces) get close enough (closer than
@@ -2594,14 +2592,14 @@ rejected moves = %d
         for shell_id, shell in domain.shell_list:
 
             ### check that shells do not overlap with non associated surfaces
-            surfaces = get_surfaces(self.world, shell.shape.position, ignores + associated)
+            surfaces = get_all_surfaces(self.world, shell.shape.position, ignores + associated)
             for surface, _ in surfaces:
                 assert self.check_shape_overlap(shell.shape, surface.shape) >= 0.0, \
                     '%s (%s) overlaps with %s.' % \
                     (str(domain), str(shell), str(surface))
 
             ### check that shells DO overlap with associated surfaces.
-            surfaces = get_surfaces(self.world, shell.shape.position, ignores)
+            surfaces = get_all_surfaces(self.world, shell.shape.position, ignores)
             for surface, _ in surfaces:
                 if surface.id in associated:
                     assert self.check_shape_overlap(shell.shape, surface.shape) < 0.0, \

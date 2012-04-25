@@ -15,7 +15,8 @@ public:
     typedef typename base_type::traits_type traits_type;
 
     // name shorthands of types that we use.
-    typedef typename base_type::identifier_type         identifier_type;
+    typedef typename base_type::structure_name_type     structure_name_type;
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::shape_type              shape_type;
     typedef typename base_type::rng_type                rng_type;
@@ -23,13 +24,6 @@ public:
     typedef typename base_type::length_type             length_type;
     typedef typename Ttraits_::world_type::species_type species_type;
     typedef std::pair<position_type, position_type>     position_pair_type;
-
-
-    // TODO why is this here? This the same as the method in the superclass 'Structure'
-    identifier_type const& id() const
-    {
-        return base_type::id_;
-    }
 
     virtual position_type random_position(rng_type& rng) const
     {
@@ -138,6 +132,11 @@ public:
     {
         return false; //Cube has no reaction volume.
     }
+    // This should replace above two methods.
+    virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const
+    {
+        return base_type::distance(new_pos);
+    }
 
     virtual void accept(ImmutativeStructureVisitor<traits_type> const& visitor) const
     {
@@ -150,8 +149,8 @@ public:
     }
 
     // Constructor
-    CuboidalRegion(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
-        : base_type(id, sid, shape) {}
+    CuboidalRegion(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
+        : base_type(name, sid, parent_struct_id, shape) {}
 };
 
 #endif /* CUBOIDAL_REGION_HPP */

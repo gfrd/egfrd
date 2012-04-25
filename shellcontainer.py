@@ -11,10 +11,6 @@ from _gfrd import (
 from utils import *
 from single import NonInteractionSingle
 from multi import Multi
-from gfrdbase import (
-    get_surfaces,
-    get_closest_surface
-    )
 
 class ShellContainer(object):
 
@@ -106,33 +102,6 @@ class ShellContainer(object):
 
         return intruders, closest_domain, closest_distance
 
-    def get_closest_obj(self, pos, domains, ignore=[], ignores=[]):
-        # ignore: domain ids.
-        # TODO It's bad to pass the domains to this function, but is currently
-        # only way to be able to return a domain object (instead of domain_id)
-        closest_domain = None
-        closest_distance = numpy.inf
-
-        for container in self.containers:
-            result = container.get_neighbors(pos)
-
-            for shell_id_shell_pair, distance in result:
-                domain_id = shell_id_shell_pair[1].did
-
-                if ((domain_id not in ignore) and (distance < closest_distance)):
-                    domain = domains[domain_id]
-                    closest_domain, closest_distance = domain, distance
-                    # Found yet a closer domain. Break out of inner for 
-                    # loop and check other containers.
-#                    break
-
-        surface, distance = get_closest_surface(self.world, pos, ignores)
-
-        if distance < closest_distance:
-            return surface, distance
-        else:
-            return closest_domain, closest_distance
-
     def get_neighbor_domains(self, position, domains, ignore=[]):
     # returns the neighboring domains and the distance to their nearest shell (Multi's can have multiple)
 
@@ -170,20 +139,6 @@ class ShellContainer(object):
 
     def sort_domain_distance(self, neighbor_domains):
         return sorted(neighbor_domains, key=lambda domain_dist: domain_dist[1])
-
-    def get_neighbor_surfaces(self, position, base_structure_id, ignores=[]):
-        # analogous to get_neighbor domains, this returns a list of (surface, distance) tuples
-        # The base_structure_id argument is the id of the structure on which the particle lives
-        # calling this function. In the future, this function will only return surfaces a particle
-        # living on the base_structure can have interactions with.
-
-        # We assume a particle can't have an interaction with the same surface on/in which it lives.
-        ignores.append( base_structure_id )
-
-        surface_distances = get_surfaces(self.world, position, ignores)
-
-        return surface_distances
-
 
     def get_neighbors_within_radius_no_sort(self, pos, radius, ignore=[]):
         # Get neighbor domains within given radius.

@@ -34,13 +34,13 @@ public:
             distance(shape(offset(item.second, off)), cmp_.position()));
         if (dist < cmp_.radius())
         {
-            next_(i, dist);
+            next_(i, dist);     // put the item in the sorted list of overlapping particles.
         }
     }
 
 private:
-    Tfun_& next_;
-    const sphere_type cmp_;
+    Tfun_&              next_;  // structure (overlap checker) storing the overlapping particles.
+    const sphere_type   cmp_;   // The spherical particle whose neighbors are being checked.
 };
 
 template<typename Toc_, typename Tfun_, typename Tsphere_>
