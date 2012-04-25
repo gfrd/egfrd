@@ -113,6 +113,12 @@ public:
         return ::deflect(shape(), pos0, displacement);
     }
     
+    virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const
+    {
+        return ::deflect_back(shape(), pos, u_z);
+    }
+    
+
     // The constructor
     BasicRegionImpl(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
         : base_type(id, sid), shape_(shape) {}
