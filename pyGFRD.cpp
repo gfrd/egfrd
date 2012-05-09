@@ -32,6 +32,7 @@
 #include "binding/binding_common.hpp"
 #include "binding/box_class.hpp"
 #include "binding/cylinder_class.hpp"
+#include "binding/disk_class.hpp"
 #include "binding/domain_id_class.hpp"
 #include "binding/domain_classes.hpp"
 #include "binding/egfrd_simulator_classes.hpp"
@@ -107,6 +108,7 @@ BOOST_PYTHON_MODULE(_gfrd)
     b::register_spherical_shell_container_class();
     b::register_plane_class();
     b::register_cylinder_class();
+    b::register_disk_class();
     b::register_cylindrical_shell_container_class();
     b::register_network_rules_class();
     b::register_network_rules_wrapper_class();

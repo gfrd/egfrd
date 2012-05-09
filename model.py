@@ -1,6 +1,6 @@
 import _gfrd
 from _gfrd import create_cuboidal_region, create_cylindrical_surface, \
-        create_planar_surface
+        create_disk_surface, create_planar_surface
 import numpy
 
 __all__ = [
@@ -18,6 +18,7 @@ __all__ = [
     # From _gfrd. Should be part of the world class.
     'create_cuboidal_region',
     'create_cylindrical_surface',
+    'create_disk_surface',
     'create_planar_surface',
     ]
 
@@ -66,6 +67,31 @@ Arguments:
     - length
         the length of the cylinder. Should be equal to the world_size. 
         Units: meters.
+
+Surfaces are not allowed to touch or overlap.
+
+"""
+
+_gfrd.create_disk_surface.__doc__ = \
+"""create_disk_surface(sid, id, center, radius, orientation)
+
+Create and return a new disk Surface.
+
+Arguments:
+    - sid
+        the structure type of the cylindrical surface.
+    - id
+        the name of the structure
+    - center
+        The center point of the circle defining the disk.
+        Units: [meters, meters, meters]
+    - radius
+        the radius of the disk. Units: meters.
+    - orientation
+        the unit vector [1, 0, 0], [0, 1, 0] or [0, 0, 1]
+        perpendicular to the disk. This vector typically defines
+        the direction of dissociation from the disk if it is a
+        cap.
 
 Surfaces are not allowed to touch or overlap.
 

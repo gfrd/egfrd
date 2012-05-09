@@ -51,6 +51,8 @@ void register_module_functions()
             return_value_policy<manage_new_object>());
     def("create_cylindrical_surface", &StructureUtils::create_cylindrical_surface,
             return_value_policy<manage_new_object>());
+    def("create_disk_surface", &StructureUtils::create_disk_surface,
+            return_value_policy<manage_new_object>());
     def("create_cuboidal_region", &StructureUtils::create_cuboidal_region,
             return_value_policy<manage_new_object>());
     def("_random_vector", (Position(*)(Structure const&, Length const&, GSLRandomNumberGenerator&))&StructureUtils::random_vector);

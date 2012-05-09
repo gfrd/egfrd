@@ -53,6 +53,7 @@ noinst_HEADERS = \
 	Box.hpp\
 	ConsoleAppender.hpp\
 	Cylinder.hpp\
+	Disk.hpp\
 	Defs.hpp\
 	DomainFactory.hpp\
 	Domain.hpp\

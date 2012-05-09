@@ -166,9 +166,11 @@ public:
     typedef ParticleSimulator<Ttraits_> base_type;
     typedef typename base_type::sphere_type sphere_type;
     typedef typename base_type::cylinder_type cylinder_type;
+    typedef typename base_type::disk_type disk_type;
     typedef typename base_type::particle_simulation_structure_type particle_simulation_structure_type;
     typedef typename base_type::spherical_surface_type spherical_surface_type;
     typedef typename base_type::cylindrical_surface_type cylindrical_surface_type;
+    typedef typename base_type::disk_surface_type disk_surface_type;
     typedef typename base_type::planar_surface_type planar_surface_type;
     typedef typename base_type::cuboidal_region_type cuboidal_region_type;
     typedef typename traits_type::world_type world_type;
@@ -1469,6 +1471,21 @@ protected:
                 new_single = new cylindrical_single_type(did, p, new_shell);
                 kind = CYLINDRICAL_SINGLE;
             }
+            
+            virtual void operator()(disk_surface_type const& structure) const
+            {
+                // This is only a copy of the operator for
+                // cylindrical_surface_type for now;
+                // TODO: Is that really what we want?
+                const cylindrical_shell_id_pair new_shell(
+                    _this->new_shell(
+                        did, cylinder_type(
+                            p.second.position(), p.second.radius(),
+                            structure.shape().unit_z(),
+                            p.second.radius())));
+                new_single = new cylindrical_single_type(did, p, new_shell);
+                kind = CYLINDRICAL_SINGLE;
+            }
 
             virtual void operator()(planar_surface_type const& structure) const
             {
@@ -1551,6 +1568,21 @@ protected:
                 kind = CYLINDRICAL_PAIR;
             }
 
+            virtual void operator()(disk_surface_type const& structure) const
+            {
+                // This is only a copy of the operator for
+                // cylindrical_surface_type for now;
+                // TODO: Is that really what we want?
+                cylindrical_shell_id_pair const new_shell(
+                    _this->new_shell(did, cylinder_type(
+                        com,
+                        shell_size,
+                        shape(structure).unit_z(),
+                        std::max(p0.second.radius(), p1.second.radius()))));
+                new_pair = new cylindrical_pair_type(did, p0, p1, new_shell,
+                                                     iv, rules);
+                kind = CYLINDRICAL_PAIR;
+            }
         
             virtual void operator()(planar_surface_type const& structure) const
             {

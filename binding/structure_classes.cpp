@@ -8,6 +8,7 @@
 #include "Region.hpp"
 #include "PlanarSurface.hpp"
 #include "CylindricalSurface.hpp"
+#include "DiskSurface.hpp"
 #include "SphericalSurface.hpp"
 #include "CuboidalRegion.hpp"
 #include "binding_common.hpp"
@@ -24,6 +25,7 @@ void register_structure_classes()
     register_planar_surface_class<PlanarSurface>("PlanarSurface");
     register_spherical_surface_class<SphericalSurface>("SphericalSurface");
     register_cylindrical_surface_class<CylindricalSurface>("CylindricalSurface");
+    register_disk_surface_class<DiskSurface>("DiskSurface");
 }
 
 } // namespace binding

@@ -285,7 +285,7 @@ deflect(Box<T_> const& obj,
 {
     // Displacements are not deflected on cuboidal regions,
     // but this function has to be defined for every shape to be used in structure.
-    // For now it just returns the new position. The changeflag = 0.
+    // For now it just returns original pos. + displacement. The changeflage = false.
     return std::make_pair( add(r0, d), false );
 }
 

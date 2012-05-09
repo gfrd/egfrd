@@ -20,6 +20,9 @@ noinst_HEADERS = \
 	cylinder_class.hpp \
 	Cylinder.hpp \
 	CylindricalSurface.hpp \
+	disk_class.hpp \
+	Disk.hpp \
+	DiskSurface.hpp \
 	domain_classes.hpp \
 	domain_id_class.hpp \
 	egfrd_simulator_classes.hpp \
@@ -97,6 +100,7 @@ libbinding_utils_la_SOURCES = \
 	box_class.cpp \
 	ConsoleAppender.cpp \
 	cylinder_class.cpp \
+	disk_class.cpp \
 	domain_classes.cpp \
 	domain_id_class.cpp \
 	egfrd_simulator_classes.cpp \

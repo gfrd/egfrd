@@ -2,7 +2,7 @@ import os
 import shutil
 import numpy
 from vtk_xml_serial_unstructured import *
-from _gfrd import Sphere, Cylinder, Box, Plane
+from _gfrd import Sphere, Cylinder, Box, Plane, Disk
 from multi import Multi
 from utils import crossproduct, INF
 
@@ -331,7 +331,7 @@ class VTKLogger:
                 try:
                     shell = object.shell_list[0][1]
                     # Only cylinders have half_length.
-                    shell.shape.half_length
+                    shell.shape.half_length                    
                     cylinders.append(shell)
                     cylinder_colors.append(color)
                 except:
@@ -361,7 +361,8 @@ class VTKLogger:
         # Todo. Make DNA blink when reaction takes place.
         cylinders = [surface for surface
                              in self.sim.world.structures
-                             if isinstance(surface.shape, Cylinder)]
+                             if isinstance(surface.shape, Cylinder)
+                             or isinstance(surface.shape, Disk)]
         return self.process_cylinders(cylinders)
 
     def process_spheres(self, spheres=[], color_list=[]):
@@ -402,9 +403,27 @@ class VTKLogger:
             # Add dummy cylinder to stop TensorGlyph from complaining.
             cylinders = [self.get_dummy_cylinder()]
             color_list = [0]
+            c = cylinders[0]            
 
         for cylinder in cylinders:
             # Todo. Which one is it.
+
+            # Pre-process disks which are put into the same
+            # list as cylinders but lack the half_length property
+            # TODO Give disks a different color!
+            try:
+                if isinstance(cylinder.shape, Disk):
+                    disk = cylinder
+                    cylinder = self.get_dummy_cylinder()
+                    cylinder.position    = disk.shape.position
+                    cylinder.radius      = disk.shape.radius
+                    cylinder.unit_z      = disk.shape.unit_z
+                    cylinder.half_length = 0.0
+            except:
+                pass
+
+            # The following is necessary to distinguish
+            # shells from surfaces
             try:
                 position = cylinder.position
                 radius = cylinder.radius

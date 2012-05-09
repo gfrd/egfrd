@@ -27,10 +27,12 @@ struct StructureUtils
     typedef typename simulator_type::region_type                region_type;
     typedef typename simulator_type::sphere_type                sphere_type;
     typedef typename simulator_type::cylinder_type              cylinder_type;
+    typedef typename simulator_type::disk_type                  disk_type;
     typedef typename simulator_type::box_type                   box_type;
     typedef typename simulator_type::plane_type                 plane_type;
     typedef typename simulator_type::spherical_surface_type     spherical_surface_type;
     typedef typename simulator_type::cylindrical_surface_type   cylindrical_surface_type;
+    typedef typename simulator_type::disk_surface_type          disk_surface_type;
     typedef typename simulator_type::planar_surface_type        planar_surface_type;
     typedef typename simulator_type::cuboidal_region_type       cuboidal_region_type;
     typedef typename simulator_type::world_type::traits_type::rng_type rng_type;
@@ -90,6 +92,19 @@ struct StructureUtils
 
         return new cylindrical_surface_type(name, sid, parent_struct_id,
                                             cylinder_type(pos, radius, unit_z, half_length));
+    }
+    
+    static disk_surface_type* create_disk_surface(
+            structure_type_id_type const& sid,
+            structure_id_type const& id,
+            position_type const& center,
+            length_type const& radius,
+            position_type const& unit_z)
+    {
+        BOOST_ASSERT(is_cartesian_versor(unit_z));
+
+        return new disk_surface_type(id, sid,
+                disk_type(center, radius, unit_z));
     }
 
     static cuboidal_region_type* create_cuboidal_region(
