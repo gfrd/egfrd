@@ -15,8 +15,9 @@ class DiskSurface
 
 public:
     typedef BasicSurfaceImpl<Ttraits_, Disk<typename Ttraits_::world_type::traits_type::length_type> > base_type;
-    typedef typename base_type::traits_type             traits_type;
-    typedef typename base_type::identifier_type         identifier_type;        // This is just the name of the structure
+    typedef typename base_type::traits_type             traits_type;    
+    typedef typename base_type::structure_name_type     structure_name_type;
+    typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
     typedef typename base_type::shape_type              shape_type;
     typedef typename base_type::rng_type                rng_type;
@@ -217,6 +218,12 @@ public:
         else
             return false;
     }
+    
+    // This should replace above two methods. TODO Copied from CylindricalStructure up to now
+    virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const
+    {
+        return base_type::distance(new_pos);
+    }
 
     virtual length_type minimal_distance(length_type const& radius) const
     {
@@ -235,9 +242,9 @@ public:
     {
         visitor(*this);
     }
-
-    DiskSurface(identifier_type const& id, structure_type_id_type const& sid, shape_type const& shape)
-        : base_type(id, sid, shape) {}
+        
+    DiskSurface(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
+        : base_type(name, sid, parent_struct_id, shape) {}
 };
 
 #endif /* DISK_SURFACE_HPP */

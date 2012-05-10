@@ -207,7 +207,7 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
    position_type new_pos;
    
    length_type intersect_parameter;
-   length_type l_edge, l_perp;
+   length_type l_perp;
    
    bool changeflag = false;
    

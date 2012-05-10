@@ -96,14 +96,15 @@ struct StructureUtils
     
     static disk_surface_type* create_disk_surface(
             structure_type_id_type const& sid,
-            structure_id_type const& id,
+            structure_name_type const& name,
             position_type const& center,
             length_type const& radius,
-            position_type const& unit_z)
+            position_type const& unit_z,
+            structure_id_type const& parent_struct_id)
     {
         BOOST_ASSERT(is_cartesian_versor(unit_z));
 
-        return new disk_surface_type(id, sid,
+        return new disk_surface_type(name, sid, parent_struct_id,
                 disk_type(center, radius, unit_z));
     }
 
