@@ -91,7 +91,7 @@ public:
     typedef typename particle_container_type::structure_types_range         structure_types_range;
     typedef typename particle_container_type::structure_id_set              structure_id_set;
     typedef typename particle_container_type::structure_id_pair             structure_id_pair;
-
+    typedef typename particle_container_type::position_structid_pair_type   position_structid_pair_type;
 
     // Particle Stuff
     virtual particle_id_pair new_particle(species_id_type const& sid, structure_id_type const& structure_id,
@@ -175,6 +175,12 @@ public:
         return pc_.check_surface_overlap(s, old_pos, current, sigma);
     }
 
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma, structure_id_type const& ignore) const
+    {
+        return pc_.check_surface_overlap(s, old_pos, current, sigma, ignore);
+    }
+
     virtual Transaction<traits_type>* create_transaction()
     {
         return new TransactionImpl<particle_container_type>(*this);
@@ -214,7 +220,8 @@ public:
     {
         return pc_.get_structures();
     }    
-    virtual bool update_structure(structure_id_pair const& structid_pair)
+    template <typename Tstructid_pair_>
+    bool update_structure(Tstructid_pair_ const& structid_pair)
     {
         return pc_.update_structure(structid_pair);
     }
@@ -319,6 +326,12 @@ public:
         return pc_.apply_boundary(v);
     }
 
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       const boost::shared_ptr<const structure_type> structure) const
+    {
+        return pc_.apply_boundary(pos_struct_id, structure);
+    }
+
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
     {
         return pc_.cyclic_transpose(p0, p1);
@@ -327,6 +340,12 @@ public:
     virtual length_type cyclic_transpose(length_type const& p0, length_type const& p1) const
     {
         return pc_.cyclic_transpose(p0, p1);
+    }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         const boost::shared_ptr<const structure_type> structure) const
+    {
+        return pc_.cyclic_transpose(pos_struct_id, structure);
     }
 
     virtual ~TransactionImpl() {}

@@ -353,9 +353,17 @@ public:
     typedef typename wrapped_type::particle_id_pair_and_distance_list   particle_id_pair_and_distance_list;
     typedef typename wrapped_type::structure_id_pair_and_distance_list  structure_id_pair_and_distance_list;
     typedef typename wrapped_type::structure_id_and_distance_pair       structure_id_and_distance_pair;
+    typedef typename wrapped_type::position_structid_pair_type          position_structid_pair_type;
     typedef typename wrapped_type::structure_id_set                     structure_id_set;
     typedef typename wrapped_type::structures_range                     structures_range;
     typedef typename wrapped_type::structure_types_range                structure_types_range;
+
+//    typedef typename wrapped_type::cuboidal_region_id_pair_type         cuboidal_region_id_pair_type;
+//    typedef typename wrapped_type::planar_surface_id_pair_type          planar_surface_id_pair_type;
+//    typedef typename wrapped_type::cylindrsurf_id_pair_type             cylindrsurf_id_pair_type;
+//    typedef typename wrapped_type::disk_surface_id_pair_type            disk_surface_id_pair_type;
+//    typedef typename wrapped_type::spherical_surface_id_pair_type       spherical_surface_id_pair_type;
+
 
     typedef typename wrapped_type::transaction_type                     transaction_type;
 
@@ -399,12 +407,39 @@ public:
     {
         return py_wrapper_type::get_override("get_structures")();
     }
-
-    virtual bool update_structure(structure_id_pair const& structid_pair)
+/*
+    virtual bool update_structure(cuboidal_region_id_pair_type const& structid_pair)
     {
         return py_wrapper_type::get_override("update_structure")(structid_pair);
     }
 
+    virtual bool update_structure(planar_surface_id_pair_type const& structid_pair)
+    {
+        return py_wrapper_type::get_override("update_structure")(structid_pair);
+    }
+
+    virtual bool update_structure(cylindrsurf_id_pair_type const& structid_pair)
+    {
+        return py_wrapper_type::get_override("update_structure")(structid_pair);
+    }
+
+    virtual bool update_structure(disk_surface_id_pair_type const& structid_pair)
+    {
+        return py_wrapper_type::get_override("update_structure")(structid_pair);
+    }
+
+    virtual bool update_structure(spherical_surface_id_pair_type const& structid_pair)
+    {
+        return py_wrapper_type::get_override("update_structure")(structid_pair);
+    }
+
+    template<typename Tstructid_pair_>
+    bool update_structure(Tstructid_pair_ const& structid_pair)
+    {
+        return py_wrapper_type::get_override("update_structure")(structid_pair);
+    }
+*/
+    
     virtual bool remove_structure(structure_id_type const& id)
     {
         return py_wrapper_type::get_override("remove_structure")(id);
@@ -512,6 +547,14 @@ public:
                .template unchecked<structure_id_pair_and_distance_list*>();
     }
 
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma, structure_id_type const& ignore) const
+    {
+        return py_wrapper_type::get_override("check_surface_overlap")(
+                s, old_pos, current, sigma, ignore)
+               .template unchecked<structure_id_pair_and_distance_list*>();
+    }
+
     virtual particle_id_pair_generator* get_particles() const
     {
         return py_wrapper_type::get_override("__iter__")()
@@ -540,6 +583,12 @@ public:
         return py_wrapper_type::get_override("apply_boundary")(v);
     }
 
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       const boost::shared_ptr<const structure_type> structure) const
+    {
+        return py_wrapper_type::get_override("apply_boundary")(pos_struct_id, structure);
+    }
+
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
     {
         return py_wrapper_type::get_override("cyclic_transpose")(p0, p1);
@@ -549,6 +598,13 @@ public:
     {
         return py_wrapper_type::get_override("cyclic_transpose")(p0, p1);
     }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         const boost::shared_ptr<const structure_type> structure) const
+    {
+        return py_wrapper_type::get_override("cyclic_transpose")(pos_struct_id, structure);
+    }
+
 };
 
 
@@ -588,7 +644,12 @@ inline boost::python::objects::class_base register_particle_container_class(
         // Structure stuff
         .def("get_structure", pure_virtual(&impl_type::get_structure))
         .def("get_structures", pure_virtual(&impl_type::get_structures))
-        .def("update_structure", pure_virtual(&impl_type::update_structure))
+//        .def("update_structure", pure_virtual(&impl_type::update_structure))
+//        .def("update_structure", &impl_type::template update_structure<typename impl_type::cuboidal_region_id_pair_type>)
+//        .def("update_structure", &impl_type::template update_structure<typename impl_type::planar_surface_id_pair_type>)
+//        .def("update_structure", &impl_type::template update_structure<typename impl_type::cylindrsurf_id_pair_type>)
+//        .def("update_structure", &impl_type::template update_structure<typename impl_type::disk_surface_id_pair_type>)
+//        .def("update_structure", &impl_type::template update_structure<typename impl_type::spherical_surface_id_pair_type>)
         .def("remove_structure", pure_virtual(&impl_type::remove_structure))
         .def("get_structure_ids", pure_virtual(&impl_type::get_structure_ids))
         .def("get_def_structure_id", pure_virtual(&impl_type::get_def_structure_id))
@@ -602,6 +663,7 @@ inline boost::python::objects::class_base register_particle_container_class(
         .def("check_overlap", pure_virtual((typename impl_type::particle_id_pair_and_distance_list*(impl_type::*)(typename impl_type::particle_type::shape_type const&, typename impl_type::particle_id_type const&) const)&impl_type::check_overlap), return_value_policy<return_by_value>())
         .def("check_overlap", pure_virtual((typename impl_type::particle_id_pair_and_distance_list*(impl_type::*)(typename impl_type::particle_type::shape_type const&, typename impl_type::particle_id_type const&, typename impl_type::particle_id_type const&) const)&impl_type::check_overlap), return_value_policy<return_by_value>())
         .def("check_overlap", pure_virtual((typename impl_type::particle_id_pair_and_distance_list*(impl_type::*)(typename impl_type::particle_type::shape_type const&) const)&impl_type::check_overlap), return_value_policy<return_by_value>())
+        .def("check_surface_overlap", pure_virtual((typename impl_type::structure_id_pair_and_distance_list*(impl_type::*)(typename impl_type::particle_type::shape_type const&, typename impl_type::position_type const&, typename impl_type::structure_id_type const&, typename impl_type::length_type const&, typename impl_type::structure_id_type const&) const)&impl_type::check_surface_overlap), return_value_policy<return_by_value>())
         .def("check_surface_overlap", pure_virtual((typename impl_type::structure_id_pair_and_distance_list*(impl_type::*)(typename impl_type::particle_type::shape_type const&, typename impl_type::position_type const&, typename impl_type::structure_id_type const&, typename impl_type::length_type const&) const)&impl_type::check_surface_overlap), return_value_policy<return_by_value>())
         .def("create_transaction", pure_virtual(&impl_type::create_transaction),
                 return_value_policy<manage_new_object>())

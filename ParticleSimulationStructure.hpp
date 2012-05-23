@@ -6,14 +6,14 @@
 template<typename Ttraits_>
 struct ImmutativeStructureVisitor;
 
-template<typename Ttraits_>
+template<typename Ttraits_>     // Note that Ttraits_ refers to a the World traits
 struct MutativeStructureVisitor;
 
 template<typename Ttraits_>
-struct ParticleSimulationStructure: public Structure<typename Ttraits_::world_type::traits_type>
+struct ParticleSimulationStructure: public Structure<Ttraits_>
 {
     typedef Ttraits_ traits_type;
-    typedef Structure<typename traits_type::world_type::traits_type> base_type;
+    typedef Structure<traits_type> base_type;
 
     typedef typename base_type::structure_name_type     structure_name_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;

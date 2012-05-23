@@ -12,6 +12,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     Sphere()
@@ -69,6 +70,24 @@ inline std::basic_ostream<Tstrm_, Ttraits_>& operator<<(std::basic_ostream<Tstrm
 {
     strm << "{" << v.position() <<  ", " << v.radius() << "}";
     return strm;
+}
+
+template<typename T_>
+inline bool
+is_alongside(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
+// The function checks if the projection of the position 'pos' is 'inside' the object.
+// This is always true because the projection is always onto the center of the sphere.
+{
+    return true;
+}
+
+template<typename T_>
+inline typename Sphere<T_>::length_type
+to_internal(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
+// The function calculates the coefficients to express 'pos' into the base of the sphere 'obj'
+{
+    // Todo. If we ever need it.
+    return typename Sphere<T_>::length_type();
 }
 
 template<typename T_>

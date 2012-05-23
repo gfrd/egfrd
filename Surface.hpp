@@ -34,7 +34,7 @@ public:
     Surface(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id):
          base_type(name, sid, parent_struct_id) {}
 
-    virtual length_type minimal_distance(length_type const& radius) const = 0;
+//    virtual length_type minimal_distance(length_type const& radius) const = 0;
 };
 
 
@@ -46,7 +46,9 @@ class BasicSurfaceImpl: public Surface<Ttraits_>
 {
 public:
     typedef Surface<Ttraits_> base_type;
-    typedef Tshape_ shape_type;
+
+    typedef Tshape_                                     shape_type;
+    typedef typename shape_type::side_enum_type         side_enum_type;     // Defines the type of enum to use for the sides of the surface
 
     typedef typename base_type::structure_name_type     structure_name_type;
     typedef typename base_type::structure_id_type       structure_id_type;
@@ -69,7 +71,7 @@ public:
         return shape_;
     }
 
-    virtual bool operator==(Structure<typename Ttraits_::world_type::traits_type> const& rhs) const
+    virtual bool operator==(Structure<Ttraits_> const& rhs) const
     {
         BasicSurfaceImpl const* _rhs(dynamic_cast<BasicSurfaceImpl const*>(&rhs));
         return _rhs &&
@@ -116,7 +118,7 @@ public:
     
     virtual position_type const& position() const
     {
-        return shape_.position();
+        return ::shape_position(shape());
     }
 
     virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const
@@ -129,6 +131,11 @@ public:
         return ::deflect_back(shape(), pos, u_z);
     }
     
+    virtual bool is_alongside(position_type const& pos) const
+    {
+        return ::is_alongside(shape(), pos);
+    }
+
     // Constructor
     BasicSurfaceImpl(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
         : base_type(name, sid, parent_struct_id), shape_(shape) {}

@@ -22,7 +22,7 @@ public:
     typedef typename world_traits_type::rng_type        rng_type;
     typedef typename traits_type::network_rules_type    network_rules_type;
 
-    typedef CuboidalRegion<traits_type>                 cuboidal_region_type;
+    typedef CuboidalRegion<world_traits_type>           cuboidal_region_type;
 
 
 public:

@@ -134,11 +134,12 @@ struct StructureUtils
     {
         return structure.random_position(rng);
     }
-
+/*
     static length_type minimal_distance_from_surface(surface_type const& surface, length_type const& radius)
     {
         return surface.minimal_distance(radius);
     }
+*/
 };
 
 #endif /* STRUCTURE_UTILS_HPP */

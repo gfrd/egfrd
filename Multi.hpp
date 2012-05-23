@@ -54,6 +54,7 @@ public:
     typedef typename world_type::particle_container_type::structure_id_set                  structure_id_set;
     typedef typename world_type::particle_container_type::particle_id_pair_and_distance_list    particle_id_pair_and_distance_list;
     typedef typename world_type::particle_container_type::structure_id_pair_and_distance_list   structure_id_pair_and_distance_list;
+    typedef typename world_type::particle_container_type::position_structid_pair_type       position_structid_pair_type;
 
     typedef typename Ttraits_::network_rules_type       network_rules_type;
     typedef typename Ttraits_::reaction_rule_type       reaction_rule_type;
@@ -107,7 +108,8 @@ public:
         return world_.get_structures();     // TODO now gets all structures in world, -> make structure local to Multi
     }
     // virtual structure_id_type add_structure(structure_type const& structure); // TODO add structure from the world to multi
-    virtual bool update_structure(structure_id_pair const& structid_pair)
+    template <typename Tstructid_pair_>
+    bool update_structure(Tstructid_pair_ const& structid_pair)
     {
         return world_.update_structure(structid_pair);
     }
@@ -238,6 +240,12 @@ public:
         return world_.check_surface_overlap(s, old_pos, current, sigma);
     }
 
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma, structure_id_type const& ignore) const
+    {
+        return world_.check_surface_overlap(s, old_pos, current, sigma, ignore);
+    }
+
     virtual particle_id_pair_generator* get_particles() const
     {
         return make_range_generator<particle_id_pair>(particles_);
@@ -264,6 +272,12 @@ public:
         return world_.apply_boundary(v);
     }
 
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       const boost::shared_ptr<const structure_type> structure) const
+    {
+        return world_.apply_boundary(pos_struct_id, structure);
+    }
+
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
     {
         return world_.cyclic_transpose(p0, p1);
@@ -272,6 +286,12 @@ public:
     virtual length_type cyclic_transpose(length_type const& p0, length_type const& p1) const
     {
         return world_.cyclic_transpose(p0, p1);
+    }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         const boost::shared_ptr<const structure_type> structure) const
+    {
+        return world_.cyclic_transpose(pos_struct_id, structure);
     }
 
     particle_id_pair_range get_particles_range() const

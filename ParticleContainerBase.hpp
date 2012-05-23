@@ -8,6 +8,7 @@
 #include "generator.hpp"
 #include "exceptions.hpp"
 #include "ParticleContainer.hpp"
+#include "StructureContainer.hpp"
 #include "Transaction.hpp"
 
 template<typename Ttraits_>
@@ -22,6 +23,8 @@ struct ParticleContainerUtils
     typedef std::pair<const particle_id_type, particle_type>    particle_id_pair;
     typedef std::pair<particle_id_pair, length_type>            particle_id_pair_and_distance;
 
+    // This distance_comparator orders two tuples based on the second part of the tuple
+    // example (obj1, distance1) < (obj2, distance2) if distance1 < distance2
     template<typename Tobject_and_distance_list_>
     struct distance_comparator:
             public std::binary_function<
@@ -42,7 +45,8 @@ struct ParticleContainerUtils
     };
 
 
-
+    // The overlap checker is sorted list of tuples (object, distance) which is sorted on
+    // the second part of the tuple (the distance).
     template<typename Tobject_and_distance_list_, typename Tset_>
     struct overlap_checker
     {
@@ -120,21 +124,25 @@ public:
     typedef std::pair<particle_id_pair, length_type>                    particle_id_pair_and_distance;
     typedef sized_iterator_range<typename particle_matrix_type::const_iterator> particle_id_pair_range;
 
-    typedef typename base_type::particle_id_pair_and_distance_list                              particle_id_pair_and_distance_list;
-    typedef typename base_type::structure_id_pair_and_distance_list                             structure_id_pair_and_distance_list;
-    typedef typename base_type::structure_id_pair_and_distance                                  structure_id_pair_and_distance;
+    typedef StructureContainer<structure_type, structure_id_type, traits_type>  structure_container_type;
+    typedef typename structure_container_type::spherical_surface_type           spherical_surface_type;
+    typedef typename structure_container_type::disk_surface_type                disk_surface_type;
+    typedef typename structure_container_type::cylindrical_surface_type         cylindrical_surface_type;
+    typedef typename structure_container_type::planar_surface_type              planar_surface_type;
+    typedef typename structure_container_type::cuboidal_region_type             cuboidal_region_type;
 
-protected:
-// Implementation of the methods.
-    typedef select_second<typename structure_map::value_type>               structures_second_selector_type;
-    typedef boost::transform_iterator<structures_second_selector_type,
-            typename structure_map::const_iterator>                         structure_iterator;
-    typedef std::map<structure_id_type, structure_id_set>                   per_structure_substructure_id_set;
+    typedef typename base_type::particle_id_pair_and_distance_list      particle_id_pair_and_distance_list;
+    typedef typename base_type::structure_id_pair_and_distance_list     structure_id_pair_and_distance_list;
+    typedef typename base_type::structure_id_pair_and_distance          structure_id_pair_and_distance;
+    typedef typename base_type::position_structid_pair_type             position_structid_pair_type;
+
 
 public:
+    // constructors
     ParticleContainerBase(length_type world_size, size_type size)
-        : pmat_(world_size, size) {}
-    // constructor
+        : pmat_(world_size, size), structures_() {}
+//    ParticleContainerBase(length_type world_size, size_type size, structure_id_type default_structid)
+//        : pmat_(world_size, size), structures_(default_structid) {}
 
     virtual size_type num_particles() const
     {
@@ -178,6 +186,31 @@ public:
         return traits_type::apply_boundary(v, world_size());
     }
 
+    // apply_boundary that takes the structure on which the particle lives into account
+    // This also applies the 'local' boundary conditions of the individual structures (reflecting, periodic, moving
+    // onto another adjacent structure etc).
+
+    // To call the right function for a particular Surface we:
+    // -first need to call the 'apply_boundary method of the structure in question with the StructureContainer as an argument (to get
+    //  the StructureContainer that we need to use ->structures don't know about the container they're in!)
+    // -second call the apply_boundary method of the structure_container using the structure (which is now of a fully speciefied type!!!)
+    //  as an argument (see for example PlanarSurface.hpp, NOT surface.hpp)
+    // -Use this fully defined type to call the right function through the template method 'apply_boundary' of the StructureContainer.
+    //  (See StructureContainer.hpp)
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       const boost::shared_ptr<const structure_type> structure) const
+    {
+        // cyclic transpose the position with the structure
+        const position_structid_pair_type cyc_pos_struct_id (std::make_pair(cyclic_transpose(pos_struct_id.first, structure->position()),
+                                                                            pos_struct_id.second));
+
+        // The generalized boundary condition application first:
+        // 1. applies the boundary of the structure/surface (go around the corner etc)
+        const position_structid_pair_type new_pos_struct_id(structure->apply_boundary(cyc_pos_struct_id, structures_));
+        // 2. Then also apply the boundary condition of the world
+        return std::make_pair(apply_boundary(new_pos_struct_id.first), new_pos_struct_id.second);
+    }
+
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
     {
         return traits_type::cyclic_transpose(p0, p1, world_size());
@@ -186,6 +219,14 @@ public:
     virtual length_type cyclic_transpose(length_type const& p0, length_type const& p1) const
     {
         return traits_type::cyclic_transpose(p0, p1, world_size());
+    }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         const boost::shared_ptr<const structure_type> structure) const
+    {
+        const position_structid_pair_type cyc_pos_struct_id (std::make_pair(cyclic_transpose(pos_struct_id.first, structure->position()),
+                                                                            pos_struct_id.second));
+        return structure->cyclic_transpose(cyc_pos_struct_id, structures_);
     }
 
     // THIS SEEMS STRANGE TO PUT THIS HERE. 
@@ -242,11 +283,28 @@ public:
     }
 
     virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                                                       length_type const& sigma, structure_id_type const& ignore) const
+    {
+        typename utils::template overlap_checker<structure_id_pair_and_distance_list, boost::array<structure_id_type, 1> > checker(array_gen(ignore));
+        surface_overlap_checker(s, old_pos, current, sigma, checker);
+        return checker.result();
+    }
+
+    virtual structure_id_pair_and_distance_list* check_surface_overlap(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
                                                                        length_type const& sigma) const
     {
         typename utils::template overlap_checker<structure_id_pair_and_distance_list, boost::array<structure_id_type, 0> > checker;
-        const structure_id_set visible_structures (get_visible_structures(current));
+        surface_overlap_checker(s, old_pos, current, sigma, checker);
+        return checker.result();
+    }
 
+    template<typename Tfun_>
+    void surface_overlap_checker(particle_shape_type const& s, position_type const& old_pos, structure_id_type const& current,
+                                        length_type const& sigma, Tfun_& checker ) const
+    {
+        const structure_id_set visible_structures (structures_.get_visible_structures(current));
+
+        // get and temporarily store all the visibles structures (upto now we only had their IDs)
         structure_map temp_map;
         for (typename structure_id_set::const_iterator i(visible_structures.begin()),
                                                        e(visible_structures.end());
@@ -255,18 +313,21 @@ public:
             temp_map[(*i)] = get_structure(*i);
         }
 
+        // calculate the distances and store the surface,distance tuple in the overlap checker if smaller than the particle radius.
         for (typename structure_map::const_iterator i(temp_map.begin()),
                                                     e(temp_map.end());
              i != e; ++i)
         {
-            const position_type cyc_pos(cyclic_transpose(s.position(), ((*i).second)->position())); //
-            const length_type dist((*i).second->newBD_distance(cyc_pos, s.radius(), old_pos, sigma));
+            const position_type cyc_old_pos (cyclic_transpose(old_pos, s.position()));      // The old position transposed towards the new position (which may also be modified by periodic BC's)
+            const position_type displacement (subtract(s.position(), cyc_old_pos));         // the relative displacement from the 'old' position towards the real new position
+            const position_type cyc_pos      (cyclic_transpose(s.position(), ((*i).second)->position()));    // new position transposed to the structure in question
+            const position_type cyc_old_pos2 (subtract(cyc_pos, displacement));             // calculate the old_pos relative to the transposed new position.
+            const length_type dist((*i).second->newBD_distance(cyc_pos, s.radius(), cyc_old_pos2, sigma));
             if (dist < s.radius())
             {
                 checker(i, dist);
             }
         }
-        return checker.result();
     }
 
     particle_id_pair get_particle(particle_id_type const& id, bool& found) const
@@ -317,59 +378,35 @@ public:
         return pmat_.erase(id);
     }
 
-//////
+    ///// Structure stuff
+    virtual bool has_structure(structure_id_type const& id) const
+    {
+        return structures_.has_structure(id);
+    }
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
-        typename structure_map::const_iterator i(structure_map_.find(id));
-        if (structure_map_.end() == i)
-        {
-            throw not_found(std::string("Unknown structure (id=") + boost::lexical_cast<std::string>(id) + ")");
-        }
-        return (*i).second;
+        return structures_.get_structure(id);
     }
     virtual structures_range get_structures() const
     {
-        return get_structures_range();
+        return structures_.get_structures_range();
     }
-    virtual bool update_structure(structure_id_pair const& structid_pair)
+    template <typename Tstructid_pair_>
+    bool update_structure(Tstructid_pair_ const& structid_pair)
     {
-        typename structure_map::const_iterator i(structure_map_.find(structid_pair.first));
-        if (i != structure_map_.end())
-        // The item was already found in the map
-        {
-            if ((*i).second->structure_id() != structid_pair.second->structure_id())
-            // If the structure had a different parent structure
-            // Note that all the substructures of the structures are kept (they are aldo moved moved through the hierarchy)
-            {
-                structure_substructures_map_[(*i).second->structure_id()].erase((*i).first);
-                structure_substructures_map_[structid_pair.second->structure_id()].insert(structid_pair.first);
-            }
-            structure_map_[(*i).first] = structid_pair.second;
-            return false;
-        }
-
-        // The structure was not yet in the world.
-        // create a new item in the structure mapping
-        structure_map_[structid_pair.first] = structid_pair.second;
-        // add the id the mapping 'super_structure_id -> set of substructures'
-        structure_substructures_map_[structid_pair.second->structure_id()].insert(structid_pair.first);
-        // create a new mapping from structure id -> set of substructures
-        structure_substructures_map_[structid_pair.first] = structure_id_set();
-        return true;
+        return structures_.update_structure(structid_pair);
     }
     virtual bool remove_structure(structure_id_type const& id)
     {
-        // TODO
-        //  -get all the substructures of structure
-        //  -only remove if no substructures
-        return false;
+        return structures_.remove_structure(id);
     }
     virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
                                                                       structure_id_type const& ignore) const
     {
         typename utils::template overlap_checker<structure_id_pair_and_distance_list, boost::array<structure_id_type, 1> > checker(array_gen(ignore));
-        const structure_id_set visible_structures (get_visible_structures(current_struct_id));
+        const structure_id_set visible_structures (structures_.get_visible_structures(current_struct_id));
 
+        // get and temporarily store all the visibles structures (upto now we only had their IDs)
         structure_map temp_map;
         for (typename structure_id_set::const_iterator i(visible_structures.begin()),
                                                        e(visible_structures.end());
@@ -378,6 +415,7 @@ public:
             temp_map[(*i)] = get_structure(*i);
         }
 
+        // calculate the distances and store the surface,distance tuple in the overlap checker (in a list is sorted by distance).
         for (typename structure_map::const_iterator i(temp_map.begin()),
                                                     e(temp_map.end());
              i != e; ++i)
@@ -391,54 +429,10 @@ public:
 
 ///////// Member variables
 protected:
-    particle_matrix_type pmat_;         // just the structure (MatrixSpace) containing the particles.
-
-
-
-///////// The following are public and private methods and variables of the class but should maybe be made into a separate class
-//        (and not a part of ParticleContainerBase).
-private:
-    structures_range get_structures_range() const
-    {
-        return structures_range(
-        structure_iterator(structure_map_.begin(), structures_second_selector_type()),
-        structure_iterator(structure_map_.end(),   structures_second_selector_type()),
-        structure_map_.size());
-    }
-    // Get all the structure ids of the substructures
-    structure_id_set get_substructure_ids(structure_id_type const& id) const
-    {
-        typename per_structure_substructure_id_set::const_iterator i(
-            structure_substructures_map_.find(id));
-        if (i == structure_substructures_map_.end())
-        {
-            throw not_found(std::string("Unknown structure (id=") + boost::lexical_cast<std::string>(id) + ")");
-        }
-        return (*i).second;
-    }
-    structure_id_set get_visible_structures(structure_id_type const& id) const
-    {
-        structure_id_set visible_structures;
-
-        const boost::shared_ptr<const structure_type> structure(get_structure(id));
-        if (structure->structure_id() == id)
-        {
-            visible_structures = structure_id_set();
-        }
-        else
-        {
-            visible_structures = get_visible_structures(structure->structure_id());
-            visible_structures.erase(id);
-        }
-        const structure_id_set substructures (get_substructure_ids(id));
-        visible_structures.insert(substructures.begin(), substructures.end());
-        return visible_structures;
-    }
-
-protected:
-    structure_map                       structure_map_;     // mapping: structure_id -> structure
-    per_structure_substructure_id_set   structure_substructures_map_;
+    particle_matrix_type        pmat_;          // the structure (MatrixSpace) containing the particles.
+    structure_container_type    structures_;    // an object containing the structures.
 };
+
 
 //////// Inline methods are defined separately
 template<typename Tderived_, typename Ttraits_>

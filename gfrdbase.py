@@ -104,7 +104,7 @@ def get_all_surfaces(world, pos, ignores=[]):
             distance = world.distance(surface.shape, pos_transposed)
             surface_distances.append((surface, distance))
 
-    return surface_distances
+    return sorted(surface_distances, key=lambda surface_dist: surface_dist[1])
 
 def create_world(m, matrix_size=10):
     """Create a world object.
@@ -200,10 +200,10 @@ def create_box(world, structure_type, center, size):
     name = 'box'
     def_struct_id = world.get_def_structure_id()
     
-    front  = model.create_planar_surface(sid, name+'_front', [center[0] + size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 1, 0], [0, 0, 1], size[1], size[2], def_struct_id)
-    back   = model.create_planar_surface(sid, name+'_back',  [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 0, 1], [0, 1, 0], size[2], size[1], def_struct_id)
-    right  = model.create_planar_surface(sid, name+'_right', [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [1, 0, 0], [0, 0, 1], size[0], size[2], def_struct_id)
-    left   = model.create_planar_surface(sid, name+'_left',  [center[0] - size[0]/2, center[1] + size[1]/2, center[2] - size[2]/2], [0, 0, 1], [1, 0, 0], size[2], size[0], def_struct_id)
+    front  = model.create_planar_surface(sid, name+'_front', [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [1, 0, 0], [0, 0, 1], size[0], size[2], def_struct_id)
+    back   = model.create_planar_surface(sid, name+'_back',  [center[0] - size[0]/2, center[1] + size[1]/2, center[2] - size[2]/2], [0, 0, 1], [1, 0, 0], size[2], size[0], def_struct_id)
+    right  = model.create_planar_surface(sid, name+'_right', [center[0] + size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 1, 0], [0, 0, 1], size[1], size[2], def_struct_id)
+    left   = model.create_planar_surface(sid, name+'_left',  [center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 0, 1], [0, 1, 0], size[2], size[1], def_struct_id)
     top    = model.create_planar_surface(sid, name+'_top',   [center[0] - size[0]/2, center[1] - size[1]/2, center[2] + size[2]/2], [1, 0, 0], [0, 1, 0], size[0], size[1], def_struct_id)
     bottom = model.create_planar_surface(sid, name+'_bottom',[center[0] - size[0]/2, center[1] - size[1]/2, center[2] - size[2]/2], [0, 1, 0], [1, 0, 0], size[1], size[0], def_struct_id)
     world.add_structure(front)
@@ -212,6 +212,18 @@ def create_box(world, structure_type, center, size):
     world.add_structure(left)
     world.add_structure(top)
     world.add_structure(bottom)
+    world.connect_structures( front, 0, top, 1)
+    world.connect_structures( front, 1, bottom, 2)
+    world.connect_structures( front, 2, left, 1)
+    world.connect_structures( front, 3, right, 2)
+    world.connect_structures(  back, 0, right, 3)
+    world.connect_structures(  back, 1, left, 0)
+    world.connect_structures(  back, 2, bottom, 3)
+    world.connect_structures(  back, 3, top, 0)
+    world.connect_structures(   top, 2, left, 3)
+    world.connect_structures(   top, 3, right, 0)
+    world.connect_structures(bottom, 0, right, 1)
+    world.connect_structures(bottom, 1, left, 2)
 
 
 def create_network_rules_wrapper(model):
@@ -242,42 +254,30 @@ def throw_in_particles(world, sid, n):
         log.info('\n\tthrowing in %s particles of type %s to %s' %
                  (n, name, structure_type.id))
 
-    # This is messy, but it works.
     i = 0
     while i < int(n):
+        # This is messy, but it works.
         myrandom.shuffle(structure_list)
         structure = world.get_structure(structure_list[0])
         position = structure.random_position(myrandom.rng)
         position = world.apply_boundary(position)
 
-        surfaces = get_neighbor_surfaces(world, position, structure.id, [])
-        if surfaces:
-            surface, distance = surfaces[0]
-        else:
-            surface, distance = None, 0
+        # Check overlap. TODO put in 'if' statement for improved efficiency?
+        particle_overlaps = world.check_overlap((position, species.radius))
+        surface_overlaps  = world.check_surface_overlap((position, species.radius*MINIMAL_SEPARATION_FACTOR),
+                                                        position, structure.id, species.radius)
 
-        # Check overlap.
-        if not world.check_overlap((position, species.radius)):
-            create = True
-            # Check if not too close to a neighbouring structures for 
-            # particles added to the world, or added to a self-defined 
-            # box.
-            # FIXME replace by check_surface_overlap
-            if (isinstance(structure, _gfrd.CuboidalRegion) and \
-                surface and \
-                distance < surface.minimal_distance(species.radius)):
-                if __debug__:
-                    log.info('\t%d-th particle rejected. Too close to '
-                             'surface. I will keep trying.' % i)
-                create = False
-            if create:
-                # All checks passed. Create particle.
-                p = world.new_particle(sid, structure.id, position)
-                i += 1
-                if __debug__:
-                    log.info('(%s,\n %s' % (p[0], p[1]))
+        if (not particle_overlaps) and (not surface_overlaps):
+            # All checks passed. Create particle.
+            p = world.new_particle(sid, structure.id, position)
+            i += 1
+            if __debug__:
+                log.info('particle accepted: (%s,\n %s)' % (p[0], p[1]))
         elif __debug__:
-            log.info('\t%d-th particle rejected. I will keep trying.' % i)
+            if particle_overlaps:
+                log.info('\t%d-th particle rejected. Too close to particle. I will keep trying.' % i)
+            if surface_overlaps:
+                log.info('\t%d-th particle rejected. Too close to surface. I will keep trying.' % i)
 
 def place_particle(world, sid, position):
     """Place a particle of a certain Species at a specific position in 
@@ -297,6 +297,8 @@ def place_particle(world, sid, position):
     species = world.get_species(sid)
     radius = species.radius
 
+    # FIXME This is a mess!!
+
     # check that particle doesn't overlap with other particles.
     if world.check_overlap((position, radius)):
         raise NoSpace, 'Placing particle failed: overlaps with other particle.'
@@ -310,13 +312,12 @@ def place_particle(world, sid, position):
     # Check if not too close to a neighbouring structures for particles 
     # added to the world, or added to a self-defined box.
     if species.structure_type_id == world.get_def_structure_type_id():
-        if(surface and
-           distance < surface.minimal_distance(species.radius)):
+        structure_id = world.get_def_structure_id()
+        if world.check_surface_overlap((position, radius*MINIMAL_SEPARATION_FACTOR),
+                                       position, structure_id, radius):#(surface and distance < surface.minimal_distance(species.radius)):
             raise RuntimeError('Placing particle failed: %s %s. '
                                'Too close to surface: %s.' %
                                (sid, position, distance))
-        else:
-            structure_id = world.get_def_structure_id()
     else:
         # If the particle lives on a surface then the position should be in the closest surface.
         # The closest surface should also be of the structure_type associated with the species.
@@ -337,6 +338,10 @@ def place_particle(world, sid, position):
                  (name, world.get_structure(structure_id).name, position))
 
     particle = world.new_particle(sid, structure_id, position)
+
+    if __debug__:
+        log.info('(%s,\n %s' % (particle[0], particle[1]))
+
     return particle
 
 

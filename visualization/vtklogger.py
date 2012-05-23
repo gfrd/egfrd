@@ -411,6 +411,7 @@ class VTKLogger:
             # Pre-process disks which are put into the same
             # list as cylinders but lack the half_length property
             # TODO Give disks a different color!
+            # TODO Why the 'try' here?
             try:
                 if isinstance(cylinder.shape, Disk):
                     disk = cylinder

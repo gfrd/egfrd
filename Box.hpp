@@ -18,6 +18,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {TOP=0, BOTTOM=1, LEFT=2, RIGHT=3, FRONT=4, BACK=5} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     Box(position_type const& position = position_type())
@@ -189,6 +190,15 @@ protected:
     // Extent: for a box of 2 by 2 by 2, half_extent is 1 by 1 by 1.
     boost::array<length_type, 3> half_extent_;
 };
+
+template<typename T_>
+inline bool
+is_alongside(Box<T_> const& obj, typename Box<T_>::position_type const& pos)
+// The function checks if the projection of the position 'pos' is 'inside' the object.
+{
+    // Todo. If we ever need it.
+    return true;
+}
 
 template<typename T_>
 inline boost::array<typename Box<T_>::length_type, 3>

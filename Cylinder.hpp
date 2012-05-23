@@ -14,6 +14,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {LEFT=0, RIGHT=1} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     // constructors
@@ -101,6 +102,20 @@ inline std::basic_ostream<Tstrm_>& operator<<(std::basic_ostream<Tstrm_>& strm,
     strm << "{" << v.position() <<  ", " << v.radius() << ", " << v.unit_z() << ", " << v.half_length() << "}";
     return strm;
 }
+
+template<typename T_>
+inline bool
+is_alongside(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const& pos)
+// The function checks if the projection of the position 'pos' is 'inside' the object.
+{
+    typedef typename Cylinder<T_>::position_type    position_type;
+    typedef typename Cylinder<T_>::length_type      length_type;
+
+    const position_type pos_vector(subtract(pos, obj.position()));
+
+    return (abs(dot_product(pos_vector, obj.unit_z())) <= obj.half_length());
+}
+
 
 template<typename T_>
 inline std::pair<typename Cylinder<T_>::length_type,

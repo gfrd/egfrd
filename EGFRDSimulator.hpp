@@ -1442,7 +1442,7 @@ protected:
         single_type* new_single(0);
         domain_id_type did(didgen_());
 
-        struct factory: ImmutativeStructureVisitor<traits_type>
+        struct factory: ImmutativeStructureVisitor<typename world_type::traits_type>
         {
             virtual ~factory() {}
 
@@ -1542,7 +1542,7 @@ protected:
         pair_type* new_pair(0);
         domain_id_type did(didgen_());
 
-        struct factory: ImmutativeStructureVisitor<traits_type>
+        struct factory: ImmutativeStructureVisitor<typename world_type::traits_type>
         {
             virtual void operator()(spherical_surface_type const& structure) const
             {

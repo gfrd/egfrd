@@ -7,15 +7,19 @@
 #include "freeFunctions.hpp"
 #include "geometry.hpp"
 
+template <typename Tobj_, typename Tid_, typename Ttraits_>
+class StructureContainer;
+
+
 template<typename Ttraits_>
 class DiskSurface
-    : public BasicSurfaceImpl<Ttraits_, Disk<typename Ttraits_::world_type::traits_type::length_type> >
+    : public BasicSurfaceImpl<Ttraits_, Disk<typename Ttraits_::length_type> >
 {
     // The DiskSurface is the implementation of a Basic surface parameterized with a Disk
 
 public:
-    typedef BasicSurfaceImpl<Ttraits_, Disk<typename Ttraits_::world_type::traits_type::length_type> > base_type;
-    typedef typename base_type::traits_type             traits_type;    
+    typedef BasicSurfaceImpl<Ttraits_, Disk<typename Ttraits_::length_type> > base_type;
+    typedef Ttraits_    traits_type;
     typedef typename base_type::structure_name_type     structure_name_type;
     typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
@@ -23,8 +27,13 @@ public:
     typedef typename base_type::rng_type                rng_type;
     typedef typename base_type::position_type           position_type;
     typedef typename base_type::length_type             length_type;
-    typedef typename Ttraits_::world_type::species_type species_type;
-    typedef std::pair<position_type, position_type>     position_pair_type;
+    typedef typename base_type::side_enum_type          side_enum_type;
+    typedef typename traits_type::species_type          species_type;
+
+    typedef StructureContainer<Structure<traits_type>, structure_id_type, traits_type>    structure_container_type;
+
+    typedef std::pair<position_type, position_type>         position_pair_type;
+    typedef std::pair<position_type, structure_id_type>     position_structid_pair_type;
 
     virtual position_type random_position(rng_type& rng) const
     // Gives a "random position" in the disk, which is always its center,
@@ -43,7 +52,7 @@ public:
     virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const
     // BD displacement = zero vector because there is only one legal position on the disk
     {
-        return multiply(base_type::shape().unit_z(), 0.0);
+        return multiply(base_type::shape().unit_z(), 0.0);  // TODO is there not cheaper way to pass a zero vector?
     }
 
     virtual length_type drawR_gbd(Real const& rnd, length_type const& r01, Real const& dt, Real const& D01, Real const& v) const
@@ -118,6 +127,7 @@ public:
         // This function produces a position for a particle unbinding from the disk onto the rod.
         // It should lie within the reaction volume around the disk.
         // TODO: We have to make a distinction between sink and cap already here!
+        // FIXME WTF is all this calculation!! The dissociation vector is supposed to be super simple!
         Real X( rng.uniform(0.,1.) );
         length_type const rod_radius = base_type::shape().radius();
         position_type const unit_z = base_type::shape().unit_z();
@@ -198,39 +208,42 @@ public:
         
         return pp01;
     }
-
-    /* Determine if particle has crossed the 'surface' of the structure. */
-    virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
-        length_type const& dist_to_surface, length_type const& particle_radius) const
-    {       
-        // TODO Remove this after merge with newest development version!
-        if( dist_to_surface < particle_radius )
-            return true;
-        else
-            return false;
-    }
-    
-    virtual bool in_reaction_volume( length_type const& dist_to_surface, length_type const& particle_radius, length_type const& rl ) const
-    {
-        // TODO Remove this after merge with newest development version!
-        if( dist_to_surface - particle_radius <= rl )
-            return true;
-        else
-            return false;
-    }
-    
-    // This should replace above two methods. TODO Copied from CylindricalStructure up to now
+   
     virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const
     {
-        return base_type::distance(new_pos);
+        const length_type disk_radius (base_type::shape().radius());
+        const boost::array<length_type, 2> new_pos_rz(::to_internal(base_type::shape(), new_pos));
+        const boost::array<length_type, 2> old_pos_rz(::to_internal(base_type::shape(), old_pos));
+        if (new_pos_rz[1] * old_pos_rz[1] < 0 &&
+            ( (new_pos_rz[0] < disk_radius ) || (old_pos_rz[0] < disk_radius) ) )
+        {
+            return -1.0 * base_type::distance(new_pos) + sigma;
+        }
+        else
+        {
+            return base_type::distance(new_pos) + sigma;
+        }
     }
-
+/*
     virtual length_type minimal_distance(length_type const& radius) const
     {
         // TODO
         length_type cylinder_radius = base_type::shape().radius();
         // Return minimal distance *to* surface.
         return (cylinder_radius + radius) * traits_type::MINIMAL_SEPARATION_FACTOR - cylinder_radius;
+    }
+*/
+    // FIXME This is a mess but it works. See ParticleContainerBase.hpp for explanation.
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       structure_container_type const& structure_container) const
+    {
+        return pos_struct_id;   // This seems a little strange, but we assume that particles are immobile on the disk
+    }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         structure_container_type const& structure_container) const
+    {
+        return pos_struct_id;   // Disks can also not be connected, so no cyclic transpose.
     }
 
     virtual void accept(ImmutativeStructureVisitor<traits_type> const& visitor) const

@@ -7,15 +7,20 @@
 #include "freeFunctions.hpp"
 #include "geometry.hpp"
 
+template <typename Tobj_, typename Tid_, typename Ttraits_>
+class StructureContainer;
+
 template<typename Ttraits_>
 class CylindricalSurface
-    : public BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> >
+    : public BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::length_type> >
 {
     // The CylindricalSurface is the implementation of a Basic surface parameterized with a Cylinder
 
 public:
-    typedef BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::world_type::traits_type::length_type> > base_type;
-    typedef typename base_type::traits_type traits_type;
+    typedef BasicSurfaceImpl<Ttraits_, Cylinder<typename Ttraits_::length_type> > base_type;
+    typedef Ttraits_ traits_type;
+
+    // name shorthands of types that we use.
     typedef typename base_type::structure_name_type     structure_name_type;        // This is just the name of the structure
     typedef typename base_type::structure_id_type       structure_id_type;
     typedef typename base_type::structure_type_id_type  structure_type_id_type;
@@ -23,8 +28,15 @@ public:
     typedef typename base_type::rng_type                rng_type;
     typedef typename base_type::position_type           position_type;
     typedef typename base_type::length_type             length_type;
-    typedef typename Ttraits_::world_type::species_type species_type;
+    typedef typename base_type::side_enum_type          side_enum_type;
+    typedef typename traits_type::species_type          species_type;
+
+    typedef StructureContainer<typename traits_type::structure_type, structure_id_type, traits_type>    structure_container_type;
+
     typedef std::pair<position_type, position_type>     position_pair_type;
+    typedef std::pair<position_type, structure_id_type> position_structid_pair_type;
+
+
 
     virtual position_type random_position(rng_type& rng) const
     // Gives a random position in the cylinder (1D)
@@ -191,36 +203,30 @@ public:
         
         return pp01;
     }
-
-    /* Determine if particle has crossed the 'surface' of the structure. */
-    virtual bool bounced(position_type const& old_pos, position_type const& new_pos, 
-        length_type const& dist_to_surface, length_type const& particle_radius) const
-    {       
-        if( dist_to_surface < particle_radius )
-            return true;
-        else
-            return false;
-    }
-    
-    virtual bool in_reaction_volume( length_type const& dist_to_surface, length_type const& particle_radius, length_type const& rl ) const
-    {
-        if( dist_to_surface - particle_radius <= rl )
-            return true;
-        else
-            return false;
-    }
-
-    // This should replace above two methods.
     virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const
     {
         return base_type::distance(new_pos);
     }
-
+/*
     virtual length_type minimal_distance(length_type const& radius) const
     {
         length_type cylinder_radius = base_type::shape().radius();
         // Return minimal distance *to* surface.
         return (cylinder_radius + radius) * traits_type::MINIMAL_SEPARATION_FACTOR - cylinder_radius;
+    }
+*/
+
+    // FIXME This is a mess but it works. See ParticleContainerBase.hpp for explanation.
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
+                                                       structure_container_type const& structure_container) const
+    {
+        return structure_container.apply_boundary(*this, pos_struct_id);
+    }
+
+    virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
+                                                         structure_container_type const& structure_container) const
+    {
+        return pos_struct_id;       // for now we do not support connected cylindrical surfaces.
     }
 
     virtual void accept(ImmutativeStructureVisitor<traits_type> const& visitor) const

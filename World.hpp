@@ -232,6 +232,14 @@ public:
     typedef typename base_type::structure_id_set                            structure_id_set;
     typedef typename base_type::structure_types_range                       structure_types_range;
 
+    typedef typename base_type::cuboidal_region_type                cuboidal_region_type;
+    typedef typename base_type::planar_surface_type                 planar_surface_type;
+    typedef typename base_type::cylindrical_surface_type            cylindrical_surface_type;
+    typedef typename base_type::disk_surface_type                   disk_surface_type;
+    typedef typename base_type::spherical_surface_type              spherical_surface_type;
+    typedef typename planar_surface_type::side_enum_type            planar_surface_side_type;
+    typedef typename cylindrical_surface_type::side_enum_type       cylindrical_surface_side_type;
+
 protected:
     typedef std::map<species_id_type, species_type>                         species_map;
     typedef std::map<structure_id_type, boost::shared_ptr<structure_type> > structure_map;          // note: this is a structure_map_type
@@ -252,11 +260,9 @@ public:
 public:
     // The constructor
     World(length_type world_size = 1., size_type size = 1)
-        : base_type(world_size, size), default_structure_id_(structidgen_())
+        : base_type(world_size, size)
     {
-        // Make sure that the mapping for the default structure already exists.
-        // FIXME this is kinda ugly, but didn't want to add another argument to the base_type constructor
-        base_type::structure_substructures_map_[default_structure_id_] = structure_id_set();
+        base_type::structures_.initialize(structidgen_());
     }
 
     // To create new particles
@@ -362,32 +368,33 @@ public:
 
     ////// Structure stuff
     // Add a structure 
-    virtual structure_id_type add_structure(boost::shared_ptr<structure_type> structure)
+    template <typename Tstructure_>
+    structure_id_type add_structure(boost::shared_ptr<Tstructure_> structure)
     {
         // check that the structure_type that is defined in the structure exists!
         structure_type_type const& structure_type(get_structure_type(structure->sid()));
 
-        structure_id_type structure_id(structidgen_());
+        const structure_id_type structure_id(structidgen_());
         structure->set_id(structure_id);
         update_structure(std::make_pair(structure_id, structure));
         return structure_id;
     }
     // update structure
-    virtual bool update_structure(structure_id_pair const& structid_pair)
+    template <typename Tstructid_pair_>
+    bool update_structure(Tstructid_pair_ const& structid_pair)
     {
-        typename base_type::structure_map::const_iterator i(base_type::structure_map_.find(structid_pair.first));
-        if (i != base_type::structure_map_.end())
+        if ( base_type::has_structure(structid_pair.first) )
         // The item was already found
         {
             // FIXME what to do when the structure has particles and moves or changes structure_type?!?!
-            // FIXME Or what to do when the structure has substructures?!
             //  get all particles on the structure
             //  assert that no particles if structure type changes.
 
-            if ((*i).second->sid() != structid_pair.second->sid())
+            const boost::shared_ptr<const structure_type> structure (base_type::get_structure(structid_pair.first));
+            if (structure->sid() != structid_pair.second->sid())
             // If the structuretype changed we need to update the 'structure_type_id->structure ids' mapping
             {
-                structure_pool_[(*i).second->sid()].erase((*i).first);
+                structure_pool_[structure->sid()].erase(structure->id());
                 structure_pool_[structid_pair.second->sid()].insert(structid_pair.first);
             }
             base_type::update_structure(structid_pair);
@@ -410,6 +417,13 @@ public:
         //  -only remove if no particles
         return base_type::remove_structure(id);
     }
+    template <typename Tstructure_, typename Tside_enum_>
+    bool connect_structures(Tstructure_ const& structure1, Tside_enum_ const& side1,
+                            Tstructure_ const& structure2, Tside_enum_ const& side2)
+    {
+        return base_type::structures_.connect_structures(structure1, side1, structure2, side2);
+    }
+
     // Get all the structure ids by structure_type id
     structure_id_set get_structure_ids(structure_type_id_type const& sid) const
     {
@@ -424,22 +438,28 @@ public:
     // Get and set the default structure of the World
     virtual structure_id_type get_def_structure_id() const
     {
-        return default_structure_id_;
+        return base_type::structures_.get_def_structure_id();
     }
-    void set_def_structure(const boost::shared_ptr<structure_type> structure)
+    void set_def_structure(const boost::shared_ptr<cuboidal_region_type> cuboidal_region)
     {
+        const structure_id_type default_struct_id(get_def_structure_id());
+
         // check that the structure_type is the default structure_type
         if (!default_structure_type_id_ ||
-            (structure->sid() != default_structure_type_id_) || 
-            (structure->structure_id() != default_structure_id_) )
+            (cuboidal_region->sid() != default_structure_type_id_) )
         {
-            throw illegal_state("Default structure doesn't have right properties");
+            throw illegal_state("Default structure is not of default StructureType");
         }
-        // check that the structure_type that is defined in the structure exists!
-        structure_type_type const& structure_type(get_structure_type(structure->sid()));
+        if ( cuboidal_region->structure_id() != default_struct_id)
+        {
+            throw illegal_state("Default structure should have itself as parent.");
+        }
 
-        structure->set_id(default_structure_id_);
-        update_structure(std::make_pair(default_structure_id_, structure));
+        // check that the structure_type that is defined in the structure exists!
+        structure_type_type const& structure_type(get_structure_type(cuboidal_region->sid()));
+
+        cuboidal_region->set_id(default_struct_id);
+        update_structure(std::make_pair(default_struct_id, cuboidal_region));
     }
     // Get the closest surface(surface is a subclass of structures)
     // TODO change this to get all the surfaces within a certain distance of the particle.

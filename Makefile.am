@@ -51,6 +51,7 @@ noinst_HEADERS = \
 	BDSimulator.hpp\
 	bessel.hpp\
 	Box.hpp\
+    ConnectivityContainer.hpp\
 	ConsoleAppender.hpp\
 	Cylinder.hpp\
 	Disk.hpp\
@@ -119,6 +120,7 @@ noinst_HEADERS = \
 	SphericalBesselTable.hpp\
 	Structure.hpp\
     StructureID.hpp\
+    StructureContainer.hpp\
 	StructureUtils.hpp\
 	StructureType.hpp\
 	Surface.hpp\

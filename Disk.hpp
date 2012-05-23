@@ -10,9 +10,10 @@ template<typename T_>
 class Disk
 {
 public:
-    typedef T_ value_type;
+    typedef T_          value_type;
     typedef Vector3<T_> position_type;
-    typedef T_ length_type;
+    typedef T_          length_type;
+    typedef enum side_enum_type {} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     // constructors
@@ -74,9 +75,9 @@ public:
 
 /////// Member variables
 private:
-    position_type position_;    // centre.
-    length_type radius_;
-    position_type unit_z_;      // Z-unit_z. should be normalized.
+    position_type   position_;    // centre.
+    length_type     radius_;
+    position_type   unit_z_;      // Z-unit_z. should be normalized.
 };
 
 
@@ -90,14 +91,24 @@ inline std::basic_ostream<Tstrm_>& operator<<(std::basic_ostream<Tstrm_>& strm,
 }
 
 template<typename T_>
-inline std::pair<typename Disk<T_>::length_type,
-                 typename Disk<T_>::length_type>
+inline bool
+is_alongside(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
+// The function checks if the projection of the position 'pos' is 'inside' the object.
+{
+    boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
+
+    return ( r_z[0] <= obj.radius() );
+}
+
+
+template<typename T_>
+inline boost::array<typename Disk<T_>::length_type, 2>
 to_internal(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
 {
     // Same as for the cylinder:
     // Return pos relative to position of the disk.
-    typedef typename Disk<T_>::position_type position_type;
-    typedef typename Disk<T_>::length_type length_type;
+    typedef typename Disk<T_>::position_type    position_type;
+    typedef typename Disk<T_>::length_type      length_type;
 
     const position_type pos_vector(subtract(pos, obj.position()));
     // z can be < 0
@@ -105,7 +116,7 @@ to_internal(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
     // r is always >= 0
     const length_type r(length(pos_vector - multiply(obj.unit_z(), z)));
 
-    return std::make_pair(r, z);
+    return array_gen<typename Disk<T_>::length_type>(r, z);
 }
 
 template<typename T_>
@@ -119,9 +130,9 @@ projected_point(Disk<T_> const& obj,
     // The disk is in principle a 1D object:
     // Projecting onto the disk means projecting onto its center.
     // The distance is the z-component returned by to_internal().
-    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
     
-    return std::make_pair( obj.position(), r_z.second);
+    return std::make_pair( obj.position(), r_z[1]);
 }
 
 // The same as in case of the plane: projected_point_on_surface = projected_point
@@ -146,14 +157,14 @@ distance(Disk<T_> const& obj,
      * defined by the vectors unitR and unit_z, where unitR is
      * choosen such that unitR and unit_z define a plane in which
      * pos lies. */
-    const std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    const boost::array<length_type, 2> r_z(to_internal(obj, pos));
 
     /* Then compute distance to cylinder with zero length. */
-    const length_type dz(std::fabs(r_z.second));
-    const length_type dr(r_z.first - obj.radius());
+    const length_type dz(std::fabs(r_z[1]));
+    const length_type dr(r_z[0] - obj.radius());
     length_type distance;
 
-    if (r_z.first > obj.radius())
+    if (dr > 0)
     {
         // pos is not above the disk.
         // Compute distance to edge.
