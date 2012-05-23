@@ -193,9 +193,9 @@ min_dist_proj_to_edge(Disk<T_> const& obj,
      * defined by the vectors unitR and unit_z, where unitR is
      * choosen such that unitR and unit_z define a plane in which
      * pos lies. */
-    const std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    const boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
     /* Then compute distance to radial edge. */
-    const length_type dr(r_z.first - obj.radius());
+    const length_type dr(r_z[0] - obj.radius());
 
     if (dr < 0)         return -dr;
     else                return 0;
@@ -230,10 +230,10 @@ allows_interaction_from(Disk<T_> const& obj, typename Disk<T_>::position_type co
 {
     typedef typename Disk<T_>::length_type length_type;
 
-    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    const boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
     
     // Return true if the projection of pos is within the disk's radius
-    return ( r_z.first <= obj.radius() );
+    return ( r_z[0] <= obj.radius() );
 }
 
 

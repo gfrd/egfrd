@@ -636,7 +636,7 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
             assert(2.0*abs(pos1_orth*pos2_orth) < (l_iv*l_iv))  # That should never fail!
             iv_safety = 1.0/( 1.0 - 2.0*abs(pos1_orth*pos2_orth)/(l_iv*l_iv) )
             # Recalculate the interparticle vector and new positions
-            iv_rescaled = iv_safety * iv            
+            iv_rescaled = iv_safety * iv
             pos1 = com - iv_rescaled * (D1 / D_tot)
             pos2 = com + iv_rescaled * (D2 / D_tot)
 
