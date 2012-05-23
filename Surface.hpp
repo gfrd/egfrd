@@ -116,6 +116,11 @@ public:
         return ::distance(shape(), pos);
     }
     
+    virtual length_type min_dist_proj_to_edge(position_type const& pos) const
+    {
+        return ::min_dist_proj_to_edge(shape(), pos);
+    }
+    
     virtual position_type const& position() const
     {
         return ::shape_position(shape());
@@ -129,6 +134,13 @@ public:
     virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const
     {
         return ::deflect_back(shape(), pos, u_z);
+    }
+    
+    virtual bool allows_interaction_from(position_type const& pos) const
+    {
+        return ::allows_interaction_from(shape(), pos);
+        // returns true if a particle at position pos is supposed to
+        // be able to interact with the surface
     }
     
     virtual bool is_alongside(position_type const& pos) const

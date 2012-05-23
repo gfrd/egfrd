@@ -122,6 +122,15 @@ distance(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
 }
 
 template<typename T_>
+inline typename Sphere<T_>::length_type
+min_dist_proj_to_edge(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
+// Calculates the distance from the projection of 'pos' to the edge of the sphere.
+// Since the projection is always at the sphere center, this is just the radius.
+{
+    return obj.radius();
+}
+
+template<typename T_>
 inline std::pair<typename Sphere<T_>::position_type, bool>
 deflect(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& r0, typename Sphere<T_>::position_type const& d)
 {
@@ -139,6 +148,15 @@ deflect_back(Sphere<T_> const& obj,
 {
     // Return the vector r without any changes
     return r;
+}
+
+template<typename T_>
+inline bool
+allows_interaction_from(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
+// Returns true if a particle at position pos is supposed to interact with the sphere
+{
+    // By default any point outside the sphere can interact with it
+    return ( length(subtract(pos, obj.position())) >= obj.radius() ); 
 }
 
 template<typename T_>

@@ -109,6 +109,11 @@ public:
         return ::distance(shape(), pos);
     }
     
+    virtual length_type min_dist_proj_to_edge(position_type const& pos) const
+    {
+        return ::min_dist_proj_to_edge(shape(), pos);
+    }
+    
     virtual position_type const& position() const
     {
         return ::shape_position(shape());
@@ -124,6 +129,11 @@ public:
         return ::deflect_back(shape(), pos, u_z);
     }
     
+    virtual bool allows_interaction_from(position_type const& pos) const
+    {
+        return ::allows_interaction_from(shape(), pos);
+    }
+
     virtual bool is_alongside(position_type const& pos) const
     {
         return ::is_alongside(shape(), pos);

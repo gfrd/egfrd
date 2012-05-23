@@ -180,6 +180,28 @@ distance(Disk<T_> const& obj,
 }
 
 template<typename T_>
+inline typename Disk<T_>::length_type
+min_dist_proj_to_edge(Disk<T_> const& obj,
+                typename Disk<T_>::position_type const& pos)
+// Calculates the distance from the projection of 'pos' to the edge of the disk
+// if it is within in the disk; if not, it returns zero
+{
+    typedef typename Disk<T_>::position_type position_type;
+    typedef typename Disk<T_>::length_type length_type;
+
+    /* First compute the (r,z) components of pos in a coordinate system 
+     * defined by the vectors unitR and unit_z, where unitR is
+     * choosen such that unitR and unit_z define a plane in which
+     * pos lies. */
+    const std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    /* Then compute distance to radial edge. */
+    const length_type dr(r_z.first - obj.radius());
+
+    if (dr < 0)         return -dr;
+    else                return 0;
+}
+
+template<typename T_>
 inline std::pair<typename Disk<T_>::position_type, bool>
 deflect(Disk<T_> const& obj,
         typename Disk<T_>::position_type const& r0,
@@ -200,6 +222,20 @@ deflect_back(Disk<T_> const& obj,
     // Return the vector r without any changes
     return r;
 }
+
+template<typename T_>
+inline bool
+allows_interaction_from(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
+// Returns true if a particle at position pos is supposed to interact with the disk
+{
+    typedef typename Disk<T_>::length_type length_type;
+
+    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
+    
+    // Return true if the projection of pos is within the disk's radius
+    return ( r_z.first <= obj.radius() );
+}
+
 
 template<typename T, typename Trng>
 inline typename Disk<T>::position_type

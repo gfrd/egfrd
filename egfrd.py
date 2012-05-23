@@ -17,10 +17,12 @@ from _gfrd import (
     ParticleContainer,
     CuboidalRegion,
     CylindricalSurface,
+    DiskSurface,
     PlanarSurface,
     Surface,
     _random_vector,
     Cylinder,
+    Disk,
     Sphere,
     Plane,
     NetworkRulesWrapper,
@@ -47,10 +49,13 @@ from shells import (
     PlanarSurfaceTransitionPairtestShell,
     CylindricalSurfaceSingletestShell,
     CylindricalSurfacePairtestShell,
+    DiskSurfaceSingletestShell,
     PlanarSurfaceInteractiontestShell,
     CylindricalSurfaceInteractiontestShell,
+    CylindricalSurfaceCapInteractiontestShell,
     CylindricalSurfaceSinktestShell,
     MixedPair2D3DtestShell,
+    MixedPair1DCaptestShell,
     )
 
 import logging
@@ -72,6 +77,10 @@ def create_default_single(domain_id, shell_id, pid_particle_pair, structure, rea
         # first make the test shell
         testSingle = CylindricalSurfaceSingletestShell(pid_particle_pair, structure, geometrycontainer, domains)
         return CylindricalSurfaceSingle (domain_id, shell_id, testSingle, reaction_rules)
+    elif isinstance(structure, DiskSurface):
+        # first make the test shell
+        testSingle = DiskSurfaceSingletestShell(pid_particle_pair, structure, geometrycontainer, domains)
+        return DiskSurfaceSingle (domain_id, shell_id, testSingle, reaction_rules)
 
 ### Interactions
 def try_default_testinteraction(single, target_structure, geometrycontainer, domains):
@@ -85,7 +94,9 @@ def try_default_testinteraction(single, target_structure, geometrycontainer, dom
     elif isinstance(single.structure, PlanarSurface):
         raise testShellError('(Interaction). Combination of (2D particle, target_structure) is not supported')
     elif isinstance(single.structure, CylindricalSurface):
-        if isinstance(target_structure, CylindricalSurface):     # TODO differentiate between a sink and a cap
+        if isinstance(target_structure, DiskSurface):
+            return CylindricalSurfaceCapInteractiontestShell (single, target_structure, geometrycontainer, domains)
+        elif isinstance(target_structure, CylindricalSurface):
             return CylindricalSurfaceSinktestShell (single, target_structure, geometrycontainer, domains)
         else:
             raise testShellError('(Interaction). Combination of (1D particle, target_structure) is not supported')
@@ -97,6 +108,8 @@ def create_default_interaction(domain_id, shell_id, testShell, reaction_rules, i
         return CylindricalSurfaceInteraction (domain_id, shell_id, testShell, reaction_rules, interaction_rules)
     elif isinstance(testShell, PlanarSurfaceInteractiontestShell):
         return PlanarSurfaceInteraction      (domain_id, shell_id, testShell, reaction_rules, interaction_rules)
+    elif isinstance(testShell, CylindricalSurfaceCapInteractiontestShell):
+        return CylindricalSurfaceCapInteraction   (domain_id, shell_id, testShell, reaction_rules, interaction_rules)
     elif isinstance(testShell, CylindricalSurfaceSinktestShell):
         return CylindricalSurfaceSink        (domain_id, shell_id, testShell, reaction_rules, interaction_rules)
 
@@ -133,9 +146,13 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
         return MixedPair2D3DtestShell(single1, single2, geometrycontainer, domains) 
     elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
         return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
+    elif (isinstance(single1.structure, DiskSurface) and isinstance(single2.structure, CylindricalSurface)):
+        return MixedPair1DCaptestShell(single1, single2, geometrycontainer, domains)
+    elif (isinstance(single2.structure, DiskSurface) and isinstance(single1.structure, CylindricalSurface)):
+        return MixedPair1DCaptestShell(single2, single1, geometrycontainer, domains)
     else:
-        # a 1D/3D pair was supposed to be formed -> unsupported
-        raise testShellError('(MixedPair). combination of structure not supported')
+        # another mixed pair was supposed to be formed -> unsupported
+        raise testShellError('(MixedPair). combination of structures not supported')
         
 def create_default_pair(domain_id, shell_id, testShell, reaction_rules):
     # Either SphericalPair, PlanarSurfacePair, or CylindricalSurfacePair.
@@ -147,10 +164,11 @@ def create_default_pair(domain_id, shell_id, testShell, reaction_rules):
         return PlanarSurfaceTransitionPair (domain_id, shell_id, testShell, reaction_rules)
     elif isinstance(testShell, CylindricalSurfacePairtestShell):
         return CylindricalSurfacePair      (domain_id, shell_id, testShell, reaction_rules)
-    # or MixedPair (3D/2D)
+    # or MixedPair (3D/2D or 1D/Cap)
     elif isinstance(testShell, MixedPair2D3DtestShell):
         return MixedPair2D3D               (domain_id, shell_id, testShell, reaction_rules)
-
+    elif isinstance(testShell, MixedPair1DCaptestShell):
+        return MixedPair1DCap              (domain_id, shell_id, testShell, reaction_rules)
 
 class DomainEvent(Event):
     __slot__ = ['data']
@@ -956,6 +974,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
                                         (reactant_structure.shape.unit_z * numpy.dot(unit_vector3D, reactant_structure.shape.unit_z)))
                         vector = reactant_pos + vector_length * unit_vector2D
                         product_pos_list.append(vector)
+
+                elif isinstance(reactant_structure, DiskSurface):
+                    vector_length = 1.0*product_radius * MINIMAL_SEPARATION_FACTOR
+                    vector        = reactant_pos + vector_length * reactant_structure.shape.unit_z
+                    product_pos_list.append(vector)
+
                 else:
                     # cannot decay from 3D to other structure
                     raise RuntimeError('fire_single_reaction: Can not decay from 3D to other structure')
@@ -1530,17 +1554,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
             if (isinstance (domain, NonInteractionSingle) and domain.is_reset()):
                 # distance from the center of the particles/domains
                 pair_distance = self.world.distance(single_pos, domain.shell.shape.position)
-                pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * SINGLE_SHELL_FACTOR * 5 # HACK
+                pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * SINGLE_SHELL_FACTOR * 5 # HACK  to be balanced
                 pair_interaction_partners.append((domain, pair_distance - pair_horizon))
         
         for surface, surface_distance in surface_distances:
-            if isinstance(surface, PlanarSurface):
-                # with a planar surface it is the center of mass that 'looks around'
-                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0)
+            if isinstance(surface, PlanarSurface) or isinstance(surface, DiskSurface):
+                # with a planar or disk surface it is the center of mass that 'looks around'
+                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0) * 5 # HACK to be balanced
             else:
                 # with a cylindrical surface it is the surface of the particle
                 surface_horizon = single_radius * SINGLE_SHELL_FACTOR
-            if isinstance(surface, PlanarSurface) and isinstance(single.structure, PlanarSurface):        # HACK
+            if isinstance(surface, PlanarSurface) and isinstance(single.structure, PlanarSurface):        # HACK  to be balanced
                 surface_horizon = single_radius * SINGLE_SHELL_FACTOR * 2
             pair_interaction_partners.append((surface, surface_distance - surface_horizon))
 
@@ -1563,7 +1587,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
             elif isinstance(obj, PlanarSurface) and isinstance(single.structure, PlanarSurface):
                 domain = self.try_transition(single, obj)
 
-            elif isinstance(obj, CylindricalSurface) or isinstance(obj, PlanarSurface):
+            elif ( isinstance(obj, CylindricalSurface) or isinstance(obj, PlanarSurface) or isinstance(obj, DiskSurface) ) \
+             and obj.allows_interaction_from(single_pos) :
                 # try making an Interaction
                 domain = self.try_interaction (single, obj)
 
@@ -2568,6 +2593,14 @@ rejected moves = %d
             # 3D NonInteractionSingles can overlap with planar surfaces but not with rods
             ignores = [s.id for s in self.world.structures if isinstance(s, PlanarSurface)]
             associated = []
+        elif isinstance(domain, DiskSurfaceSingle):
+            # Particles bound to DiskSurfaces ignore all rods for now. TODO Only ignore parent structure
+            ignores = [s.id for s in self.world.structures if isinstance(s, CylindricalSurface)]
+            associated = [domain.structure.id]
+        elif isinstance(domain, CylindricalSurfaceInteraction):
+            # Ignore surface of the particle and interaction surface and all DiskSurfaces for now.
+            ignores = [s.id for s in self.world.structures if isinstance(s, DiskSurface)]
+            associated = [domain.origin_structure.id, domain.target_structure.id]
         elif isinstance(domain, InteractionSingle) or isinstance(domain, MixedPair2D3D):
             # Ignore surface of the particle and interaction surface
             ignores = []
@@ -2694,11 +2727,22 @@ rejected moves = %d
                 else:
                     raise RuntimeError('check_shape_overlap: planes and cylinders should be either parallel or perpendicular.')
 
-        # overlap criterium when both shells are cylindrical 
-        elif (type(shape1) is Cylinder) and (type(shape2) is Cylinder):
+        # overlap criterium when both shells are cylindrical or disks (= cylinders with half_length = 0.0)
+        elif (type(shape1) is Cylinder) and (type(shape2) is Cylinder) or \
+             (type(shape1) is Cylinder) and (type(shape2) is Disk) or \
+             (type(shape1) is Disk)     and (type(shape2) is Cylinder) or \
+             (type(shape1) is Disk)     and (type(shape2) is Disk) :
 
-            if math.sqrt(shape1.half_length**2 + shape1.radius**2) < self.world.distance(shape2, shape1.position) or \
-               math.sqrt(shape2.half_length**2 + shape2.radius**2) < self.world.distance(shape1, shape2.position):
+            # Disk has no property half_length, so check type before any calculation
+            shape1_hl = 0.0
+            shape2_hl = 0.0
+            if type(shape1) is Cylinder:
+                shape1_hl = shape1.half_length
+            if type(shape2) is Cylinder:                
+                shape2_hl = shape2.half_length
+
+            if math.sqrt(shape1_hl**2 + shape1.radius**2) < self.world.distance(shape2, shape1.position) or \
+               math.sqrt(shape2_hl**2 + shape2.radius**2) < self.world.distance(shape1, shape2.position):
                 # if cylinder2 is outside the sphere surrounding the cylinder.
                 return 1
             else: 
@@ -2708,18 +2752,22 @@ rejected moves = %d
                 inter_pos = shape1_post - shape2_pos
 
                 relative_orientation = numpy.dot(shape1.unit_z, shape2.unit_z)
-                # if the unit_z of the plane is perpendicular to the axis of the cylinder.
+                # if the unit_z of cylinder1 (disk1) is perpendicular to the axis of cylinder2 (disk2).
                 if feq(relative_orientation, 0.0):
-                    return 1
+                    return 1                                      # TODO Why does this always return 1 ?
 
 
                 elif feq(abs(relative_orientation), 1.0):
                     inter_pos_z = shape2.unit_z * numpy.dot(inter_pos, shape2.unit_z)
                     inter_pos_r = inter_pos - inter_pos_z
                     overlap_r = length(inter_pos_r) - (shape1.radius + shape2.radius)
-                    overlap_z = length(inter_pos_z) - (shape1.half_length + shape2.half_length)
-                    if (overlap_r < 0.0) and (overlap_z < 0.0):
-                        return -(overlap_r * overlap_z)           # TODO: find better number for overlap measure
+                    overlap_z = length(inter_pos_z) - (shape1_hl + shape2_hl)
+                    if (overlap_r <= 0.0) and (overlap_z <= 0.0):
+                        if (overlap_r == 0.0) or (overlap_z == 0.0):
+                            # Special treatment of "direct overlap", i.e. e.g. two overlapping disks
+                            return -1
+                        else:
+                            return -(overlap_r * overlap_z)        # TODO: find better number for overlap measure
                     else:
                         return 1
                 else:

@@ -23,6 +23,7 @@ __all__ = [
     'SimplePair',
     'MixedPair2D3D',
     'MixedPair1D3D',
+    'MixedPair1DCap',
     ]
 
 
@@ -1022,4 +1023,87 @@ class MixedPair1D3D(Pair):
     @ classmethod
     def calc_r_scaling_factor(cls, D1, D2):
         return math.sqrt((D1 + D2)/D2)
+
+
+class MixedPair1DCap(Pair, hasCylindricalShell):
+
+    def __init__(self, domain_id, shell_id, testShell, rrs):
+
+        assert isinstance(testShell, MixedPair1DCaptestShell)
+        hasCylindricalShell.__init__(self, testShell, domain_id)
+        Pair.__init__(self, domain_id, shell_id, rrs)
+
+        assert isinstance(self.testShell, MixedPair1DCaptestShell)
+        self.cap_structure = self.testShell.cap_structure # equal to self.structure1
+        self.structure1D   = self.testShell.structure1D   # equal to self.structure2
+
+        # NOTE: self.pid_particle_pair1 is the cap particle
+        # and should be immobile
+        assert self.pid_particle_pair1[1].D == 0
+        assert self.pid_particle_pair1[1].v == 0
+
+        self.LD_MAX = numpy.inf # TODO what is that for?
+
+    def get_shell_size(self): # TODO Is that even used?
+        return self.shell.shape.half_length
+
+    def get_v_tot(self):
+        # 'direction' signifies the direction of the IV with respect to the surface unit_z
+        # (which defines the direction of positive drift)
+        # Assuming self.pid_particle_pair1[1].v == 0 here
+        direction = cmp(numpy.dot (self.iv, self.structure1D.shape.unit_z), 0)
+        return self.pid_particle_pair2[1].v * direction
+
+    # NOTE the v_tot and v_r are now positive in the direction of the IV!
+    v_tot = property(get_v_tot)
+    
+    v_r = property(get_v_tot)
+
+    def get_v_R(self):
+        # With our transform D_R and v_R are zero if one of the particles is immobile
+        return 0.0
+    v_R = property(get_v_R)
+
+    def com_greens_function(self):
+        # The Green's function used should be irrelevant, because D_R=0 and v_R=0
+        return GreensFunction1DAbsAbs(self.D_R, self.v_R, 0.0, -self.a_R, self.a_R)
+        # TODO Plug in D_R = 0 and v_R = 0 directly here?
+
+    def iv_greens_function(self, r0):
+        return GreensFunction1DRadAbs(self.D_r, self.v_r, self.interparticle_ktot, r0, self.sigma, self.a_r)
+
+    def choose_pair_greens_function(self, r0, t):
+        # Todo
+        return self.iv_greens_function(r0)
+
+    @ classmethod
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
+    # here we assume that the com and iv are really in the structure and no adjustments have to be
+    # made
+
+        pos1 = self.pid_particle_pair1[1].position # cap particle stays in place in this case
+        pos2 = pos1 + iv
+
+        return pos1, pos2, structure1.id, structure2.id
+
+    def create_com_vector(self, z):
+        # The CoM vector is not relevant for this domain, thus...
+        pass
+
+    def create_interparticle_vector(self, gf, r, dt, r0, old_iv): 
+        if __debug__:
+            log.debug("create_interparticle_vector: r=%g, dt=%g", r, dt)
+
+        # note that r0 = length (old_iv)
+        new_iv = (r/r0) * old_iv
+
+        # project the new_iv down on the unit vectors of the surface to prevent the particle from
+        # leaving the surface due to numerical problem
+        unit_z = self.structure1D.shape.unit_z
+        new_iv_z = unit_z * numpy.dot(new_iv, unit_z)
+
+        return new_iv_z
+
+    def __str__(self):
+        return 'MixedPair1DCap' + Pair.__str__(self)
 

@@ -3,9 +3,11 @@ from _gfrd import (
     CylindricalShell,
     Sphere,
     Cylinder,
+    Disk,
     CuboidalRegion,
     PlanarSurface,
     CylindricalSurface,
+    DiskSurface,
     )
 from _greens_functions import *
 from greens_function_wrapper import *
@@ -21,12 +23,14 @@ from shells import *
 
 __all__ = [
     'CylindricalSurfaceSingle',
+    'DiskSurfaceSingle',
     'PlanarSurfaceSingle',
     'SphericalSingle',
     'Single',
     'NonInteractionSingle',
     'InteractionSingle',
     'CylindricalSurfaceInteraction',
+    'CylindricalSurfaceCapInteraction',
     'CylindricalSurfaceSink',
     'PlanarSurfaceInteraction',
     'TransitionSingle',
@@ -568,6 +572,97 @@ class CylindricalSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
         return 'CylindricalSurface' + Single.__str__(self)
 
 
+class DiskSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
+    """1 Particle inside a (cylindrical) shell on a DiskSurface. 
+
+        * Particle coordinates on surface: z.
+        * Domain: cartesian z.
+        * Initial position: z = 0.
+        * Selected randomly when drawing displacement vector: none.
+    """
+    def __init__(self, domain_id, shell_id, testShell, reactionrules):
+
+        assert isinstance(testShell, DiskSurfaceSingletestShell)
+        hasCylindricalShell.__init__(self, testShell, domain_id)
+        NonInteractionSingle.__init__(self, domain_id, shell_id, reactionrules)
+
+    def get_inner_a(self):
+        return self.pid_particle_pair[1].radius
+
+    def greens_function(self):
+        # The domain is created around r0, so r0 corresponds to r=0 within the domain
+        # The Green's function should not be used for anything on the DiskSurface
+        # but is defined for completeness here. # TODO Do we really have to do that?
+        inner_half_length = self.get_inner_a()
+        return GreensFunction1DAbsAbs(0.0, 0.0, 0.0, -inner_half_length, inner_half_length)
+
+    # these return corrected dimensions, since we reserve more space for the NonInteractionSingle
+    # For explanation see NonInteractionSingles and Others in shells.py
+    def shell_list_for_single(self):
+        # The shell should always be larger that the bare minimum for a test shell
+        # Note that in case of a cylindrical shell this fits inside of the spherical multi shell
+        min_half_length = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
+        if self.shell.shape.half_length < min_half_length:
+            # This should only happen if the domain is just initialized.
+            position = self.shell.shape.position
+            # There should always be space to make the spherical multi shell.
+            radius = self.pid_particle_pair[1].radius * MULTI_SHELL_FACTOR
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
+            return [(self.shell_id, fake_shell), ]
+        else:
+            return self.shell_list
+
+    def shell_list_for_other(self):
+        min_half_length = self.pid_particle_pair[1].radius * math.sqrt(SINGLE_SHELL_FACTOR**2 - 1.0)
+        if self.shell.shape.half_length < min_half_length:
+            position = self.shell.shape.position
+            radius = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+            # Keep all the other shells outside the burst radius (which is spherical!)
+            # Note that this makes the cylindrical shell have a slightly smaller radius than the burst radius.
+            fake_shell = SphericalShell(self.domain_id, Sphere(position, radius))
+            return [(self.shell_id, fake_shell), ]
+        else:
+            # When the shell is larger than the burst volume -> return the real shell.
+            return self.shell_list
+
+    def create_updated_shell(self, position):
+        # TODO what should we do with the position now?
+        # maybe update the reference_point of the shell before updating the shell
+        try:
+            dr, dz_right, dz_left = self.testShell.determine_possible_shell(self.structure.id, [self.domain_id], [])
+            dz_right = min(dz_right, dz_left)       # make sure the domain is symmetric around the particle
+            dz_left  = dz_right                     # This is not necessary but it's assumed later
+            center, radius, half_length = self.r_zright_zleft_to_r_center_hl(self.testShell.get_referencepoint(),
+                                                                             self.testShell.get_orientation_vector(),
+                                                                             dr, dz_right, dz_left)
+            return self.create_new_shell(center, radius, half_length, self.domain_id)
+        except ShellmakingError as e:
+            raise Exception('DiskSurfaceSingle, create_updated_shell failed: %s' % str(e) )
+
+    def create_position_vector(self, z):
+        # Particles on DiskStructures are immobile; always keep them in the center of the structure
+        return self.structure.shape.position
+
+    def check(self):
+        assert ProtectiveDomain.check(self)
+        # check shell stuff
+        assert isinstance(self.testShell, DiskSurfaceSingletestShell)
+        assert isinstance(self.shell.shape, Cylinder)
+
+        if self.is_reset():
+            assert self.shell.shape.half_length == self.pid_particle_pair[1].radius
+
+        assert self.is_reset() ^ (self.dt != 0.0)
+        assert isinstance(self.structure, DiskSurface)
+        #assert self.greens_function
+        assert (self.shell.shape.unit_z == self.structure.shape.unit_z).all()
+
+        return True
+
+    def __str__(self):
+        return 'DiskSurface' + Single.__str__(self)
+
+
 class InteractionSingle(Single, hasCylindricalShell, Others):
     """Interactions singles are used when a particle is close to a 
     surface.
@@ -947,6 +1042,101 @@ class CylindricalSurfaceSink(InteractionSingle):
 
     def __str__(self):
         return 'CylindricalSurfaceSink ' + Single.__str__(self)
+
+
+class CylindricalSurfaceCapInteraction(InteractionSingle):
+    """1 Particle inside a (Cylindrical) shell on a CylindricalSurface
+       limited by a cap. The cap is a reactive surface to the particle
+       and defines the exit point from the cylinder.
+
+        * Particle coordinates on surface: z.
+        * Domain: cartesian z.
+        * Initial position: z = 0.
+        * Selected randomly when drawing displacement vector: none. # TODO What does this mean?
+    """
+    def __init__(self, domain_id, shell_id, testShell, reactionrules, interactionrules):
+
+        assert isinstance(testShell, CylindricalSurfaceCapInteractiontestShell)
+        InteractionSingle.__init__(self, domain_id, shell_id, testShell, reactionrules, interactionrules)
+
+        self.zcap = self.testShell.get_referencepoint()
+
+    def getv(self):
+        return self.pid_particle_pair[1].v
+    v = property(getv)
+
+    def get_inner_dz_left(self):
+        # This is the distance that the particle can travel from its initial position
+        # towards the reactive cap.
+        # For the cap it is the center of particle that "reacts" with it.
+        # The testShell is taking this into account at construction to ensure that
+        # there is enough space around the cap in case of reaction.
+        # Note that the reference point of the shell is the cap position.
+        return self.testShell.particle_surface_distance
+
+    def get_inner_dz_right(self):
+        # This is the distance that the particle can travel from its initial position
+        # towards the absorbing cylinder boundary opposite of the cap.
+        # Note that the reference point of the shell is the cap position,
+        # therefore we have to subtract particle_surface_distance here.
+        return self.testShell.dz_right - self.testShell.particle_surface_distance \
+                                       - self.pid_particle_pair[1].radius
+        # TODO is shell.dz_right always positive?
+
+    def determine_next_event(self):
+        """Return an (event_time, event_type)-tuple.
+
+        """
+        return min(self.draw_reaction_time_tuple(),
+                   self.draw_iv_event_time_tuple())
+
+    def iv_greens_function(self):
+
+        # zcap = position of the cap relative to the initial particle position.
+        # zabs = position of the absorbing cylinder boundary opposite of the cap
+        dz_cap = -self.get_inner_dz_left()
+        dz_abs = self.get_inner_dz_right()
+
+        return GreensFunction1DRadAbs(self.D, self.v, self.interaction_ktot, 0.0, dz_cap, dz_abs)
+
+    def draw_new_position(self, dt, event_type):
+
+        oldpos = self.pid_particle_pair[1].position
+
+        if self.D == 0 or \
+                (event_type == EventType.SINGLE_REACTION and len(self.reactionrule.products) == 0):
+            newpos = oldpos
+        else:
+            gf = self.iv_greens_function()
+
+            if event_type == EventType.IV_INTERACTION:
+                # The particle left the domain through the reactive boundary, i.e. bound to the cap.
+                dz = -self.get_inner_dz_left()
+                structure_id = self.target_structure.id
+
+            elif event_type == EventType.IV_ESCAPE:
+                # The particle left the domain through the absorbing boundary,
+                # i.e. opposite of the cap.
+                dz = self.get_inner_dz_right()
+                structure_id = self.origin_structure.id
+
+            else:
+                # Some other event took place and the particle didn't escape;
+                # as a consequence it stays on the origin structure.
+                dz = draw_r_wrapper(gf, dt, -self.get_inner_dz_left(), self.get_inner_dz_right()) # TODO Is this sampling correctly?
+                structure_id = self.origin_structure.id
+
+            # Add displacement to particle.position.
+            # The direction of the shell is leading (not direction of the structure)
+            # The convention is that shell.shape.unit_z points from the cap towards
+            # the particle's initial position.
+            dz_vector = self.shell.shape.unit_z * dz
+            newpos = oldpos + dz_vector
+
+        return newpos, structure_id
+
+    def __str__(self):
+        return 'CylindricalSurfaceCapInteraction ' + Single.__str__(self)
 
 
 class TransitionSingle(Single, TransitionTools, Others):

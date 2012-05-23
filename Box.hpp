@@ -288,6 +288,23 @@ distance(Box<T_> const& obj, typename Box<T_>::position_type const& pos)
 }
 
 template<typename T_>
+inline typename Box<T_>::length_type
+min_dist_proj_to_edge(Box<T_> const& obj, typename Box<T_>::position_type const& pos)
+// Calculates the distance from the projection of 'pos' to the closest edge of the box
+// if it is in the box; if not, it returns zero
+{
+    typedef typename Box<T_>::length_type length_type;
+    boost::array<length_type, 3> x_y_z(to_internal(obj, pos));
+    boost::array<length_type, 3> dx_dy_dz(subtract(abs(x_y_z), obj.half_extent()));
+
+    if (dx_dy_dz[0] < 0 && dx_dy_dz[1] < 0 && dx_dy_dz[2] < 0)
+        // pos is within the box
+        return std::min( std::min(-dx_dy_dz[0], -dx_dy_dz[1]), -dx_dy_dz[2]);
+    
+    else        return 0;
+}
+
+template<typename T_>
 inline std::pair<typename Box<T_>::position_type, bool>
 deflect(Box<T_> const& obj,
         typename Box<T_>::position_type const& r0,
@@ -307,6 +324,16 @@ deflect_back(Box<T_> const& obj,
 {
     // Return the vector r without any changes
     return r;
+}
+
+template<typename T_>
+inline bool
+allows_interaction_from(Box<T_> const& obj,
+        typename Box<T_>::position_type const& r)
+{
+    // This function is not relevant for the box but has
+    // to return something for implementation reasons
+    return true;
 }
 
 template<typename T, typename Trng>

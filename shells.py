@@ -6,8 +6,10 @@ from _gfrd import (
     Sphere,
     SphericalShell,
     Cylinder,
-    CylindricalShell,
+    CylindricalShell,    
     CylindricalSurface,
+    Disk,
+    DiskSurface,
     Plane,
     PlanarSurface,
     CuboidalRegion,
@@ -31,6 +33,7 @@ __all__ = [
     'testSimplePair',
     'testPlanarSurfaceTransitionPair',
     'testMixedPair2D3D',
+    'testMixedPair1DCap',
     'hasSphericalShell',
     'hasCylindricalShell',   
     'SphericalSingletestShell',
@@ -40,11 +43,14 @@ __all__ = [
     'PlanarSurfaceTransitionSingletestShell',
     'PlanarSurfaceTransitionPairtestShell',
     'CylindricalSurfaceSingletestShell',
+    'DiskSurfaceSingletestShell',
     'CylindricalSurfacePairtestShell',
     'PlanarSurfaceInteractiontestShell',
     'CylindricalSurfaceInteractiontestShell',
+    'CylindricalSurfaceCapInteractiontestShell',
     'CylindricalSurfaceSinktestShell',
     'MixedPair2D3DtestShell',
+    'MixedPair1DCaptestShell',
     ]
 
 # These are exceptions that are raise when trying to make a new domain
@@ -360,6 +366,26 @@ class testMixedPair2D3D(testPair):
         D_2 = self.pid_particle_pair2[1].D      # particle 2 is in 3D and is the only contributor to diffusion
                                                 # normal to the plane
         return math.sqrt(self.D_r/D_2)
+
+class testMixedPair1DCap(testPair):
+
+    def __init__(self, cap_single, single1D):
+
+        if __debug__: 
+                assert isinstance(cap_single.structure, DiskSurface)
+                assert isinstance(single1D.structure, CylindricalSurface) 
+        testSimplePair.__init__(self, cap_single, single1D)
+          # note: this makes self.single1/self.pid_particle_pair1/self.structure1 for the 2D particle
+          #              and self.single2/self.pid_particle_pair2/self.structure2 for the 3D particle
+
+        # for clarity:
+        self.cap_structure = cap_single.structure  # equal to self.structure1
+        self.structure1D   = single1D.structure    # equal to self.structure2  
+
+        # Make sure cap particle is immobile; this is required for testSimplePair routines
+        # to give the proper results for this case.
+        assert self.pid_particle_pair1[1].D == 0
+        assert self.pid_particle_pair1[1].v == 0
 
 class testPlanarSurfaceTransitionPair(testPair):
 
@@ -690,21 +716,25 @@ def get_radius_to_SphericalShape(shape, testShell, r):
     # if the newly calculated dimensions are smaller than the current one, use them
     return min(r, r_new)
 
-# functions to size up a testShell to a Cylindrical shape object
-def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_left):
+# functions to size up a testShell to a Cylindrical or Disk shape object
+def get_dr_dzright_dzleft_to_Cylindrical_or_DiskShape(shape, testShell, r, z_right, z_left):
     # This function returns the dr, dz_right, dz_left parameters for the cylindrical 'testShell'
     # using the cylindrical 'shell' as its closest neighbor. Note that it returns the minimum the newly calculated
     # dr, dz_right, dz_left and the old r, z_right, z_left. The 'testShell' can therefore only become
     # smaller.
 
     # Note that the 'shell' is querried from this domain earlier by the testShell.
-    # -> the shell MUST be a Cylinder.
-    assert (type(shape) is Cylinder)
+    # -> the shell MUST be a Cylinder or Disk.
+    assert (type(shape) is Cylinder) or (type(shape) is Disk)
 
     # Laurens' algorithm (part2)
     shell_position = shape.position
     shell_radius = shape.radius 
-    shell_half_length = shape.half_length 
+
+    if type(shape) is Cylinder:
+        shell_half_length = shape.half_length 
+    else: # shape is Disk and has no property half_length
+        shell_half_length = 0.0
 
 
     # get the reference point and orientation of the domain to scale
@@ -984,10 +1014,10 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             z1_new = min(z1, z1_function(r_new))
 
         else:
-            raise RuntimeError('get_dr_dzright_dzleft_to_CylindricalShape: Bad situation for making cylinders against cylinders.')
+            raise RuntimeError('get_dr_dzright_dzleft_to_Cylindrical_or_DiskShape: Bad situation for making cylinders against cylinders.')
 
     else:
-        raise NotImplementedError('get_dr_dzright_dzleft_to_CylindricalShape: Cylinders should be oriented parallel or perpendicular.')
+        raise NotImplementedError('get_dr_dzright_dzleft_to_Cylindrical_or_DiskShape: Cylinders should be oriented parallel or perpendicular.')
 
     z2_new = min(z2, z2_function(r_new))
 
@@ -1298,15 +1328,15 @@ class CylindricaltestShell(testShell):
         # initialize the parameters to start the scaling of the cylinder
         min_dr, min_dz_right, min_dz_left = self.apply_safety(min_dr, min_dz_right, min_dz_left)
         dr, dz_right, dz_left             = max_dr, max_dz_right, max_dz_left
- 
+        
         # first check the maximum dr, dz_right, dz_left against the surfaces
         # NOTE: we assume that all relevant surfaces are cylindrical and parallel to the testCylinder
         # or planar surfaces and parallel to the testCylinder axis
         for surface, distance in neighbor_surfaces:
             # TODO
-            if isinstance(surface, CylindricalSurface):
-                dr, dz_right, dz_left = get_dr_dzright_dzleft_to_CylindricalShape(surface.shape, self,
-                                                                                              dr, dz_right, dz_left)
+            if isinstance(surface, CylindricalSurface) or isinstance(surface, DiskSurface):
+                dr, dz_right, dz_left = get_dr_dzright_dzleft_to_Cylindrical_or_DiskShape(surface.shape, self,
+                                                                                              dr, dz_right, dz_left)            
             elif isinstance(surface, PlanarSurface):
                 dr, dz_right, dz_left = get_dr_dzright_dzleft_to_PlanarShape(surface.shape, self,
                                                                                          dr, dz_right, dz_left)
@@ -1329,7 +1359,7 @@ class CylindricaltestShell(testShell):
                     dr, dz_right, dz_left = get_dr_dzright_dzleft_to_SphericalShape(shell_appearance.shape, self,
                                                                                                 dr, dz_right, dz_left)
                 elif isinstance(shell_appearance.shape, Cylinder):
-                    dr, dz_right, dz_left = get_dr_dzright_dzleft_to_CylindricalShape(shell_appearance.shape, self,
+                    dr, dz_right, dz_left = get_dr_dzright_dzleft_to_Cylindrical_or_DiskShape(shell_appearance.shape, self,
                                                                                                   dr, dz_right, dz_left)
                 else:
                     assert False, "Wrong type of shell shape"
@@ -1482,8 +1512,10 @@ class PlanarSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingl
 
     def get_max_dr_dzright_dzleft(self):
         dz_right = self.pid_particle_pair[1].radius
-        dz_left = dz_right
-        dr = math.sqrt((self.get_searchradius())**2 - dz_right**2) # stay within the searchradius
+        dz_left  = dz_right
+        dr_sr    = math.sqrt((self.get_searchradius())**2 - dz_right**2) # stay within the searchradius
+        dr_edge  = self.structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dr       = min(dr_sr, dr_edge)
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
@@ -1534,8 +1566,10 @@ class PlanarSurfacePairtestShell(CylindricaltestShell, testSimplePair):
 
     def get_max_dr_dzright_dzleft(self):
         dz_right = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
-        dz_left = dz_right
-        dr = math.sqrt((self.get_searchradius())**2 - dz_right**2) # stay within the searchradius
+        dz_left  = dz_right
+        dr_sr    = math.sqrt((self.get_searchradius())**2 - dz_right**2) # stay within the searchradius
+        dr_edge  = self.structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dr       = min(dr_sr, dr_edge)
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
@@ -1557,7 +1591,6 @@ class CylindricalSurfaceSingletestShell(CylindricaltestShell, testNonInteraction
         self.drdz_left  = 0.0
         self.r0_left    = self.pid_particle_pair[1].radius
         self.z0_left    = 0.0
-
 
         # sizing up the shell to a zero shell
         self.dz_right = self.pid_particle_pair[1].radius
@@ -1584,8 +1617,57 @@ class CylindricalSurfaceSingletestShell(CylindricaltestShell, testNonInteraction
 
     def get_max_dr_dzright_dzleft(self):
         dr = self.pid_particle_pair[1].radius
-        dz_right = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
-        dz_left = dz_right
+        dz_right_edge = self.structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dz_right_sr   = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
+        dz_right      = min(dz_right_sr, dz_right_edge)
+        dz_left       = dz_right
+        return dr, dz_right, dz_left
+
+    def apply_safety(self, r, z_right, z_left):
+        return r, z_right/SAFETY, z_left/SAFETY
+
+class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle):
+
+    def __init__(self, pid_particle_pair, structure, geometrycontainer, domains):
+        CylindricaltestShell.__init__(self, geometrycontainer, domains)
+        testNonInteractionSingle.__init__(self, pid_particle_pair, structure)
+
+        # initialize scaling parameters
+        self.dzdr_right = numpy.inf
+        self.drdz_right = 0.0
+        self.r0_right   = self.pid_particle_pair[1].radius
+        self.z0_right   = 0.0
+        self.dzdr_left  = numpy.inf
+        self.drdz_left  = 0.0
+        self.r0_left    = self.pid_particle_pair[1].radius
+        self.z0_left    = 0.0
+
+        # sizing up the shell to a zero shell
+        self.dz_right = self.pid_particle_pair[1].radius
+        self.dz_left  = self.pid_particle_pair[1].radius
+        self.dr       = self.pid_particle_pair[1].radius        
+
+    def get_orientation_vector(self):
+        return self.structure.shape.unit_z
+        # just copy from disk structure; note that this defines the direction of dissociation!        
+
+    def get_searchpoint(self):
+        return self.pid_particle_pair[1].position
+
+    def get_referencepoint(self):
+        return self.pid_particle_pair[1].position
+
+    def get_min_dr_dzright_dzleft(self):
+        dr       = self.pid_particle_pair[1].radius
+        dz_right = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0) #  TODO Use SINGLE_SHELL_FACTOR instead?
+        dz_left  = dz_right
+        return dr, dz_right, dz_left
+        
+    def get_max_dr_dzright_dzleft(self):
+        # Radius is not scaled here so we do not to check for distance to shape edge
+        dr       = self.pid_particle_pair[1].radius
+        dz_right = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0) # same as the minimum, i.e. no scaling of this length
+        dz_left  = dz_right
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
@@ -1640,8 +1722,10 @@ class CylindricalSurfacePairtestShell(CylindricaltestShell, testSimplePair):
 
     def get_max_dr_dzright_dzleft(self):
         dr = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
-        dz_right = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
-        dz_left = dz_right
+        dz_right_edge = self.structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dz_right_sr   = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
+        dz_right      = min(dz_right_sr, dz_right_edge)
+        dz_left       = dz_right
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
@@ -1671,7 +1755,7 @@ class PlanarSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSin
             self.dr, self.dz_right, self.dz_left = \
                             self.determine_possible_shell(self.origin_structure.id, [self.single.domain_id], [self.target_structure.id])
         except ShellmakingError as e:
-            raise testShellError('(PlanarSurfaceInteration). %s' %
+            raise testShellError('(PlanarSurfaceInteraction). %s' %
                                  (str(e)))
 
 
@@ -1695,8 +1779,10 @@ class PlanarSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSin
 
     def get_max_dr_dzright_dzleft(self):
         # TODO this can be improved
-        dr       = (self.get_searchradius()/math.sqrt(2))
-        dz_right = dr + self.particle_surface_distance          # Note that we assume that dr >> particle_surface_distance
+        dr_sr    = (self.get_searchradius()/math.sqrt(2))
+        dr_edge  = self.target_structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dr       = min(dr_sr, dr_edge)
+        dz_right = dr + self.particle_surface_distance          # Note that we assume that dr >> particle_surface_distance        
         dz_left  = self.pid_particle_pair[1].radius             # so that the cylinder always fits inside the search_radius
         return dr, dz_right, dz_left
 
@@ -1748,14 +1834,70 @@ class CylindricalSurfaceInteractiontestShell(CylindricaltestShell, testInteracti
         
     def get_max_dr_dzright_dzleft(self):
         # TODO clarify
-        dz_right = ((-(self.particle_surface_distance + self.target_structure.shape.radius) + \
-                     math.sqrt(2*(self.get_searchradius()**2) - (self.particle_surface_distance + self.target_structure.shape.radius)**2)) / 2.0)
-        dz_left  = dz_right
-        dr       = ((self.particle_surface_distance + self.target_structure.shape.radius) + dz_right)
+        dz_right_edge = self.target_structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dz_right_sr   = ((-(self.particle_surface_distance + self.target_structure.shape.radius) + \
+                       math.sqrt(2*(self.get_searchradius()**2) - (self.particle_surface_distance + self.target_structure.shape.radius)**2)) / 2.0)
+        dz_right      = min(dz_right_sr, dz_right_edge)
+        dz_left       = dz_right
+        dr            = ((self.particle_surface_distance + self.target_structure.shape.radius) + dz_right)
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
         return r/SAFETY, self.z_right(r/SAFETY), self.z_left(r/SAFETY)
+
+class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testInteractionSingle):
+
+    def __init__(self, single, target_structure, geometrycontainer, domains):
+        CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
+        testInteractionSingle.__init__(self, single, single.structure, target_structure)
+
+        # initialize scaling parameters
+        self.dzdr_right = numpy.inf
+        self.drdz_right = 0.0
+        self.r0_right   = self.pid_particle_pair[1].radius
+        self.z0_right   = 0.0
+        self.dzdr_left  = 0.0
+        self.drdz_left  = numpy.inf
+        self.r0_left    = self.pid_particle_pair[1].radius      # TODO put to zero?
+        self.z0_left    = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+
+        # This will determine if the shell is possible.
+        # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
+        # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
+        try:
+            self.dr, self.dz_right, self.dz_left = \
+                            self.determine_possible_shell(self.origin_structure.id, [self.single.domain_id], [self.target_structure.id])
+        except ShellmakingError as e:
+            raise testShellError('(CylindricalSurfaceCapInteraction). %s' %
+                                 (str(e)))
+
+    def get_orientation_vector(self):
+        # The orientation vector is collinear with the parent cylinder axis and
+        # pointing "inwards", i.e. towards the center point of the parent cylinder
+        # TODO Check that this works properly!
+        return self.reference_vector     # reference vector always points from the particle position
+                                         # projected onto the target surface towards particle pos.
+
+    def get_searchpoint(self):
+        return self.pid_particle_pair[1].position
+
+    def get_referencepoint(self):
+        return self.reference_point         # calculated in the __init__ of testInteractionSingle
+
+    def get_min_dr_dzright_dzleft(self):
+        dr       = self.pid_particle_pair[1].radius
+        dz_left  = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+        dz_right = self.particle_surface_distance + self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR
+        return dr, dz_right, dz_left
+        
+    def get_max_dr_dzright_dzleft(self):
+        dr       = self.pid_particle_pair[1].radius
+        dz_left  = self.pid_particle_pair[1].radius * SINGLE_SHELL_FACTOR # same as the minimum, i.e. no scaling of this length
+        dz_right = math.sqrt((self.get_searchradius())**2 - dr**2) + self.particle_surface_distance  # stay within the searchradius
+        return dr, dz_right, dz_left
+
+    def apply_safety(self, r, z_right, z_left):
+        return r, z_right/SAFETY, z_left
 
 class CylindricalSurfaceSinktestShell(CylindricaltestShell, testInteractionSingle):
 
@@ -1812,8 +1954,10 @@ class CylindricalSurfaceSinktestShell(CylindricaltestShell, testInteractionSingl
         
     def get_max_dr_dzright_dzleft(self):
         dr       = self.pid_particle_pair[1].radius
-        dz_left  = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
-        dz_right = dz_left
+        dz_right_edge = self.origin_structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dz_right_sr   = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
+        dz_right      = min(dz_right_sr, dz_right_edge)
+        dz_left       = dz_right
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
@@ -1924,7 +2068,10 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         
     def get_max_dr_dzright_dzleft(self):
         # TODO this can be improved
-        dr       = self.get_searchradius()/math.sqrt(2)
+        dr_sr    = self.get_searchradius()/math.sqrt(2)
+        dr_edge  = self.target_structure.min_dist_proj_to_edge(self.get_referencepoint())
+        dr       = min(dr_sr, dr_edge)
+
         dz_left  = self.pid_particle_pair1[1].radius
 
         # now adjust dz_right such that they obey the scaling laws and are still with the search_radius
@@ -1986,6 +2133,61 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
     def apply_safety(self, r, z_right, z_left):
         SAFETY = 1.1
         return r/SAFETY, self.z_right(r/SAFETY), z_left
+
+class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
+
+    def __init__(self, cap_single, single1D, target_structure, geometrycontainer, domains): # TODO Do we need target_structure (for the ignore list)?
+        CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
+        testMixedPair1DCap.__init__(self, cap_single, single1D)
+
+        # initialize scaling parameters
+        self.dzdr_right = numpy.inf
+        self.drdz_right = 0.0
+        self.r0_right   = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
+        self.z0_right   = 0.0
+        self.dzdr_left  = 0.0
+        self.drdz_left  = numpy.inf
+        self.r0_left    = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)      # TODO put to zero?
+        self.z0_left    = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR
+          # pid_particle_pair1[1] is the cap-bound particle
+
+        # This will determine if the shell is possible.
+        # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
+        # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
+        try:
+            self.dr, self.dz_right, self.dz_left = \
+                            self.determine_possible_shell(self.origin_structure.id, [self.single.domain_id], [self.target_structure.id]) # TODO Do we need target_structure (for the ignore list)?
+        except ShellmakingError as e:
+            raise testShellError('(MixedPair1DCap). %s' %
+                                 (str(e)))
+
+    def get_orientation_vector(self):
+        # The orientation vector is collinear with the parent cylinder axis and
+        # pointing "inwards", i.e. towards the center point of the parent cylinder
+        # TODO Check that this works properly!
+        return self.reference_vector     # reference vector always points from the particle position
+                                         # projected onto the target surface towards particle pos.
+
+    def get_searchpoint(self):
+        return self.com
+
+    def get_referencepoint(self):
+        return self.com
+
+    def get_min_dr_dzright_dzleft(self):
+        dr       = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
+        dz_left  = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR
+        dz_right = self.get_min_pair_size() # TODO make sure this does the right thing!
+        return dr, dz_right, dz_left
+        
+    def get_max_dr_dzright_dzleft(self):
+        dr       = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
+        dz_left  = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR # same as the minimum, i.e. no scaling of this length
+        dz_right = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
+        return dr, dz_right, dz_left
+
+    def apply_safety(self, r, z_right, z_left):
+        return r, z_right/SAFETY, z_left
 
 #####
 #class MixedPair3D1DtestShell(CylindricaltestShell, Others):
