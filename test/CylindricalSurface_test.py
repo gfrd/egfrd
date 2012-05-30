@@ -43,8 +43,8 @@ class CylindricalSurfaceTestCase(unittest.TestCase):
 
     def test_projected_point(self):
         d = self.cylinder_at_position(self.r1)
-        assert (d.projected_point([5, 2, 2])[0] == [5, 5, 2]).all()
-        assert d.projected_point([5, 2, 2])[1] == 3
+        assert (d.project_point([5, 2, 2])[0] == [5, 5, 2]).all()
+        assert d.project_point([5, 2, 2])[1][0] == 3
 
     def test_distance_to_cylinder(self):
         d = self.cylinder_at_position(self.r1)

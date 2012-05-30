@@ -4,6 +4,7 @@
 #include <ostream>
 #include "Vector3.hpp"
 #include "Shape.hpp"
+#include "linear_algebra.hpp"
 
 template<typename T_>
 class Sphere
@@ -73,45 +74,42 @@ inline std::basic_ostream<Tstrm_, Ttraits_>& operator<<(std::basic_ostream<Tstrm
 }
 
 template<typename T_>
-inline bool
-is_alongside(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
-// The function checks if the projection of the position 'pos' is 'inside' the object.
-// This is always true because the projection is always onto the center of the sphere.
-{
-    return true;
-}
-
-template<typename T_>
 inline typename Sphere<T_>::length_type
 to_internal(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
 // The function calculates the coefficients to express 'pos' into the base of the sphere 'obj'
 {
+    typedef typename Sphere<T_>::position_type position_type;
+    position_type pos_vector(subtract(pos, obj.position()));
+
     // Todo. If we ever need it.
-    return typename Sphere<T_>::length_type();
+    return length(pos_vector);
 }
 
 template<typename T_>
 inline std::pair<typename Sphere<T_>::position_type,
-                 typename Sphere<T_>::length_type>
-projected_point(Sphere<T_> const& obj,
+                 std::pair<typename Sphere<T_>::length_type,
+                           typename Sphere<T_>::length_type> >
+project_point(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
+{
+    typename Sphere<T_>::length_type r(to_internal(obj, pos));
+
+    // The projection of a point on a sphere is always the centerpoint of the sphere.
+    return std::make_pair(obj.position(),
+                          std::make_pair(r, 0.0) );
+}
+
+template<typename T_>
+inline std::pair<typename Sphere<T_>::position_type,
+                 std::pair<typename Sphere<T_>::length_type,
+                           typename Sphere<T_>::length_type> >
+project_point_on_surface(Sphere<T_> const& obj,
                 typename Sphere<T_>::position_type const& pos)
 {
     // Todo. If we ever need it.
     // The projection of a point on a sphere.
     return std::make_pair(typename Sphere<T_>::position_type(),
-                          typename Sphere<T_>::length_type());
-}
-
-template<typename T_>
-inline std::pair<typename Sphere<T_>::position_type,
-                 typename Sphere<T_>::length_type>
-projected_point_on_surface(Sphere<T_> const& obj,
-                typename Sphere<T_>::position_type const& pos)
-{
-    // Todo. If we ever need it.
-    // The projection of a point on a sphere.
-    return std::make_pair(typename Sphere<T_>::position_type(),
-                          typename Sphere<T_>::length_type());
+                          std::make_pair(typename Sphere<T_>::length_type(),
+                                         typename Sphere<T_>::length_type()) );
 }
 
 template<typename T_>
@@ -119,15 +117,6 @@ inline typename Sphere<T_>::length_type
 distance(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
 {
     return distance(pos, obj.position()) - obj.radius();
-}
-
-template<typename T_>
-inline typename Sphere<T_>::length_type
-min_dist_proj_to_edge(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
-// Calculates the distance from the projection of 'pos' to the edge of the sphere.
-// Since the projection is always at the sphere center, this is just the radius.
-{
-    return obj.radius();
 }
 
 template<typename T_>
@@ -139,7 +128,7 @@ deflect(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& r0, typ
     // For now it just returns the new position. The changeflag = 0.
     return std::make_pair( add(r0, d), false );
 }
-
+/*
 template<typename T_>
 inline typename Sphere<T_>::position_type
 deflect_back(Sphere<T_> const& obj,
@@ -149,16 +138,7 @@ deflect_back(Sphere<T_> const& obj,
     // Return the vector r without any changes
     return r;
 }
-
-template<typename T_>
-inline bool
-allows_interaction_from(Sphere<T_> const& obj, typename Sphere<T_>::position_type const& pos)
-// Returns true if a particle at position pos is supposed to interact with the sphere
-{
-    // By default any point outside the sphere can interact with it
-    return ( length(subtract(pos, obj.position())) >= obj.radius() ); 
-}
-
+*/
 template<typename T_>
 inline Sphere<T_> const& shape(Sphere<T_> const& shape)
 {

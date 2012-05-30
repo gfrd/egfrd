@@ -50,13 +50,14 @@ public:
     typedef Tshape_                                     shape_type;
     typedef typename shape_type::side_enum_type         side_enum_type;     // Defines the type of enum to use for the sides of the surface
 
-    typedef typename base_type::structure_name_type     structure_name_type;
-    typedef typename base_type::structure_id_type       structure_id_type;
-    typedef typename base_type::structure_type_id_type  structure_type_id_type;
-    typedef typename base_type::length_type             length_type;
-    typedef typename base_type::position_type           position_type;
-    typedef std::pair<position_type, length_type>       projected_type;
-    typedef std::pair<position_type, bool>              position_flag_pair_type;
+    typedef typename base_type::structure_name_type         structure_name_type;
+    typedef typename base_type::structure_id_type           structure_id_type;
+    typedef typename base_type::structure_type_id_type      structure_type_id_type;
+    typedef typename base_type::length_type                 length_type;
+    typedef typename base_type::position_type               position_type;
+    typedef std::pair<length_type, length_type>             components_pair_type;
+    typedef std::pair<position_type, components_pair_type>  projected_type;
+    typedef std::pair<position_type, bool>                  position_flag_pair_type;
 
 public:
     virtual ~BasicSurfaceImpl() {}
@@ -101,26 +102,21 @@ public:
         return out.str();
     }
 
-    virtual projected_type projected_point(position_type const& pos) const
+    virtual projected_type project_point(position_type const& pos) const
     {
-        return ::projected_point(shape(), pos);
+        return ::project_point(shape(), pos);
     }
     
-    virtual projected_type projected_point_on_surface(position_type const& pos) const
+    virtual projected_type project_point_on_surface(position_type const& pos) const
     {
-        return ::projected_point_on_surface(shape(), pos);
+        return ::project_point_on_surface(shape(), pos);
     }
     
     virtual length_type distance(position_type const& pos) const
     {
         return ::distance(shape(), pos);
     }
-    
-    virtual length_type min_dist_proj_to_edge(position_type const& pos) const
-    {
-        return ::min_dist_proj_to_edge(shape(), pos);
-    }
-    
+
     virtual position_type const& position() const
     {
         return ::shape_position(shape());
@@ -130,24 +126,12 @@ public:
     {
         return ::deflect(shape(), pos0, displacement);
     }
-    
+/*    
     virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const
     {
         return ::deflect_back(shape(), pos, u_z);
     }
-    
-    virtual bool allows_interaction_from(position_type const& pos) const
-    {
-        return ::allows_interaction_from(shape(), pos);
-        // returns true if a particle at position pos is supposed to
-        // be able to interact with the surface
-    }
-    
-    virtual bool is_alongside(position_type const& pos) const
-    {
-        return ::is_alongside(shape(), pos);
-    }
-
+*/
     // Constructor
     BasicSurfaceImpl(structure_name_type const& name, structure_type_id_type const& sid, structure_id_type const& parent_struct_id, shape_type const& shape)
         : base_type(name, sid, parent_struct_id), shape_(shape) {}

@@ -226,7 +226,6 @@ public:
     typedef typename base_type::particle_id_pair                            particle_id_pair;      // defines the pid_particle_pair tuple
     typedef typename base_type::structure_id_pair                           structure_id_pair;
     typedef std::pair<position_type, length_type>                           projected_type;
-    typedef typename particle_container_type::structure_id_and_distance_pair structure_id_and_distance_pair;
 
     typedef typename base_type::particle_id_set                             particle_id_set;
     typedef typename base_type::structure_id_set                            structure_id_set;
@@ -460,31 +459,6 @@ public:
 
         cuboidal_region->set_id(default_struct_id);
         update_structure(std::make_pair(default_struct_id, cuboidal_region));
-    }
-    // Get the closest surface(surface is a subclass of structures)
-    // TODO change this to get all the surfaces within a certain distance of the particle.
-    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
-    {       
-        length_type const world_size( base_type::world_size() );
-        length_type ret_dist( std::numeric_limits<length_type>::max() );
-        structure_id_type ret_id( ignore );
-
-        BOOST_FOREACH(boost::shared_ptr<structure_type> const structure, base_type::get_structures())
-        {
-            if( structure->id() == ignore)
-                continue;
-            
-            position_type const cyc_pos(cyclic_transpose(pos, structure->position(), world_size));
-            length_type const dist( fabs( structure->projected_point_on_surface( cyc_pos ).second ) );
-                
-            if( dist < ret_dist )
-            {
-                ret_dist = dist;
-                ret_id = structure->id();
-            }  
-        }
-        
-        return structure_id_and_distance_pair( ret_id , ret_dist );
     }
     // Get all the particle ids of the particles on a structure
     particle_id_set get_particle_ids_on_struct(structure_id_type const& struct_id) const

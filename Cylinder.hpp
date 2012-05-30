@@ -5,6 +5,7 @@
 #include <cmath>
 #include "Vector3.hpp"
 #include "Shape.hpp"
+#include "linear_algebra.hpp"
 
 // Todo. Make sure cylinder is never larger than 1 cellsize or something.  
 template<typename T_>
@@ -104,68 +105,63 @@ inline std::basic_ostream<Tstrm_>& operator<<(std::basic_ostream<Tstrm_>& strm,
 }
 
 template<typename T_>
-inline bool
-is_alongside(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const& pos)
-// The function checks if the projection of the position 'pos' is 'inside' the object.
-{
-    typedef typename Cylinder<T_>::position_type    position_type;
-    typedef typename Cylinder<T_>::length_type      length_type;
-
-    const position_type pos_vector(subtract(pos, obj.position()));
-
-    return (abs(dot_product(pos_vector, obj.unit_z())) <= obj.half_length());
-}
-
-
-template<typename T_>
 inline std::pair<typename Cylinder<T_>::length_type,
                  typename Cylinder<T_>::length_type>
 to_internal(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const& pos)
 {
     // Return pos relative to position of cylinder. 
-    typedef typename Cylinder<T_>::position_type position_type;
-    typedef typename Cylinder<T_>::length_type length_type;
+    typedef typename Cylinder<T_>::position_type    position_type;
+    typedef typename Cylinder<T_>::length_type      length_type;
 
     const position_type pos_vector(subtract(pos, obj.position()));
-    // z can be < 0
-    const length_type z(dot_product(pos_vector, obj.unit_z()));
-    // r is always >= 0
-    const length_type r(length(pos_vector - multiply(obj.unit_z(), z)));
+
+    const length_type z(dot_product(pos_vector, obj.unit_z()));             // z can be < 0
+    const length_type r(length(subtract(pos_vector, multiply(obj.unit_z(), z))));    // r is always >= 0
 
     return std::make_pair(r, z);
 }
 
 template<typename T_>
 inline std::pair<typename Cylinder<T_>::position_type,
-                 typename Cylinder<T_>::length_type>
-projected_point(Cylinder<T_> const& obj,
-                typename Cylinder<T_>::position_type const& pos)
+                 std::pair<typename Cylinder<T_>::length_type,
+                           typename Cylinder<T_>::length_type> >
+project_point(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const& pos)
 {
     typedef typename Cylinder<T_>::length_type length_type;
 
     // The projection lies on the z-axis.
     std::pair<length_type, length_type> r_z(to_internal(obj, pos));
-    return std::make_pair(
-        add(obj.position(), multiply(obj.unit_z(), r_z.second)),
-        r_z.first);
+
+    return std::make_pair( add(obj.position(), multiply(obj.unit_z(), r_z.second)),
+                           std::make_pair(r_z.first,
+                                          subtract(abs(r_z.second), obj.half_length())) );
 }
 
 //Almost equal to projected point method, but for the substraction of the cylinder radius from the radial distance r.
 //And projected point now lies on the surface, not on the central axis.
 template<typename T_>
 inline std::pair<typename Cylinder<T_>::position_type,
-                 typename Cylinder<T_>::length_type>
-projected_point_on_surface(Cylinder<T_> const& obj,
+                 std::pair<typename Cylinder<T_>::length_type,
+                           typename Cylinder<T_>::length_type> >
+project_point_on_surface(Cylinder<T_> const& obj,
                 typename Cylinder<T_>::position_type const& pos)
 {
     typedef typename Cylinder<T_>::length_type length_type;
     typedef typename Cylinder<T_>::position_type position_type;
 
-    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
-    position_type within_surface( add(obj.position(), multiply(obj.unit_z(), r_z.second)) );
+    // Here we do not call 'to_internal' for efficiency
+    const position_type pos_vector(subtract(pos, obj.position()));
 
-    return std::make_pair( add(within_surface, multiply( normalize( subtract( pos, within_surface ) ), obj.radius() )),
-        r_z.first - obj.radius() );
+    const length_type   z ( dot_product(pos_vector, obj.unit_z()) );
+    const position_type z_vector (multiply(obj.unit_z(), z));
+    const position_type r_vector (subtract(pos_vector, z_vector));
+    const length_type   r (length(r_vector));
+
+    const position_type projected_point( add(obj.position(), z_vector) );
+
+    return std::make_pair( add(projected_point, multiply( normalize(r_vector), obj.radius() )),
+                           std::make_pair(subtract(r, obj.radius()),
+                                          subtract(abs(z), obj.half_length())) );
 }
 
 template<typename T_>
@@ -216,29 +212,6 @@ distance(Cylinder<T_> const& obj,
 }
 
 template<typename T_>
-inline typename Cylinder<T_>::length_type
-min_dist_proj_to_edge(Cylinder<T_> const& obj,
-                typename Cylinder<T_>::position_type const& pos)
-// Calculates the distance from the projection of 'pos' to the closest cap of the cylinder
-// if it is within in the cylinder; if not, it returns zero
-{
-    typedef typename Cylinder<T_>::position_type position_type;
-    typedef typename Cylinder<T_>::length_type length_type;
-
-    /* First compute the (r,z) components of pos in a coordinate system 
-     * defined by the vectors unitR and unit_z, where unitR is
-     * choosen such that unitR and unit_z define a plane in which
-     * pos lies. */
-    const std::pair<length_type, length_type> r_z(to_internal(obj, pos));
-    /* Then compute distance to caps. */
-    const length_type dz(std::fabs(r_z.second) - obj.half_length());
-    
-    if (dz < 0)         return -dz;
-    else                return 0;
-
-}
-
-template<typename T_>
 inline std::pair<typename Cylinder<T_>::position_type, bool>
 deflect(Cylinder<T_> const& obj,
         typename Cylinder<T_>::position_type const& r0,
@@ -249,7 +222,7 @@ deflect(Cylinder<T_> const& obj,
     // For now it just returns original pos. + displacement. The changeflage = false.
     return std::make_pair( add(r0, d), false );
 }
-
+/*
 template<typename T_>
 inline typename Cylinder<T_>::position_type
 deflect_back(Cylinder<T_> const& obj,
@@ -259,22 +232,7 @@ deflect_back(Cylinder<T_> const& obj,
     // Return the vector r without any changes
     return r;
 }
-
-template<typename T_>
-inline bool
-allows_interaction_from(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const& pos)
-// Returns true if a particle at position pos is supposed to interact with the cylinder
-{
-    typedef typename Cylinder<T_>::length_type length_type;
-
-    // The projection lies on the z-axis.
-    std::pair<length_type, length_type> r_z(to_internal(obj, pos));
-    
-    // Only interact from points that are between the cylinder caps
-    // when projected onto the cylinder axis
-    return ( abs(r_z.second) <= obj.half_length() );
-}
-
+*/
 template<typename T, typename Trng>
 inline typename Cylinder<T>::position_type
 random_position(Cylinder<T> const& shape, Trng& rng)

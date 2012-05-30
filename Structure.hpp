@@ -32,7 +32,8 @@ public:
     typedef typename traits_type::position_type             position_type;
     typedef typename traits_type::species_type              species_type;
     typedef typename traits_type::structure_type_id_type    structure_type_id_type;
-    typedef std::pair<position_type, length_type>           projected_type;
+    typedef std::pair<length_type, length_type>             components_pair_type;
+    typedef std::pair<position_type, components_pair_type>  projected_type;
     typedef std::pair<position_type, position_type>         position_pair_type;
     typedef std::pair<position_type, bool>                  position_flag_pair_type;
     typedef std::pair<position_type, structure_id_type>     position_structid_pair_type;
@@ -103,7 +104,6 @@ public:
     // Methods used in the 'new' BDPropagator
     virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const = 0;
     virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const = 0;
-    virtual bool is_alongside(position_type const& pos) const = 0;
 
 
     // TODO this are just functions->move somewhere else
@@ -118,16 +118,14 @@ public:
     virtual position_pair_type special_geminate_dissociation_positions( rng_type& rng, species_type const& s_surf, species_type const& s_bulk, position_type const& op_surf, length_type const& rl ) const = 0;
     
     // general method for getting some measures/info
-    virtual projected_type projected_point(position_type const& pos) const = 0;
-    virtual projected_type projected_point_on_surface(position_type const& pos) const = 0;
+    virtual projected_type project_point(position_type const& pos) const = 0;
+    virtual projected_type project_point_on_surface(position_type const& pos) const = 0;
     virtual length_type distance(position_type const& pos) const = 0;
-    virtual length_type min_dist_proj_to_edge(position_type const& pos) const = 0;
     virtual position_type const& position() const = 0;    
-    virtual bool allows_interaction_from(position_type const& pos) const = 0;
 
     // Methods used for edge crossing (only for the planes so far)    
     virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const = 0;
-    virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const = 0;
+//    virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const = 0;
 
     virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
                                                        structure_container_type const& structure_container) const = 0;

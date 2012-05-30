@@ -60,7 +60,6 @@ public:
     typedef std::set<structure_id_type>                                             structure_id_set;
     typedef std::pair<const structure_id_type, boost::shared_ptr<structure_type> >  structure_id_pair;
     typedef abstract_limited_generator<structure_id_pair>                           structure_id_pair_generator;
-    typedef std::pair<structure_id_type, length_type>                               structure_id_and_distance_pair; // TODO remove
     typedef std::pair<structure_id_pair, length_type>                               structure_id_pair_and_distance;
     typedef unassignable_adapter<structure_id_pair_and_distance,
                                  get_default_impl::std::vector>                     structure_id_pair_and_distance_list;
@@ -114,8 +113,6 @@ public:
 
     virtual structure_id_type get_def_structure_id() const = 0;
 
-    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const = 0;
-
     virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
                                                                       structure_id_type const& ignore) const = 0;
 
@@ -154,15 +151,14 @@ public:
 
     virtual length_type apply_boundary(length_type const& v) const = 0;
 
-    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
-                                                       const boost::shared_ptr<const structure_type> structure) const = 0;
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id) const = 0;
 
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const = 0;
 
     virtual length_type cyclic_transpose(length_type const& p0, length_type const& p1) const = 0;
 
     virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
-                                                         const boost::shared_ptr<const structure_type> structure) const = 0;
+                                                         structure_type const& structure) const = 0;
 
 };
 

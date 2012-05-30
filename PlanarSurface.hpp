@@ -111,10 +111,6 @@ public:
         Real X( rng.uniform(0.,1.) );
         length_type diss_vec_length( X*rl );
 
-//        position_type unit_z( cross_product( base_type::shape().unit_x(), base_type::shape().unit_y() ) );
-//
-//        unit_z = normalize ( unit_z );
-
         return multiply( base_type::shape().unit_z(), (rng.uniform_int(0, 1) * 2 - 1) * diss_vec_length );
     }
 

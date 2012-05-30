@@ -260,16 +260,16 @@ def throw_in_particles(world, sid, n):
         myrandom.shuffle(structure_list)
         structure = world.get_structure(structure_list[0])
         position = structure.random_position(myrandom.rng)
-        position = world.apply_boundary(position)
+        position, structure_id = world.apply_boundary((position, structure.id))
 
         # Check overlap. TODO put in 'if' statement for improved efficiency?
         particle_overlaps = world.check_overlap((position, species.radius))
         surface_overlaps  = world.check_surface_overlap((position, species.radius*MINIMAL_SEPARATION_FACTOR),
-                                                        position, structure.id, species.radius)
+                                                        position, structure_id, species.radius)
 
         if (not particle_overlaps) and (not surface_overlaps):
             # All checks passed. Create particle.
-            p = world.new_particle(sid, structure.id, position)
+            p = world.new_particle(sid, structure_id, position)
             i += 1
             if __debug__:
                 log.info('particle accepted: (%s,\n %s)' % (p[0], p[1]))
@@ -337,6 +337,7 @@ def place_particle(world, sid, position):
         log.info('\n\tplacing particle of type %s to structure \"%s\" at position %s' %
                  (name, world.get_structure(structure_id).name, position))
 
+    position, structure_id = world.apply_boundary((position, structure_id))
     particle = world.new_particle(sid, structure_id, position)
 
     if __debug__:

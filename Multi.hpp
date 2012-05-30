@@ -50,7 +50,6 @@ public:
     typedef typename world_type::particle_container_type::structures_range                  structures_range;
     typedef typename world_type::particle_container_type::particle_id_pair                  particle_id_pair;
     typedef typename world_type::particle_container_type::structure_id_pair                 structure_id_pair;
-    typedef typename world_type::particle_container_type::structure_id_and_distance_pair    structure_id_and_distance_pair;
     typedef typename world_type::particle_container_type::structure_id_set                  structure_id_set;
     typedef typename world_type::particle_container_type::particle_id_pair_and_distance_list    particle_id_pair_and_distance_list;
     typedef typename world_type::particle_container_type::structure_id_pair_and_distance_list   structure_id_pair_and_distance_list;
@@ -124,10 +123,6 @@ public:
     virtual structure_id_type get_def_structure_id() const
     {
         return world_.get_def_structure_id();
-    }
-    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
-    {        
-        return world_.get_closest_surface( pos, ignore );   // TODO loop only over 'local' surfaces
     }
     virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
                                                                       structure_id_type const& ignore) const
@@ -272,10 +267,9 @@ public:
         return world_.apply_boundary(v);
     }
 
-    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
-                                                       const boost::shared_ptr<const structure_type> structure) const
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id) const
     {
-        return world_.apply_boundary(pos_struct_id, structure);
+        return world_.apply_boundary(pos_struct_id);
     }
 
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
@@ -289,7 +283,7 @@ public:
     }
 
     virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
-                                                         const boost::shared_ptr<const structure_type> structure) const
+                                                         structure_type const& structure) const
     {
         return world_.cyclic_transpose(pos_struct_id, structure);
     }
@@ -342,12 +336,17 @@ public:
         BOOST_FOREACH(particle_id_pair pp, get_particles_range())
         {
             species_type const s( get_species(pp.second.sid()) );
-            structure_id_and_distance_pair const strc_id_and_dist( 
-                get_closest_surface( pp.second.position(), pp.second.structure_id() ) );    // only ignore structure that the particle is on.
+            const boost::scoped_ptr<const structure_id_pair_and_distance_list> close_struct_id_distance (
+                get_close_structures(pp.second.position(), pp.second.structure_id(), pp.second.structure_id()) );
+            const std::pair<boost::shared_ptr<structure_type>, length_type> strc_and_dist (
+                close_struct_id_distance ? std::make_pair(close_struct_id_distance->at(0).first.second, close_struct_id_distance->at(0).second)
+                                         : std::make_pair(get_structure(pp.second.structure_id()), std::numeric_limits<length_type>::max()));
+//            structure_id_and_distance_pair const strc_id_and_dist( 
+//                get_closest_surface( pp.second.position(), pp.second.structure_id() ) );    // only ignore structure that the particle is on.
                 
-            if( strc_id_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
+            if( strc_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
             {
-                structure_type_id_type const strc_sid( get_structure( strc_id_and_dist.first )->sid() );
+                structure_type_id_type const strc_sid( strc_and_dist.first->sid() );
                 reaction_rules const& rrules(rules.query_reaction_rule( s.id(), strc_sid ));
                 if (::size(rrules) == 0)
                     continue;
@@ -355,7 +354,7 @@ public:
                 for (typename boost::range_const_iterator<reaction_rules>::type
                 it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
-                    Real const k( get_structure( strc_id_and_dist.first )->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
+                    Real const k( strc_and_dist.first->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
 
                     if ( k_max < k )
                         k_max = k;

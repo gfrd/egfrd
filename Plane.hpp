@@ -192,26 +192,35 @@ to_internal(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
 
 template<typename T_>
 inline std::pair<typename Plane<T_>::position_type,
-                 typename Plane<T_>::length_type>
-projected_point(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
+                 std::pair<typename Plane<T_>::length_type,
+                           typename Plane<T_>::length_type> >
+project_point(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
 // Calculates the projection of 'pos' onto the plane 'obj' and also returns the coefficient
 // for the normal component (z) of 'pos' in the basis of the plane
 {
+    typedef typename Plane<T_>::length_type length_type;
+
     boost::array<typename Plane<T_>::length_type, 3> x_y_z(to_internal(obj, pos));
-    return std::make_pair(
-        add(add(obj.position(), multiply(obj.unit_x(), x_y_z[0])),
-                                multiply(obj.unit_y(), x_y_z[1])),
-        x_y_z[2]);
+
+    const length_type dx(subtract( abs(x_y_z[0]), obj.half_extent()[0]));
+    const length_type dy(subtract( abs(x_y_z[1]), obj.half_extent()[1]));
+    const length_type min_dist ( (dx <= 0 && dy <= 0) ? std::max(dx, dy)
+                                                      : 1.0 );      // TODO make this is proper distance if we need it
+
+    return std::make_pair( add(add(obj.position(), multiply(obj.unit_x(), x_y_z[0])),
+                               multiply(obj.unit_y(), x_y_z[1])),
+                           std::make_pair(x_y_z[2], min_dist) );
 }
 
 template<typename T_>
 inline std::pair<typename Plane<T_>::position_type,
-                 typename Plane<T_>::length_type>
-projected_point_on_surface(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
+                 std::pair<typename Plane<T_>::length_type,
+                           typename Plane<T_>::length_type> >
+project_point_on_surface(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
 // Since the projected point on the plane, is already on the surface of the plane,
 // this function is just a wrapper of projected point.
 {
-    return projected_point(obj, pos);
+    return project_point(obj, pos);
 }
 
 template<typename T_>
@@ -259,27 +268,6 @@ distance(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
             return abs(x_y_z[2]);
         }
     }
-}
-
-template<typename T_>
-inline typename Plane<T_>::length_type
-min_dist_proj_to_edge(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
-// Calculates the distance from the projection of 'pos' to the closest edge of the plane
-// if it is in the plane; if not, it returns zero
-{
-    typedef typename Plane<T_>::length_type length_type;
-    boost::array<length_type, 3> const x_y_z(to_internal(obj, pos));
-
-    length_type const dx(subtract( abs(x_y_z[0]), obj.half_extent()[0]));
-    length_type const dy(subtract( abs(x_y_z[1]), obj.half_extent()[1]));
-
-    if (dx < 0.0 && dy < 0.0)
-        // pos is positioned over the plane (projected point is in the plane and
-        // not next to it).
-        return std::min( -dx, -dy);
-
-    else        return 0.0;
-    
 }
 
 ///// Function below are inline functions that can be applied on Plane objects.
@@ -342,7 +330,7 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
         // that ranges out of the target plane.
         // Project all points that are supposed to be in the plane into it,
         // just to be sure.
-        intersect_pt = projected_point( obj, add(r0, multiply(d, intersect_parameter)) ).first;
+        intersect_pt = project_point( obj, add(r0, multiply(d, intersect_parameter)) ).first;
         d_out = multiply(d, subtract(1.0, intersect_parameter));
         
         // Calculate the length of the component of d_out perpendicular to the edge
@@ -366,7 +354,7 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
         
         // Construct the new position vector, make sure it's in the plane to
         // avoid trouble with periodic boundary conditions
-        new_pos = projected_point(obj, add(intersect_pt, add(d_edge, d_perp)) ).first;        
+        new_pos = project_point(obj, add(intersect_pt, add(d_edge, d_perp)) ).first;        
         changeflag = true;
    }
    
@@ -374,7 +362,7 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
    // for now this returns the new position without changes
    return std::make_pair( new_pos, changeflag );
 }
-
+/*
 template<typename T_>
 inline typename Plane<T_>::position_type
 deflect_back(Plane<T_> const& obj, typename Plane<T_>::position_type const& r, typename Plane<T_>::position_type const& u_z)
@@ -389,9 +377,9 @@ deflect_back(Plane<T_> const& obj, typename Plane<T_>::position_type const& r, t
      // Type abbreviations
     typedef typename Plane<T_>::length_type length_type;
     typedef typename Plane<T_>::position_type position_type;
-    typedef std::pair<position_type, length_type> projected_type;
+    typedef std::pair<position_type, std::pair<length_type, length_type> > projected_type;
     
-    projected_type r_proj(projected_point(obj, r));
+    projected_type r_proj(project_point(obj, r));
     position_type  dc(subtract(r_proj.first, obj.position()));
                    // vector pointing towards the projection of r on plane obj
                    // from the center of the latter
@@ -408,36 +396,11 @@ deflect_back(Plane<T_> const& obj, typename Plane<T_>::position_type const& r, t
     else
         u_perp = multiply(u_z, -1.0);
     
-    r_new = add(r_proj.first, multiply(u_perp, abs(r_proj.second)) );
+    r_new = add(r_proj.first, multiply(u_perp, abs(r_proj.second.first)) );
     
-    return projected_point(obj, r_new).first;
+    return project_point(obj, r_new).first;
 }
-
-template<typename T_>
-inline bool
-allows_interaction_from(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
-// Returns true if a particle at position pos is supposed to interact with the plane
-{
-    boost::array<typename Plane<T_>::length_type, 3> x_y_z(to_internal(obj, pos));
-    
-    // Return true if projection of pos is within the confined plane
-    return ( abs(x_y_z[0]) <= obj.Lx() ) && ( abs(x_y_z[1]) <= obj.Ly() );
-}
-
-template<typename T_>
-inline bool
-is_alongside(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
-// The function checks if the projection of the position 'pos' is 'inside' the object.
-{
-    typedef typename Plane<T_>::position_type position_type;
-
-    boost::array<typename Plane<T_>::length_type, 2> half_extends(obj.half_extent());
-    position_type pos_vector(subtract(pos, obj.position()));
-
-    return ((abs(dot_product(pos_vector, obj.unit_x())) < half_extends[0]) &&
-            (abs(dot_product(pos_vector, obj.unit_y())) < half_extends[1]));
-}
-
+*/
 template<typename T, typename Trng>
 inline typename Plane<T>::position_type
 random_position(Plane<T> const& shape, Trng& rng)

@@ -15,8 +15,9 @@ inline boost::python::objects::class_base register_structure_class(char const *n
     typedef Timpl impl_type;
 
     // registering converters from standard boost templates
-    // registers the projected_point/projected_distance tuple defined in ../Structure.hpp
+    // registers the projected_point/(projected_distance, dist_to_edge) tuple defined in ../Structure.hpp
     peer::converters::register_tuple_converter<typename impl_type::projected_type>();
+    peer::converters::register_tuple_converter<typename impl_type::components_pair_type>();
     peer::converters::register_tuple_converter<typename impl_type::position_flag_pair_type>();
 
     // defining the python class
@@ -45,11 +46,9 @@ inline boost::python::objects::class_base register_structure_class(char const *n
         .def("random_position", &impl_type::random_position)
         .def("random_vector", &impl_type::random_vector)
         .def("bd_displacement", &impl_type::bd_displacement)
-        .def("projected_point", &impl_type::projected_point)
-        .def("min_dist_proj_to_edge", &impl_type::min_dist_proj_to_edge)
-        .def("allows_interaction_from", &impl_type::allows_interaction_from)
+        .def("project_point", &impl_type::project_point)
         .def("deflect", &impl_type::deflect)
-        .def("deflect_back", &impl_type::deflect_back)
+//        .def("deflect_back", &impl_type::deflect_back)
         ;
 }
 

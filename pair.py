@@ -522,7 +522,7 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
 
         assert isinstance(testShell, PlanarSurfaceTransitionPairtestShell)
         hasSphericalShell.__init__(self, testShell, domain_id)
-        self.LD_MAX = numpy.inf # TODO was 20. Why?
+        self.LD_MAX = numpy.inf # TODO was 20. Why? Because of convergence issues! Maybe not really an issue here though
         SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
         
         self.structure1 = self.testShell.structure1
@@ -622,8 +622,8 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
         # These components also are used to calculate the safety factor for
         # interparticle vector enlargement in case that the two particles
         # indeed are on two different planes.
-        _, pos1_orth = structure2.projected_point(pos1)
-        _, pos2_orth = structure2.projected_point(pos2)
+        _, (pos1_orth, _) = structure2.project_point(pos1)
+        _, (pos2_orth, _) = structure2.project_point(pos2)
 
         if( pos1_orth * pos2_orth < 0.0 ) :
             # The particles will end up on different planes, i.e.
@@ -649,7 +649,7 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
         # bogus parameters for these by subtracting the center position of structure1 from pos1 and pos2.
         s1_ctr = structure1.shape.position
 
-        new_pos1, changeflag1 = structure2.deflect(s1_ctr, pos1 - s1_ctr)
+        new_pos1, changeflag1 = structure2.deflect(s1_ctr, pos1 - s1_ctr)   #TODO replace by world.apply_boundary
         new_pos2, changeflag2 = structure2.deflect(s1_ctr, pos2 - s1_ctr)
         
         # adjust the structure_ids of the particles

@@ -71,7 +71,6 @@ public:
 
     typedef std::pair<const particle_id_type, particle_type>    particle_id_pair;
     typedef abstract_limited_generator<particle_id_pair>        particle_id_pair_generator;
-    typedef std::pair<structure_id_type, length_type>           structure_id_and_distance_pair;
 
 private:
     typedef std::map<typename particle_id_pair::first_type,
@@ -237,10 +236,6 @@ public:
     {
         return pc_.get_def_structure_id();
     }    
-    virtual structure_id_and_distance_pair get_closest_surface(position_type const& pos, structure_id_type const& ignore) const
-    {
-        return pc_.get_closest_surface( pos, ignore );
-    }
     virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
                                                                       structure_id_type const& ignore) const
     {
@@ -326,10 +321,9 @@ public:
         return pc_.apply_boundary(v);
     }
 
-    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id,
-                                                       const boost::shared_ptr<const structure_type> structure) const
+    virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id) const
     {
-        return pc_.apply_boundary(pos_struct_id, structure);
+        return pc_.apply_boundary(pos_struct_id);
     }
 
     virtual position_type cyclic_transpose(position_type const& p0, position_type const& p1) const
@@ -343,7 +337,7 @@ public:
     }
 
     virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
-                                                         const boost::shared_ptr<const structure_type> structure) const
+                                                         structure_type const& structure) const
     {
         return pc_.cyclic_transpose(pos_struct_id, structure);
     }

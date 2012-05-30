@@ -5,6 +5,7 @@
 #include <cmath>
 #include "Vector3.hpp"
 #include "Shape.hpp"
+#include "linear_algebra.hpp"
 
 template<typename T_>
 class Disk
@@ -91,17 +92,6 @@ inline std::basic_ostream<Tstrm_>& operator<<(std::basic_ostream<Tstrm_>& strm,
 }
 
 template<typename T_>
-inline bool
-is_alongside(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
-// The function checks if the projection of the position 'pos' is 'inside' the object.
-{
-    boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
-
-    return ( r_z[0] <= obj.radius() );
-}
-
-
-template<typename T_>
 inline boost::array<typename Disk<T_>::length_type, 2>
 to_internal(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
 {
@@ -111,38 +101,45 @@ to_internal(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
     typedef typename Disk<T_>::length_type      length_type;
 
     const position_type pos_vector(subtract(pos, obj.position()));
-    // z can be < 0
-    const length_type z(dot_product(pos_vector, obj.unit_z()));
-    // r is always >= 0
-    const length_type r(length(pos_vector - multiply(obj.unit_z(), z)));
+    
+    const length_type z( dot_product(pos_vector, obj.unit_z()) );               // z can be < 0
+    const length_type r( length(subtract(pos_vector, multiply(obj.unit_z(), z))) );// r is always >= 0
 
     return array_gen<typename Disk<T_>::length_type>(r, z);
 }
 
 template<typename T_>
 inline std::pair<typename Disk<T_>::position_type,
-                 typename Disk<T_>::length_type>
-projected_point(Disk<T_> const& obj,
-                typename Disk<T_>::position_type const& pos)
+                 std::pair<typename Disk<T_>::length_type,
+                           typename Disk<T_>::length_type> >
+project_point(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
+// Calculates the projection of 'pos' onto the disk 'obj' and also returns the coefficient
+// for the normal component (z) of 'pos' in the basis of the disk and the distance of the
+// projected point to the 'edge' of the disk. Here a positive number means the projected
+// point is outside the disk, and a negative numbers means it is 'inside' the disk.
 {
-    typedef typename Disk<T_>::length_type length_type;
+    typedef typename Disk<T_>::length_type   length_type;
+    typedef typename Disk<T_>::position_type position_type;
 
-    // The disk is in principle a 1D object:
-    // Projecting onto the disk means projecting onto its center.
-    // The distance is the z-component returned by to_internal().
-    boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
-    
-    return std::make_pair( obj.position(), r_z[1]);
+    // Here we do not call 'to_internal' for efficiency
+    const position_type pos_vector(subtract(pos, obj.position()));
+
+    const length_type   z ( dot_product(pos_vector, obj.unit_z()) );
+    const position_type r_vector (subtract(pos_vector, multiply(obj.unit_z(), z)));
+    const length_type   r (length(r_vector));
+
+    return std::make_pair( add(obj.position(), r_vector),
+                           std::make_pair(z, r - obj.radius()) );
 }
 
-// The same as in case of the plane: projected_point_on_surface = projected_point
+// The same as in case of the plane: project_point_on_surface = project_point
 template<typename T_>
 inline std::pair<typename Disk<T_>::position_type,
-                 typename Disk<T_>::length_type>
-projected_point_on_surface(Disk<T_> const& obj,
-                typename Disk<T_>::position_type const& pos)
+                 std::pair<typename Disk<T_>::length_type,
+                           typename Disk<T_>::length_type> >
+project_point_on_surface(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
 {
-    return projected_point(obj, pos);
+    return project_point(obj, pos);
 }
 
 template<typename T_>
@@ -180,28 +177,6 @@ distance(Disk<T_> const& obj,
 }
 
 template<typename T_>
-inline typename Disk<T_>::length_type
-min_dist_proj_to_edge(Disk<T_> const& obj,
-                typename Disk<T_>::position_type const& pos)
-// Calculates the distance from the projection of 'pos' to the edge of the disk
-// if it is within in the disk; if not, it returns zero
-{
-    typedef typename Disk<T_>::position_type position_type;
-    typedef typename Disk<T_>::length_type length_type;
-
-    /* First compute the (r,z) components of pos in a coordinate system 
-     * defined by the vectors unitR and unit_z, where unitR is
-     * choosen such that unitR and unit_z define a plane in which
-     * pos lies. */
-    const boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
-    /* Then compute distance to radial edge. */
-    const length_type dr(r_z[0] - obj.radius());
-
-    if (dr < 0)         return -dr;
-    else                return 0;
-}
-
-template<typename T_>
 inline std::pair<typename Disk<T_>::position_type, bool>
 deflect(Disk<T_> const& obj,
         typename Disk<T_>::position_type const& r0,
@@ -212,7 +187,7 @@ deflect(Disk<T_> const& obj,
     // For now it just returns original pos. + displacement. The changeflage = false.
     return std::make_pair( add(r0, d), false );
 }
-
+/*
 template<typename T_>
 inline typename Disk<T_>::position_type
 deflect_back(Disk<T_> const& obj,
@@ -222,20 +197,7 @@ deflect_back(Disk<T_> const& obj,
     // Return the vector r without any changes
     return r;
 }
-
-template<typename T_>
-inline bool
-allows_interaction_from(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
-// Returns true if a particle at position pos is supposed to interact with the disk
-{
-    typedef typename Disk<T_>::length_type length_type;
-
-    const boost::array<typename Disk<T_>::length_type, 2> r_z(to_internal(obj, pos));
-    
-    // Return true if the projection of pos is within the disk's radius
-    return ( r_z[0] <= obj.radius() );
-}
-
+*/
 
 template<typename T, typename Trng>
 inline typename Disk<T>::position_type

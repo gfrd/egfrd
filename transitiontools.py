@@ -45,7 +45,7 @@ class TransitionTools :
     def process_new_position_vector(self, old_pos, displacement):
                 
         # Construct the new position using the deflection function of the target surface            
-        new_pos, changeflag = self.target_structure.deflect(old_pos, displacement)        
+        new_pos, changeflag = self.target_structure.deflect(old_pos, displacement)       #TODO replace by world.apply_boundary 
                 
         if changeflag==0 :
             # The new position is still in the old surface;
