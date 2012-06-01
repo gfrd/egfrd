@@ -156,7 +156,7 @@ public:
         length_type const diss_vec_length( cbrt( X * (r01l_cb - r01_cb ) + r01_cb ) );   
         
         position_type unit_z( cross_product( base_type::shape().unit_x(), base_type::shape().unit_y() ) );
-        unit_z = normalize ( unit_z );
+        unit_z = normalize ( unit_z );  // TODO unit_z is already defined, don't have to do a cross product
         
         //unit_z = multiply(unit_z, rng.uniform_int(0, 1) * 2 - 1);
         

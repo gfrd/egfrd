@@ -1126,7 +1126,7 @@ def get_dr_dzright_dzleft_to_DiskShape(shape, testShell, r, z_right, z_left):
 
     # For now just consider the Disk as a special case of a cylinder
     # TODO implement properly, I'm sure things can be more optimal
-    return (Cylinder(shape.position, shape.radius, shape.unit_z, 0.0), testShell, r, z_right, z_left)
+    return get_dr_dzright_dzleft_to_CylindricalShape(Cylinder(shape.position, shape.radius, shape.unit_z, 0.0), testShell, r, z_right, z_left)
 
 def get_radius_to_DiskShape(shape, testShell, r):
     # This function returns the radius for the spherical 'testShell' using the disk 'shape' as its closest

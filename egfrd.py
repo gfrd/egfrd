@@ -1382,9 +1382,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # Note that the reactant_structure_ids are the ids of the structures on which the particles were located at the time of the reaction.
 
-        if __debug__:
-            assert isinstance(pair, Pair)
-
         # 0. get reactant info
         pid_particle_pair1     = pair.pid_particle_pair1
         pid_particle_pair2     = pair.pid_particle_pair2
