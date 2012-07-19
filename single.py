@@ -1123,7 +1123,9 @@ class CylindricalSurfaceCapInteraction(InteractionSingle):
             else:
                 # Some other event took place and the particle didn't escape;
                 # as a consequence it stays on the origin structure.
-                dz = draw_r_wrapper(gf, dt, -self.get_inner_dz_left(), self.get_inner_dz_right()) # TODO Is this sampling correctly?
+                # NOTE: draw_r_wrapper(): attention, order of arguments inverted!
+                # Last two arguments are a, sigma (in this order!)
+                dz = draw_r_wrapper(gf, dt, self.get_inner_dz_right(), -self.get_inner_dz_left())
                 structure_id = self.origin_structure.id
 
             # Add displacement to particle.position.

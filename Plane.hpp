@@ -313,7 +313,7 @@ deflect(Plane<T_> const& obj, typename Plane<T_>::position_type const& r0, typen
    if(dot_product(d, u_z) != 0.0)
       intersect_parameter = divide( dot_product(subtract(center_pt, r0), u_z), dot_product(d, u_z) );
    else
-      intersect_parameter = (length_type)INT_MAX;       // infinity, displacement is parallel to edge
+      intersect_parameter = (length_type)1e100;       // infinity, displacement is parallel to edge
       
    // Check whether the displacement actually crosses the plane;
    // If not, just return original position plus displacement;

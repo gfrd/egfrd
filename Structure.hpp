@@ -15,9 +15,28 @@
 #include "exceptions.hpp"
 #include "freeFunctions.hpp"
 #include "SpeciesTypeID.hpp"
+#include "StructureFunctions.hpp"
 
+// Forward declarations
 template <typename Tobj_, typename Tid, typename Ttraits_>
 class StructureContainer;
+
+template<typename T_>
+class CuboidalRegion;
+
+template<typename T_>
+class CylindricalSurface;
+
+template<typename T_>
+class SphericalSurface;
+
+template<typename T_>
+class DiskSurface;
+
+template<typename T_>
+class PlanarSurface;
+
+
 
 template<typename Ttraits_>
 class Structure
@@ -25,18 +44,20 @@ class Structure
 public:
     typedef Ttraits_ traits_type;
     // shorthands for types that we use
-    typedef typename traits_type::rng_type                  rng_type;
-    typedef typename traits_type::structure_name_type       structure_name_type;
-    typedef typename traits_type::structure_id_type         structure_id_type;
-    typedef typename traits_type::length_type               length_type;
-    typedef typename traits_type::position_type             position_type;
-    typedef typename traits_type::species_type              species_type;
-    typedef typename traits_type::structure_type_id_type    structure_type_id_type;
-    typedef std::pair<length_type, length_type>             components_pair_type;
-    typedef std::pair<position_type, components_pair_type>  projected_type;
-    typedef std::pair<position_type, position_type>         position_pair_type;
-    typedef std::pair<position_type, bool>                  position_flag_pair_type;
-    typedef std::pair<position_type, structure_id_type>     position_structid_pair_type;
+    typedef typename traits_type::rng_type                                        rng_type;
+    typedef typename traits_type::structure_name_type                             structure_name_type;
+    typedef typename traits_type::structure_id_type                               structure_id_type;
+    typedef typename traits_type::structure_type                                  structure_type;
+    typedef typename traits_type::length_type                                     length_type;
+    typedef typename traits_type::position_type                                   position_type;
+    typedef typename traits_type::species_type                                    species_type;
+    typedef typename traits_type::structure_type_id_type                          structure_type_id_type;
+    typedef std::pair<length_type, length_type>                                   components_pair_type;
+    typedef std::pair<position_type, components_pair_type>                        projected_type;
+    typedef std::pair<position_type, position_type>                               position_pair_type;
+    typedef std::pair<position_type, bool>                                        position_flag_pair_type;
+    typedef std::pair<position_type, structure_id_type>                           position_structid_pair_type;
+    typedef std::pair<position_structid_pair_type, position_structid_pair_type>   position_structid_pair_pair_type;
     typedef StructureContainer<typename traits_type::structure_type, structure_id_type, traits_type>   structure_container_type;
 
 public:
@@ -96,7 +117,7 @@ public:
     virtual position_type random_vector(length_type const& r, rng_type& rng) const = 0;
 
 
-    // Methods used in the 'old' BDPropagator
+    // Methods used in the 'old' BDPropagator // DEPRECATED
     virtual position_type dissociation_vector(rng_type& rng, length_type const& r01, Real const& dt, Real const& D01, Real const& v) const = 0;
     virtual length_type drawR_gbd(Real const& rnd, length_type const& r01, Real const& dt, Real const& D01, Real const& v) const = 0;
     virtual Real p_acceptance(Real const& k_a, Real const& dt, length_type const& r01, position_type const& ipv, Real const& D0, Real const& D1, Real const& v0, Real const& v1) const = 0;
@@ -104,7 +125,6 @@ public:
     // Methods used in the 'new' BDPropagator
     virtual position_type bd_displacement(length_type const& mean, length_type const& r, rng_type& rng) const = 0;
     virtual length_type newBD_distance(position_type const& new_pos, length_type const& radius, position_type const& old_pos, length_type const& sigma) const = 0;
-
 
     // TODO this are just functions->move somewhere else
     virtual Real get_1D_rate_geminate( Real const& k, length_type const& r01) const = 0;
@@ -114,16 +134,17 @@ public:
     
     // Methods used to calculate dissociation positions
     virtual position_type surface_dissociation_vector( rng_type& rng, length_type const& r0, length_type const& rl ) const = 0;
+    virtual position_type surface_dissociation_unit_vector( rng_type& rng ) const = 0;
     virtual position_pair_type geminate_dissociation_positions( rng_type& rng, species_type const& s0, species_type const& s1, position_type const& op, length_type const& rl ) const = 0;
     virtual position_pair_type special_geminate_dissociation_positions( rng_type& rng, species_type const& s_surf, species_type const& s_bulk, position_type const& op_surf, length_type const& rl ) const = 0;
     
-    // general method for getting some measures/info
+    // General method for getting some measures/info
     virtual projected_type project_point(position_type const& pos) const = 0;
     virtual projected_type project_point_on_surface(position_type const& pos) const = 0;
     virtual length_type distance(position_type const& pos) const = 0;
-    virtual position_type const& position() const = 0;    
+    virtual position_type const& position() const = 0;
 
-    // Methods used for edge crossing (only for the planes so far)    
+    // Methods used for edge crossing (only for the planes so far)
     virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const = 0;
 //    virtual position_type deflect_back(position_type const& pos, position_type const& u_z) const = 0;
 
@@ -131,6 +152,166 @@ public:
                                                        structure_container_type const& structure_container) const = 0;
     virtual position_structid_pair_type cyclic_transpose(position_structid_pair_type const& pos_struct_id,
                                                          structure_container_type const& structure_container) const = 0;
+                                                         
+    // Structure functions dynamic dispatch
+    // 
+    // FIXME For now the second dispatch requires the helper functions to be defined here for each structure type separately.
+    // This is because C++ does not allow virtual templates. The current solution is functional, but ugly, and may be replaced
+    // by a more elegant solution in the future, by defining a template here and correctly performing instantiation elsewhere.
+    
+    // 1 - Producing one new position
+    // First dispatch
+    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& target_structure, position_type const& position,
+                                                         length_type const& offset, length_type const& rl, rng_type const& rng) const = 0;
+    // Second dispatch
+    position_structid_pair_type get_pos_sid_pair_helper(CuboidalRegion<traits_type> const& origin_structure, position_type const& position,
+                                                        length_type const& offset, length_type const& rl, rng_type const& rng) const
+                                                        { return ::get_pos_sid_pair(origin_structure, *this, position, offset, rl, rng); };    
+    position_structid_pair_type get_pos_sid_pair_helper(SphericalSurface<traits_type> const& origin_structure, position_type const& position,
+                                                        length_type const& offset, length_type const& rl, rng_type const& rng) const
+                                                        { return ::get_pos_sid_pair(origin_structure, *this, position, offset, rl, rng); };    
+    position_structid_pair_type get_pos_sid_pair_helper(CylindricalSurface<traits_type> const& origin_structure, position_type const& position,
+                                                        length_type const& offset, length_type const& rl, rng_type const& rng) const
+                                                        { return ::get_pos_sid_pair(origin_structure, *this, position, offset, rl, rng); };    
+    position_structid_pair_type get_pos_sid_pair_helper(DiskSurface<traits_type> const& origin_structure, position_type const& position,
+                                                        length_type const& offset, length_type const& rl, rng_type const& rng) const
+                                                        { return ::get_pos_sid_pair(origin_structure, *this, position, offset, rl, rng); };    
+    position_structid_pair_type get_pos_sid_pair_helper(PlanarSurface<traits_type> const& origin_structure, position_type const& position,
+                                                        length_type const& offset, length_type const& rl, rng_type const& rng) const
+                                                        { return ::get_pos_sid_pair(origin_structure, *this, position, offset, rl, rng); };    
+    // 2 - Producing two new positions
+    // First dispatch
+    virtual position_structid_pair_pair_type get_pos_sid_pair_pair(structure_type const& target_structure, position_type const& position,
+                                                                   species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const = 0;
+    // Second dispatch
+    position_structid_pair_pair_type get_pos_sid_pair_pair_helper(CuboidalRegion<traits_type> const& origin_structure, position_type const& position,
+                                                                  species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const
+                                                                  { return ::get_pos_sid_pair_pair(origin_structure, *this, position, s_orig, s_targ, rl, rng); };
+    position_structid_pair_pair_type get_pos_sid_pair_pair_helper(SphericalSurface<traits_type> const& origin_structure, position_type const& position,
+                                                                  species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const
+                                                                  { return ::get_pos_sid_pair_pair(origin_structure, *this, position, s_orig, s_targ, rl, rng); };
+    position_structid_pair_pair_type get_pos_sid_pair_pair_helper(CylindricalSurface<traits_type> const& origin_structure, position_type const& position,
+                                                                  species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const
+                                                                  { return ::get_pos_sid_pair_pair(origin_structure, *this, position, s_orig, s_targ, rl, rng); };
+    position_structid_pair_pair_type get_pos_sid_pair_pair_helper(DiskSurface<traits_type> const& origin_structure, position_type const& position,
+                                                                  species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const
+                                                                  { return ::get_pos_sid_pair_pair(origin_structure, *this, position, s_orig, s_targ, rl, rng); };
+    position_structid_pair_pair_type get_pos_sid_pair_pair_helper(PlanarSurface<traits_type> const& origin_structure, position_type const& position,
+                                                                  species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type const& rng) const
+                                                                  { return ::get_pos_sid_pair_pair(origin_structure, *this, position, s_orig, s_targ, rl, rng); };        
+    // 3 - Pair reactions => two origin structures
+    // The following functions handle the case of two origin structures.
+    // First again the (C++) structure types have to be determined by a double dispatch.
+    // As a next step, the helper function has to determine which of the two structures
+    // is the target structure.
+    // For now, the target structure is either:
+    //   - the lower hierarchy level structure, i.e. one of the origin structures has
+    //     to be the daughter structure of the other and the particle will end up on
+    //     the daughter structure; or:
+    //   - in case of equal structure type id's it can end up on either origin structure
+    //     and apply_boundary will handle the right placement afterwards.
+       
+    // First dispatch, overloading method call structure.get_pos_sid_pair
+    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                         length_type const& offset, length_type const& reaction_length, rng_type const& rng) const = 0;    
+    // Second dispatch; FIXME Can this be beautified somehow?
+    position_structid_pair_type get_pos_sid_pair_helper_two_origins(CuboidalRegion<traits_type> const& other_origin_structure, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                    length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+    {                          
+        if( this->is_parent_of_or_has_same_sid_as(other_origin_structure) && other_origin_structure.has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(*this, other_origin_structure, CoM, offset, reaction_length, rng); // other_origin_structure is target        
+        else if( other_origin_structure.is_parent_of_or_has_same_sid_as(*this) && this->has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(other_origin_structure, *this, CoM, offset, reaction_length, rng); // this (other_origin_structure) is target
+        else throw propagation_error("Invalid target structure type / particles can be at most one hierarchical level apart for a pair reaction.");
+    }
+    position_structid_pair_type get_pos_sid_pair_helper_two_origins(SphericalSurface<traits_type> const& other_origin_structure, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                    length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+    {                          
+        if( this->is_parent_of_or_has_same_sid_as(other_origin_structure) && other_origin_structure.has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(*this, other_origin_structure, CoM, offset, reaction_length, rng); // other_origin_structure is target        
+        else if( other_origin_structure.is_parent_of_or_has_same_sid_as(*this) && this->has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(other_origin_structure, *this, CoM, offset, reaction_length, rng); // this (other_origin_structure) is target
+        else throw propagation_error("Invalid target structure type / particles can be at most one hierarchical level apart for a pair reaction.");
+    }
+    position_structid_pair_type get_pos_sid_pair_helper_two_origins(CylindricalSurface<traits_type> const& other_origin_structure, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                    length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+    {                          
+        if( this->is_parent_of_or_has_same_sid_as(other_origin_structure) && other_origin_structure.has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(*this, other_origin_structure, CoM, offset, reaction_length, rng); // other_origin_structure is target        
+        else if( other_origin_structure.is_parent_of_or_has_same_sid_as(*this) && this->has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(other_origin_structure, *this, CoM, offset, reaction_length, rng); // this (other_origin_structure) is target
+        else throw propagation_error("Invalid target structure type / particles can be at most one hierarchical level apart for a pair reaction.");
+    }
+    position_structid_pair_type get_pos_sid_pair_helper_two_origins(DiskSurface<traits_type> const& other_origin_structure, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                    length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+    {                          
+        if( this->is_parent_of_or_has_same_sid_as(other_origin_structure) && other_origin_structure.has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(*this, other_origin_structure, CoM, offset, reaction_length, rng); // other_origin_structure is target        
+        else if( other_origin_structure.is_parent_of_or_has_same_sid_as(*this) && this->has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(other_origin_structure, *this, CoM, offset, reaction_length, rng); // this (other_origin_structure) is target
+        else throw propagation_error("Invalid target structure type / particles can be at most one hierarchical level apart for a pair reaction.");
+    }
+    position_structid_pair_type get_pos_sid_pair_helper_two_origins(PlanarSurface<traits_type> const& other_origin_structure, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                    length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+    {                          
+        if( this->is_parent_of_or_has_same_sid_as(other_origin_structure) && other_origin_structure.has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(*this, other_origin_structure, CoM, offset, reaction_length, rng); // other_origin_structure is target        
+        else if( other_origin_structure.is_parent_of_or_has_same_sid_as(*this) && this->has_valid_target_sid(target_sid) )
+            return ::get_pos_sid_pair(other_origin_structure, *this, CoM, offset, reaction_length, rng); // this (other_origin_structure) is target
+        else throw propagation_error("Invalid target structure type / particles can be at most one hierarchical level apart for a pair reaction.");
+    }
+    
+    // Some further helper functions used by get_pos_sid_pair_helper_two_origins
+    inline bool is_parent_of_or_has_same_sid_as(structure_type const& s) const
+    {    
+          structure_id_type       s_parent_id( s.structure_id() );
+          structure_type_id_type  s_sid( s.sid() );
+          structure_id_type       this_id( this->id() );
+          structure_type_id_type  this_sid( this->sid() );
+          
+          return ( s_parent_id == this_id || s_sid == this_sid );          
+    }
+    
+    inline bool has_valid_target_sid(structure_type_id_type const& target_sid) const
+    {
+          structure_type_id_type this_sid( this->sid() );
+          
+          return ( this_sid == target_sid );
+    }
+
+//     // TODO
+//     // 4 - Generalized functions for pair reactions => two origin structures and one target_structure
+//     // This introduces a triple dynamic dispatch, overloading method call structure.get_pos_sid_pair once more.
+//     // NOTE: As yet these methods are unused but might prove useful in the future.
+//     virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type const& target_structure, position_type const& position,
+//                                                          length_type const& offset, length_type const& reaction_length, rng_type const& rng) const = 0;
+//     template <typename Tstruct1_>
+//     position_structid_pair_type get_pos_sid_pair_helper1(Tstruct1_ const& origin_structure1, structure_type const& target_structure, position_type const& position,
+//                                                          length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+//     {
+//         return target_structure.get_pos_sid_pair_helper2(origin_structure1, *this, position, offset, reaction_length, rng);
+//     }
+//     template <typename Tstruct1_, typename Tstruct2_>
+//     position_structid_pair_type get_pos_sid_pair_helper2(Tstruct1_ const& origin_structure1, Tstruct2_ const& origin_structure2, position_type const& position,
+//                                                          length_type const& offset, length_type const& reaction_length, rng_type const& rng) const
+//     {
+//         structure_id_type    this_id( this->id );
+//         structure_id_type    os1_id( origin_structure1.id );
+//         structure_id_type    os2_id( origin_structure2.id );
+//
+//         if(os1_id == this_id)
+//             // Dispatch to function with well-defined typing
+//             return ::get_pos_sid_pair(origin_structure2, *this, position, offset, reaction_length, rng);
+//         
+//         else if(os2_id == this_id)
+//             // Dispatch to function with well-defined typing
+//             return ::get_pos_sid_pair(origin_structure1, *this, position, offset, reaction_length, rng);
+//         
+//         else
+//             throw propagation_error("Target structure must be one of the origin structures for pair reaction.");
+//     }
+//     
+//     NOTE: The template based variant will not work! The helper methods have to be defined for each structure type separately or in a smarter way!
 
 
     virtual std::size_t hash() const

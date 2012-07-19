@@ -96,6 +96,18 @@ private:
     std::string str_;
 };
 
+class illegal_propagation_attempt: public std::runtime_error
+{
+public:
+    illegal_propagation_attempt(std::string const& msg): std::runtime_error(msg) {}
+    // TODO: remove string output once everything works
+
+    virtual ~illegal_propagation_attempt() throw() {}
+
+private:
+    std::string str_;
+};
+
 class not_implemented: public std::exception
 {
 public:

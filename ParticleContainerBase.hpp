@@ -378,28 +378,43 @@ public:
         return pmat_.erase(id);
     }
 
-    ///// Structure stuff
+    ///// Structure methods
+    ///// The following are mostly wrappers of the methods defined in StructureContainer
+    ///// and handle structure connectivity and boundary application.
+    
+    // Check for whether a container contains a structure with a certain ID
     virtual bool has_structure(structure_id_type const& id) const
     {
         return structures_.has_structure(id);
     }
+    
+    // Getter structure_id -> structure
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const
     {
         return structures_.get_structure(id);
     }
+    
+    // Get range of structures in container
     virtual structures_range get_structures() const
     {
         return structures_.get_structures_range();
     }
+    
+    // Update structure wrapper
     template <typename Tstructid_pair_>
     bool update_structure(Tstructid_pair_ const& structid_pair)
     {
         return structures_.update_structure(structid_pair);
     }
+    
+    // Remove structure wrapper
     virtual bool remove_structure(structure_id_type const& id)
     {
         return structures_.remove_structure(id);
     }
+    
+    // Get all structures close to a position pos, taking care of structure types
+    // and an ignore parameter
     virtual structure_id_pair_and_distance_list* get_close_structures(position_type const& pos, structure_id_type const& current_struct_id,
                                                                       structure_id_type const& ignore) const
     {

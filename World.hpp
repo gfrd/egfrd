@@ -378,7 +378,8 @@ public:
         update_structure(std::make_pair(structure_id, structure));
         return structure_id;
     }
-    // update structure
+    
+    // Update structure
     template <typename Tstructid_pair_>
     bool update_structure(Tstructid_pair_ const& structid_pair)
     {
@@ -408,7 +409,8 @@ public:
         particleonstruct_pool_[structid_pair.first] = particle_id_set();
         return true;
     }
-    // remove structure
+    
+    // Remove structure
     virtual bool remove_structure(structure_id_type const& id)
     {
         // TODO
@@ -434,11 +436,14 @@ public:
         }
         return (*i).second;
     }
+    
     // Get and set the default structure of the World
+    // The getter
     virtual structure_id_type get_def_structure_id() const
     {
         return base_type::structures_.get_def_structure_id();
     }
+    // The setter
     void set_def_structure(const boost::shared_ptr<cuboidal_region_type> cuboidal_region)
     {
         const structure_id_type default_struct_id(get_def_structure_id());
@@ -460,6 +465,7 @@ public:
         cuboidal_region->set_id(default_struct_id);
         update_structure(std::make_pair(default_struct_id, cuboidal_region));
     }
+    
     // Get all the particle ids of the particles on a structure
     particle_id_set get_particle_ids_on_struct(structure_id_type const& struct_id) const
     {

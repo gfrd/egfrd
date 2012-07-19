@@ -125,9 +125,9 @@ public:
     typedef typename traits_type::network_rules_type    network_rules_type;
     typedef typename world_traits_type::rng_type        rng_type;
     typedef typename traits_type::time_type             time_type;
-    typedef typename traits_type::reaction_record_type      reaction_record_type;
-    typedef typename traits_type::reaction_recorder_type    reaction_recorder_type;
-    typedef typename traits_type::volume_clearer_type volume_clearer_type;
+    typedef typename traits_type::reaction_record_type   reaction_record_type;
+    typedef typename traits_type::reaction_recorder_type reaction_recorder_type;
+    typedef typename traits_type::volume_clearer_type    volume_clearer_type;
 
 public:
     virtual ~ParticleSimulator() {}

@@ -376,23 +376,55 @@ class testMixedPair2D3D(testPair):
 
 class testMixedPair1DCap(testPair):
 
-    def __init__(self, cap_single, single1D):
+    def __init__(self, single1D, cap_single):
 
         if __debug__: 
-                assert isinstance(cap_single.structure, DiskSurface)
                 assert isinstance(single1D.structure, CylindricalSurface) 
-        testSimplePair.__init__(self, cap_single, single1D)
-          # note: this makes self.single1/self.pid_particle_pair1/self.structure1 for the 2D particle
-          #              and self.single2/self.pid_particle_pair2/self.structure2 for the 3D particle
+                assert isinstance(cap_single.structure, DiskSurface)
+        testPair.__init__(self, single1D, cap_single)
+          # note: this makes self.single1/self.pid_particle_pair1/self.structure1 for the 1D particle
+          #              and self.single2/self.pid_particle_pair2/self.structure2 for the cap particle
 
-        # for clarity:
-        self.cap_structure = cap_single.structure  # equal to self.structure1
-        self.structure1D   = single1D.structure    # equal to self.structure2  
+        # for clarity define:
+        self.single1D       = single1D
+        self.particle1D     = self.pid_particle_pair1[1]
+        self.structure1D    = single1D.structure    # equal to self.structure1  
+        self.cap_single     = cap_single
+        self.cap_particle   = self.pid_particle_pair2[1]        
+        self.cap_structure  = cap_single.structure  # equal to self.structure2
+        # This will be inherited by MixedPair1DCaptestShell and MixedPair1DCap.
+        # Note that we have to use pid_particle_pair1(2) in the methods defined below
+        # because they are called at the initialization of testPair().
 
         # Make sure cap particle is immobile; this is required for testSimplePair routines
         # to give the proper results for this case.
-        assert self.pid_particle_pair1[1].D == 0
-        assert self.pid_particle_pair1[1].v == 0
+        assert self.cap_particle.D == 0
+        assert self.cap_particle.v == 0
+
+    def get_sigma(self):
+        # Copied from SimplePair
+        radius1 = self.pid_particle_pair1[1].radius
+        radius2 = self.pid_particle_pair2[1].radius
+        return radius1 + radius2
+    sigma = property(get_sigma)
+
+    def do_transform(self):
+
+        pos1 = self.pid_particle_pair1[1].position
+        pos2 = self.pid_particle_pair2[1].position
+        D_1 = self.pid_particle_pair1[1].D
+        D_2 = self.pid_particle_pair2[1].D
+
+        # In the MixedPair1DCap only the 1D particle moves. We therefore use
+        # iv to sample its position and com for the position of the static
+        # cap particle; this is initialized here:
+        com = pos2
+        com = self.world.apply_boundary(pos2)
+        
+        pos2t = self.world.cyclic_transpose(pos2, pos1)
+        iv = pos2t - pos1
+
+        return com, iv
 
 class testPlanarSurfaceTransitionPair(testPair):
 
@@ -1662,7 +1694,13 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
         CylindricaltestShell.__init__(self, geometrycontainer, domains)
         testNonInteractionSingle.__init__(self, pid_particle_pair, structure)
 
-        # initialize scaling parameters
+        # Initialize scaling parameters
+        # - the reference point is at the cap disk position
+        # - the right scaling point is for the scaling "inwards", i.e. onto the rod
+        # - the left scaling point is for the scaling "outwards", i.e. away from the rod (and cap)
+        # - dz_left stays constant and is equal to the cap-bound particle radius
+        # - dz_right can be scaled, minimum is set accordingly
+        # - dr stays constant and is determined by the maximal particle radius involved
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
         self.r0_right   = self.pid_particle_pair[1].radius
@@ -1790,9 +1828,9 @@ class PlanarSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSin
             raise testShellError('(PlanarSurfaceInteraction). %s' %
                                  (str(e)))
 
-
     def get_orientation_vector(self):
-        return self.reference_vector      # calculated in the __init__ of testInteractionSingle
+        return self.reference_vector     # from testInteractionSingle; reference vector always points from the
+                                         # particle position projected onto the target surface towards particle pos.
 
     def get_searchpoint(self):
 #        return self.pid_particle_pair[1].position   # since the shell is scaled equally in all directions
@@ -1883,7 +1921,13 @@ class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testIntera
         CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
         testInteractionSingle.__init__(self, single, single.structure, target_structure)
 
-        # initialize scaling parameters
+        # Initialize scaling parameters
+        # - the reference point is at the cap disk position
+        # - the right scaling point is for the scaling "inwards", i.e. onto the rod
+        # - the left scaling point is for the scaling "outwards", i.e. away from the rod (and cap)
+        # - dz_left stays constant and is equal to the cap-bound particle radius * a safety factor
+        # - dz_right can be scaled, minimum is set accordingly
+        # - dr stays constant and is determined by the maximal particle radius involved
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
         self.r0_right   = self.pid_particle_pair[1].radius
@@ -1907,8 +1951,8 @@ class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testIntera
         # The orientation vector is collinear with the parent cylinder axis and
         # pointing "inwards", i.e. towards the center point of the parent cylinder
         # TODO Check that this works properly!
-        return self.reference_vector     # reference vector always points from the particle position
-                                         # projected onto the target surface towards particle pos.
+        return self.reference_vector     # from testInteractionSingle; reference vector always points from the
+                                         # particle position projected onto the target surface towards particle pos.
 
     def get_searchpoint(self):
         return self.pid_particle_pair[1].position
@@ -2169,27 +2213,36 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
 
 class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
 
-    def __init__(self, cap_single, single1D, target_structure, geometrycontainer, domains): # TODO Do we need target_structure (for the ignore list)?
+    def __init__(self, single1D, cap_single, geometrycontainer, domains): # TODO Do we need target_structure (for the ignore list)?
         CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
-        testMixedPair1DCap.__init__(self, cap_single, single1D)
+        testMixedPair1DCap.__init__(self, single1D, cap_single)
 
-        # initialize scaling parameters
+        # NOTE: The following is already defined by testMixedPair1DCap:
+        # - self.single1D, self.structure1D, self.particle1D
+        # - self.cap_single, self.cap_structure, self.cap_particle
+
+        # Initialize scaling parameters
+        # - the reference point is at the cap disk position
+        # - the right scaling point is for the scaling "inwards", i.e. onto the rod
+        # - the left scaling point is for the scaling "outwards", i.e. away from the rod (and cap)
+        # - dz_left stays constant and is equal to the cap-bound particle radius * a safety factor
+        # - dz_right can be scaled, minimum is set accordingly
+        # - dr stays constant and is determined by the maximal particle radius involved
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
-        self.r0_right   = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
+        self.r0_right   = max(self.cap_particle.radius, self.particle1D.radius)
         self.z0_right   = 0.0
         self.dzdr_left  = 0.0
         self.drdz_left  = numpy.inf
-        self.r0_left    = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)      # TODO put to zero?
-        self.z0_left    = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR
-          # pid_particle_pair1[1] is the cap-bound particle
+        self.r0_left    = max(self.cap_particle.radius, self.particle1D.radius)      # TODO put to zero?
+        self.z0_left    = self.cap_particle.radius * SINGLE_SHELL_FACTOR
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
         # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
         try:
             self.dr, self.dz_right, self.dz_left = \
-                            self.determine_possible_shell(self.origin_structure.id, [self.single.domain_id], [self.target_structure.id]) # TODO Do we need target_structure (for the ignore list)?
+                            self.determine_possible_shell(self.structure1D.id, [self.single1D.domain_id, self.cap_single.domain_id], [self.cap_structure.id])
         except ShellmakingError as e:
             raise testShellError('(MixedPair1DCap). %s' %
                                  (str(e)))
@@ -2197,30 +2250,55 @@ class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
     def get_orientation_vector(self):
         # The orientation vector is collinear with the parent cylinder axis and
         # pointing "inwards", i.e. towards the center point of the parent cylinder
-        # TODO Check that this works properly!
-        return self.reference_vector     # reference vector always points from the particle position
-                                         # projected onto the target surface towards particle pos.
+        direction = cmp(numpy.dot(self.structure1D.shape.unit_z, self.structure1D.shape.position - self.cap_structure.shape.position), 0)
+        return  direction * self.structure1D.shape.unit_z
 
     def get_searchpoint(self):
-        return self.com
+        return self.particle1D.position
 
-    def get_referencepoint(self):
-        return self.com
+    def get_referencepoint(self):        
+        return self.cap_structure.shape.position
 
     def get_min_dr_dzright_dzleft(self):
-        dr       = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
-        dz_left  = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR
+        dr       = max(self.particle1D.radius, self.cap_particle.radius)
+        dz_left  = self.cap_particle.radius * SINGLE_SHELL_FACTOR
         dz_right = self.get_min_pair_size() # TODO make sure this does the right thing!
         return dr, dz_right, dz_left
         
     def get_max_dr_dzright_dzleft(self):
-        dr       = max(self.pid_particle_pair1[1].radius, self.pid_particle_pair2[1].radius)
-        dz_left  = self.pid_particle_pair1[1].radius * SINGLE_SHELL_FACTOR # same as the minimum, i.e. no scaling of this length
+        dr       = max(self.particle1D.radius, self.cap_particle.radius)
+        dz_left  = self.cap_particle.radius * SINGLE_SHELL_FACTOR # same as the minimum, i.e. no scaling of this length
         dz_right = math.sqrt((self.get_searchradius())**2 - dr**2) # stay within the searchradius
         return dr, dz_right, dz_left
 
     def apply_safety(self, r, z_right, z_left):
         return r, z_right/SAFETY, z_left
+
+    def get_min_pair_size(self):
+        # This calculates the minimal 'size' of a simple pair.
+        # Note that the 'size' is interpreted differently dependent on the type of pair. When the pair is a
+        # SphericalPair          -> size = radius
+        # PlanarSurfacePair      -> size = radius
+        # CylindricalSurfacePair -> size = half_length
+
+        D_1 = self.particle1D.D
+        D_2 = self.cap_particle.D
+        radius1 = self.particle1D.radius
+        radius2 = self.cap_particle.radius
+
+        dist_from_com1 = self.r0 * D_1 / self.D_tot      # particle distance from CoM
+        dist_from_com2 = self.r0 * D_2 / self.D_tot
+        iv_shell_size1 = dist_from_com1 + radius1       # the shell should surround the particles
+        iv_shell_size2 = dist_from_com2 + radius2
+
+        # also fix the minimum shellsize for the CoM domain
+        com_shell_size = max(radius1, radius2)
+
+        # calculate total radii including the margin for the burst volume for the particles
+        shell_size = max(iv_shell_size1 + com_shell_size + radius1 * SINGLE_SHELL_FACTOR,
+                         iv_shell_size2 + com_shell_size + radius2 * SINGLE_SHELL_FACTOR)
+
+        return shell_size
 
 #####
 #class MixedPair3D1DtestShell(CylindricaltestShell, Others):

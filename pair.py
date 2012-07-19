@@ -1026,6 +1026,13 @@ class MixedPair1D3D(Pair):
 
 
 class MixedPair1DCap(Pair, hasCylindricalShell):
+    # This domain is for the interaction of a particle drifting and diffusing on a cylinder (1D particle)
+    # and another (static) particle which is bound to a cap of the same cylinder.
+    # Since the cap particle is immobile, we effectively have a one-particle problem
+    # and the CoM is not used. The displacement of the 1D particle is sampled via iv_greens_function.
+    # However, we have to make this a pair domain because we have two particles involved which
+    # can decay (fire single reactions) independently.
+    # TODO: Is the new pos. of the cap particle sampled correctly in case of a decay event?
 
     def __init__(self, domain_id, shell_id, testShell, rrs):
 
@@ -1034,29 +1041,46 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
         Pair.__init__(self, domain_id, shell_id, rrs)
 
         assert isinstance(self.testShell, MixedPair1DCaptestShell)
-        self.cap_structure = self.testShell.cap_structure # equal to self.structure1
-        self.structure1D   = self.testShell.structure1D   # equal to self.structure2
 
-        # NOTE: self.pid_particle_pair1 is the cap particle
-        # and should be immobile
-        assert self.pid_particle_pair1[1].D == 0
-        assert self.pid_particle_pair1[1].v == 0
+        # Some useful definitions:
+        self.particle1D    = self.testShell.particle1D
+        self.structure1D   = self.testShell.structure1D
+        self.cap_particle  = self.testShell.cap_particle
+        self.cap_structure = self.testShell.cap_structure
+
+        # The latter is defined for completeness and used by check_domain() in egfrd.py:
+        self.origin_structure = self.structure1D
+        self.target_structure = self.cap_structure
+
+        # The cap_particle should be immobile; check to be sure:
+        assert self.cap_particle.D == 0
+        assert self.cap_particle.v == 0
+        # D_r and D_R are inherited from Pair class;
+        # This results in D_r = particle1D.D and D_R = 0
 
         self.LD_MAX = numpy.inf # TODO what is that for?
 
-    def get_shell_size(self): # TODO Is that even used?
+    def get_shell_size(self):   # TODO Is that even used?
         return self.shell.shape.half_length
+
+    def get_a_r(self):
+      
+        ref_pt = self.testShell.get_referencepoint()
+        assert ( all(self.cap_structure.shape.position - ref_pt == 0) )
+
+        return abs(self.testShell.dz_right) - self.particle1D.radius
+    a_r = property(get_a_r)
+    a_R = property(get_a_r)
 
     def get_v_tot(self):
         # 'direction' signifies the direction of the IV with respect to the surface unit_z
-        # (which defines the direction of positive drift)
-        # Assuming self.pid_particle_pair1[1].v == 0 here
+        # (which defines the direction of positive drift).
+        # Assuming self.pid_particle_pair2[1].v == 0 here, i.e. relative drift = drift of 1D part.
         direction = cmp(numpy.dot (self.iv, self.structure1D.shape.unit_z), 0)
-        return self.pid_particle_pair2[1].v * direction
+        return self.particle1D.v * direction
 
     # NOTE the v_tot and v_r are now positive in the direction of the IV!
-    v_tot = property(get_v_tot)
-    
+    v_tot = property(get_v_tot)    
     v_r = property(get_v_tot)
 
     def get_v_R(self):
@@ -1065,9 +1089,8 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
     v_R = property(get_v_R)
 
     def com_greens_function(self):
-        # The Green's function used should be irrelevant, because D_R=0 and v_R=0
+        # The Green's function used is largely irrelevant, because D_R=0 and v_R=0        
         return GreensFunction1DAbsAbs(self.D_R, self.v_R, 0.0, -self.a_R, self.a_R)
-        # TODO Plug in D_R = 0 and v_R = 0 directly here?
 
     def iv_greens_function(self, r0):
         return GreensFunction1DRadAbs(self.D_r, self.v_r, self.interparticle_ktot, r0, self.sigma, self.a_r)
@@ -1078,17 +1101,19 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
 
     @ classmethod
     def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
-    # here we assume that the com and iv are really in the structure and no adjustments have to be
-    # made
+    # here we assume that structure1 = structure1D and structure2 = cap_structure
+    # and that com has been correctly initialized with the initial (and constant) position
+    # of the cap particle.
 
-        pos1 = self.pid_particle_pair1[1].position # cap particle stays in place in this case
-        pos2 = pos1 + iv
+        pos2 = com          # cap particle (no. 2) stays in place
+        pos1 = pos2 - iv    # IV always points from particle1 to particle2      
 
         return pos1, pos2, structure1.id, structure2.id
+        # TODO Does this give the correct new positions in case of a single reaction of cap_particle ?
 
-    def create_com_vector(self, z):
-        # The CoM vector is not relevant for this domain, thus...
-        pass
+    def create_com_vector(self, z):        
+    # This returns the displacement of the com, which is zero here.
+        return 0.0
 
     def create_interparticle_vector(self, gf, r, dt, r0, old_iv): 
         if __debug__:
