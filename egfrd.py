@@ -227,7 +227,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                                                 # Make sure that DEFAULT_STEP_SIZE_FACTOR < MULTI_SHELL_FACTOR, or else the 
                                                 # reaction volume sticks out of the multi. 
 
-        self.BD_ONLY_FLAG = True                # Will force the algorithm into Multi-creation, i.e. always to use BD
+        self.BD_ONLY_FLAG = False               # Will force the algorithm into Multi-creation, i.e. always to use BD
                                                 # This is for testing only! Keep this 'False' for normal sims!
 
         # used datastructrures
