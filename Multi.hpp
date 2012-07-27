@@ -333,28 +333,37 @@ public:
         Real k_max(0.);
         int i = 0, j= 0;
         
+        // Rates for surface/structure interactions
         BOOST_FOREACH(particle_id_pair pp, get_particles_range())
         {
+            // s = species of the current particle
             species_type const s( get_species(pp.second.sid()) );
-            const boost::scoped_ptr<const structure_id_pair_and_distance_list> close_struct_id_distance (
+            
+            const boost::scoped_ptr<const structure_id_pair_and_distance_list>   close_struct_id_distance (
                 get_close_structures(pp.second.position(), pp.second.structure_id(), pp.second.structure_id()) );
-            const std::pair<boost::shared_ptr<structure_type>, length_type> strc_and_dist (
+                
+            const std::pair<boost::shared_ptr<structure_type>, length_type>   struct_and_dist (
                 close_struct_id_distance ? std::make_pair(close_struct_id_distance->at(0).first.second, close_struct_id_distance->at(0).second)
                                          : std::make_pair(get_structure(pp.second.structure_id()), std::numeric_limits<length_type>::max()));
-//            structure_id_and_distance_pair const strc_id_and_dist( 
+                                         
+//            structure_id_and_distance_pair const struct_id_and_dist( 
 //                get_closest_surface( pp.second.position(), pp.second.structure_id() ) );    // only ignore structure that the particle is on.
-                
-            if( strc_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
+            
+            // If structure is within specified range and this particle lives in the default structure
+            // TODO Extend the last requirement to all "allowed" interactions using the new structure functions
+            if( struct_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
             {
-                structure_type_id_type const strc_sid( strc_and_dist.first->sid() );
-                reaction_rules const& rrules(rules.query_reaction_rule( s.id(), strc_sid ));
+                // Get the reaction rule for this particle-structure interaction
+                structure_type_id_type const struct_sid( struct_and_dist.first->sid() );
+                reaction_rules const& rrules(rules.query_reaction_rule( s.id(), struct_sid ));
                 if (::size(rrules) == 0)
                     continue;
 
+                // If there is rules, determine the largest on-rate for this interaction
                 for (typename boost::range_const_iterator<reaction_rules>::type
                 it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
-                    Real const k( strc_and_dist.first->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
+                    Real const k( struct_and_dist.first->get_1D_rate_surface( (*it).k(), s.radius() ) ); 
 
                     if ( k_max < k )
                         k_max = k;
@@ -366,6 +375,7 @@ public:
         //Since surface rates are not devided by 2 to compensate for double reaction attempts.
         k_max *= 2.0;
         
+        // Rates for particle-particle interactions
         BOOST_FOREACH(species_type s0, get_species_in_multi())
         {
             j = 0;

@@ -20,6 +20,7 @@
 #include "utils/get_default_impl.hpp"
 #include "Logger.hpp"
 
+
 #include <iostream>
 
 template<typename Ttraits_>
@@ -204,6 +205,7 @@ public:
             // restore old position and structure_id
             new_pos = old_pos;
             new_structure_id = old_struct_id;
+            LOG_DEBUG( ("particle bounced, restoring old position and structure id.") ); // TESTING
             
             // re-get the reaction partners (particles), now on old position.
             boost::scoped_ptr<particle_id_pair_and_distance_list> overlap_particles_after_bounce( 
@@ -216,10 +218,11 @@ public:
             // re-get the reaction partners (structures), now on old position.
             boost::scoped_ptr<structure_id_pair_and_distance_list> overlap_structures_after_bounce( 
                     tx_.check_surface_overlap( particle_shape_type( old_pos, r0 + reaction_length_ ), old_pos, old_struct_id, r0) );
-            overlap_structures.swap( overlap_structures_after_bounce );     // FIXME is there no better way?
+            overlap_structures.swap( overlap_structures_after_bounce );   // FIXME is there no better way?
             // NOTE that it is asserted that the particle overlap criterium for the particle with other particles
             // and surfaces is False!
-            structures_in_overlap = overlap_structures ? overlap_structures->size(): 0; 
+            structures_in_overlap = overlap_structures ? overlap_structures->size(): 0;
+            LOG_DEBUG( ("structures_in_overlap = %g", structures_in_overlap) ); // TESTING
         }
         
 
@@ -233,7 +236,6 @@ public:
         //// 5.1 INTERACTIONS WITH STRUCTURES
         // First, if a surface is inside the reaction volume, and the particle is in the 3D attempt an interaction.
         // TODO Rework this using the new structure functions?
-        // TODO Also an interaction should be allowed when a particle is on a cylinder. // Is that not yet the case???
         // TODO Don't check only the closest but check all overlapping surfaces.
         j = 0;
         while(j < structures_in_overlap)
@@ -253,26 +255,27 @@ public:
                 {
                     LOG_WARNING(("the acceptance probability of an interaction/reaction exceeded one; %f.",
                                  accumulated_prob));
-                } 
+                }
                 
                 if( accumulated_prob > rnd ) // OK, try to fire the interaction
                 {            
                     try
                     {
-                        LOG_DEBUG(("fire surface interaction"));
+                        LOG_DEBUG( ("fire surface interaction with surface %s.",
+                                    boost::lexical_cast<std::string>(overlap_struct.first.first).c_str()) );
                         if(attempt_interaction(pp, new_pos_projected.first, overlap_struct.first.second ))
                             return true;
                     }   
                     catch (propagation_error const& reason)
                     {
-                        log_.info("surface interaction rejected (reason: %s)", reason.what());
+                        log_.info("surface interaction rejected (reason: %s).", reason.what());
                         ++rejected_move_count_;
                     }
                 }
-                else                
+                else
                 {
-                    LOG_DEBUG(("Particle attempted an interaction with the non-interactive surface %s.", 
-                               boost::lexical_cast<std::string>(overlap_struct.first.first).c_str()));
+                    LOG_DEBUG( ("Particle attempted an interaction with the non-interactive surface %s.", 
+                                boost::lexical_cast<std::string>(overlap_struct.first.first).c_str()) );
                 }
             }
 
@@ -288,7 +291,8 @@ public:
 
             species_type s0(pp_species);
             species_type s1(tx_.get_species(overlap_particle.first.second.sid()));
-                
+
+            // TODO Remove this if everything works fine!
 /*            // If the structure_types of the reactants are not equal, one of the reactants has to come from the bulk,
             // and we let this be s1, the particle from the surface is named s0.
             if(s0.structure_type_id() != s1.structure_type_id())
@@ -434,10 +438,11 @@ private:
                             const structure_id_type product_structure_id(reactant_structure->structure_id()); // the parent structure
                             const boost::shared_ptr<const structure_type> product_structure( tx_.get_structure(product_structure_id) );
                             // Produce new position and structure id
+                            LOG_DEBUG(("Attempting single reaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(product_structure).c_str())); // TESTING
                             const position_structid_pair_type new_pos_sid_pair( reactant_structure->get_pos_sid_pair(*product_structure, reactant_pos,
                                                                                                                       product_species.radius(), reaction_length_, rng_) );                            
                             // Apply boundary conditions
-                            product_pos_struct_id = tx_.apply_boundary( product_pos_struct_id );
+                            product_pos_struct_id = tx_.apply_boundary( new_pos_sid_pair );
                             // Particle is allowed to move after dissociation from surface. TODO Isn't it allways allowed to move?
                             product_pos_struct_id = make_move(product_species, product_pos_struct_id, pp.first);
                         }
@@ -542,6 +547,7 @@ private:
                             
                             // Produce two new positions and structure IDs
                             // Note that reactant_structure = prod0_structure here.
+                            LOG_DEBUG(("Attempting single reaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(prod1_structure).c_str())); // TESTING
                             pos0pos1_pair = reactant_structure->get_pos_sid_pair_pair(*prod1_structure, reactant_pos, product0_species, product1_species, reaction_length_, rng_ );
                             // Remember the new structure IDs
                             prod0_struct_id = pos0pos1_pair.first.second;
@@ -726,6 +732,7 @@ private:
                         // structures are the same, no projection should occur. This is handled correctly by the structure functions defined for equal
                         // origin_structure types.
                         const length_type offset(0.0);
+                        LOG_DEBUG(("Attempting pair reaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(reactant1_structure).c_str())); // TESTING
                         const position_structid_pair_type product_pos_struct_id( reactant0_structure->get_pos_sid_pair(*reactant1_structure, product_structure_type_id,
                                                                                                                        reactants_CoM, offset, reaction_length_, rng_ ) );
                         // Apply the boundary conditions; this is particularly important here because the CoM projection as produced by the function above
@@ -835,7 +842,7 @@ private:
                         const species_type product_species(tx_.get_species(products[0]));
 
                         //// 1 - GET NEW POSITION ON THE TARGET STRUCTURE
-                        // TODO TODO TODO Rework this using structure functions! TODO TODO TODO
+                        // TODO Rework this using structure functions?
                         const position_type product_pos( tx_.apply_boundary(pos_in_struct) );
 
 
@@ -849,9 +856,11 @@ private:
                             throw propagation_error("no space");
                         }
                         // check overlap with structures.
-                        // No need to include old structure as ignore because going down the structure hierarchy anyway.
+                        // first get the structure_id of the old structure...
+                        const structure_id_type old_struct_id(pp.second.structure_id());
+                        // ...and ignore the latter when checking for overlaps
                         const boost::scoped_ptr<const structure_id_pair_and_distance_list> overlap_structures(
-                                tx_.check_surface_overlap(new_shape, product_pos, structure->id(), product_species.radius()));
+                                tx_.check_surface_overlap(new_shape, product_pos, structure->id(), product_species.radius(), old_struct_id));
                         if (overlap_structures && overlap_structures->size() > 0)
                         {
                             throw propagation_error("no space due to near surface");

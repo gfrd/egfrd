@@ -194,7 +194,6 @@ _gfrd_la_SOURCES=\
 	SpeciesType.cpp\
 	SphericalBesselGenerator.cpp\
 	StructureType.cpp\
-	StructureFunctions.cpp\
 	utils.cpp
 
 _greens_functions_la_SOURCES=\

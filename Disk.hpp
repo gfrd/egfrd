@@ -127,7 +127,8 @@ project_point(Disk<T_> const& obj, typename Disk<T_>::position_type const& pos)
     const length_type   z ( dot_product(pos_vector, obj.unit_z()) );
     const position_type r_vector (subtract(pos_vector, multiply(obj.unit_z(), z)));
     const length_type   r (length(r_vector));
-
+    assert(r >= 0.0 );
+    
     return std::make_pair( add(obj.position(), r_vector),
                            std::make_pair(z, r - obj.radius()) );
 }
