@@ -372,7 +372,7 @@ public:
             
         }
         
-        //Since surface rates are not devided by 2 to compensate for double reaction attempts.
+        // since surface rates are not devided by 2 to compensate for double reaction attempts.
         k_max *= 2.0;
         
         // Rates for particle-particle interactions

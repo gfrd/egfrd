@@ -35,7 +35,7 @@ class Multi(Domain, hasSphericalShell, Others):
         main = self.main()
         self.set_dt_and_reaction_length()
         # DEBUG stuff
-        print "Multi intit, dt = %s, rl = %s" %(self.dt,self.reaction_length) # TESTING
+        print "Multi init, dt = %s, rl = %s" %(self.dt,self.reaction_length) # TESTING
         #self.dt = self.dt_factor * self.calculate_bd_dt(main.world.get_species(sid) for sid in main.world.species)
 
     def calculate_bd_dt(species_list):

@@ -191,7 +191,7 @@ public:
             boost::scoped_ptr<structure_id_pair_and_distance_list> overlap_structures_tmp(
                 tx_.check_surface_overlap(particle_shape_type( new_pos, r0 + reaction_length_ ), old_pos, new_structure_id, r0, old_struct_id));
             overlap_structures.swap(overlap_structures_tmp);
-            int structures_in_overlap(overlap_structures ? overlap_structures->size(): 0);
+            structures_in_overlap = (int)(overlap_structures ? overlap_structures->size(): 0);
  
             j = 0;
             while(!bounced && j < structures_in_overlap)
@@ -214,6 +214,7 @@ public:
             // NOTE that it is asserted that the particle overlap criterium for the particle with other particles
             // and surfaces is False!
             particles_in_overlap = overlap_particles ? overlap_particles->size(): 0; 
+            LOG_DEBUG( ("particles_in_overlap = %g", particles_in_overlap) ); // TESTING
             
             // re-get the reaction partners (structures), now on old position.
             boost::scoped_ptr<structure_id_pair_and_distance_list> overlap_structures_after_bounce( 
@@ -221,7 +222,7 @@ public:
             overlap_structures.swap( overlap_structures_after_bounce );   // FIXME is there no better way?
             // NOTE that it is asserted that the particle overlap criterium for the particle with other particles
             // and surfaces is False!
-            structures_in_overlap = overlap_structures ? overlap_structures->size(): 0;
+            structures_in_overlap = (int)(overlap_structures ? overlap_structures->size(): 0);
             LOG_DEBUG( ("structures_in_overlap = %g", structures_in_overlap) ); // TESTING
         }
         
@@ -251,6 +252,7 @@ public:
                 accumulated_prob += k_total( pp.second.sid(), overlap_struct.first.second->sid() ) * dt_ / 
                                     overlap_struct.first.second->surface_reaction_volume( r0, reaction_length_ );
         
+                LOG_DEBUG( ("check for surface interaction, acc_prob = %g", accumulated_prob) ); // TESTING
                 if(accumulated_prob >= 1.) // sth. is wrong in this case
                 {
                     LOG_WARNING(("the acceptance probability of an interaction/reaction exceeded one; %f.",
@@ -258,7 +260,8 @@ public:
                 }
                 
                 if( accumulated_prob > rnd ) // OK, try to fire the interaction
-                {            
+                {   
+                    LOG_DEBUG( ("attempting surface interaction, acc_prob = %g", accumulated_prob) ); // TESTING
                     try
                     {
                         LOG_DEBUG( ("fire surface interaction with surface %s.",
