@@ -93,10 +93,10 @@ public:
     // Reaction volume for binding to the structure
     virtual Real surface_reaction_volume( length_type const& r0, length_type const& rl ) const
     {
-        // Assuming binding from one side only (the one that unit_z points towards)
-        // If binding occurs from two sides, this has to be changed to 2*rl and 
-        // unbinding (surface_dissociation_vector) has to be randomized, too.
-        return rl;
+        if( base_type::shape().is_one_sided() )
+            return rl;
+        else
+            return 2.0*rl;
     }
     
     // Vector of dissociation from the structure to parent structure
@@ -104,8 +104,18 @@ public:
     {
         Real X( rng.uniform(0.,1.) );
         length_type diss_vec_length( X*rl );
-
-        return multiply( base_type::shape().unit_z(), diss_vec_length );
+        
+        if( base_type::shape().is_one_sided() )
+        {
+            return multiply( base_type::shape().unit_z(), diss_vec_length );
+        }
+        else
+        {
+            Real sign( rng.uniform_int(0, 1) * 2 - 1 );
+            diss_vec_length *= sign;
+            
+            return multiply( base_type::shape().unit_z(), diss_vec_length );
+        }
     }
     
     // Normed direction of dissociation from the structure to parent structure
@@ -157,13 +167,15 @@ public:
         length_type const r01l_cb( r01l * r01l * r01l );
         length_type const r01_cb( r01 * r01 * r01 );
         
-        length_type const diss_vec_length( cbrt( X * (r01l_cb - r01_cb ) + r01_cb ) );                  
+        length_type const diss_vec_length( cbrt( X * (r01l_cb - r01_cb ) + r01_cb ) );        
         
-        position_type unit_z = base_type::shape().unit_x();
-        // Old version for binding from both plane sides; TODO Remove this once everything is fine
-        // position_type unit_z( cross_product( base_type::shape().unit_x(), base_type::shape().unit_y() ) );
-        // unit_z = normalize ( unit_z );        
-        // unit_z = multiply(unit_z, rng.uniform_int(0, 1) * 2 - 1);
+        
+        // Determine direction of dissociation for the particle that ends up in the bulk
+        // As a standard it is the plane's unit_z vector
+        position_type unit_z( base_type::shape().unit_z() );
+        // If the plane however is two-sided: randomize!
+        if( not(base_type::shape().is_one_sided()) )
+            unit_z = multiply(unit_z, rng.uniform_int(0, 1) * 2 - 1);
         
         // Construct randomly oriented dissociation vector
         length_type const x( diss_vec_length * sin( theta ) * cos( phi ) );
@@ -314,41 +326,49 @@ public:
     };
     
     // *** 3 *** - Pair reactions => two origin structures
-    // Overloading get_pos_sid_pair with signature (origin_structure2, target_structure_type_id, ...)
-    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid,
+    // First dispatch
+//     // Overloading get_pos_sid_pair with signature (origin_structure2, target_structure_type_id, ...)
+//    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
+//                                                         length_type const& offset, length_type const& reaction_length, rng_type& rng) const
+//     {   
+//         // this just redirects
+//         return this->get_pos_sid_pair_2o(origin_structure2, target_sid, CoM, offset, reaction_length, rng);                            
+//     }
+//     // The actual implementation of the first dispatch
+    virtual position_structid_pair_type get_pos_sid_pair_2o(structure_type const& origin_structure2, structure_type_id_type const& target_sid,
                                                          position_type const& CoM, length_type const& offset, length_type const& reaction_length, rng_type& rng) const
     {
-        return origin_structure2.get_pos_sid_pair_helper_two_origins(*this, target_sid, CoM, offset, reaction_length, rng);
+        return origin_structure2.get_pos_sid_pair_2o_helper(*this, target_sid, CoM, offset, reaction_length, rng);
     }
     // Second dispatch
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<CuboidalRegion<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<CuboidalRegion<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<SphericalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<SphericalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<CylindricalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<CylindricalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<DiskSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<DiskSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<PlanarSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<PlanarSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }    
     // The template function that defines the actual final dispatch procedure.
     template<typename Tstruct_>
-    position_structid_pair_type get_pos_sid_pair_helper_two_origins_any(Tstruct_ const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+    position_structid_pair_type get_pos_sid_pair_2o_helper_any(Tstruct_ const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
                                                                         length_type const& offset, length_type const& reaction_length, rng_type& rng) const
     {
         if( this->is_parent_of_or_has_same_sid_as(origin_structure1) && origin_structure1.has_valid_target_sid(target_sid) )

@@ -36,6 +36,8 @@ struct StructureUtils
     typedef typename simulator_type::planar_surface_type        planar_surface_type;
     typedef typename simulator_type::cuboidal_region_type       cuboidal_region_type;
     typedef typename simulator_type::world_type::traits_type::rng_type rng_type;
+    
+    typedef bool flag_type;
  
     static planar_surface_type* create_planar_surface(
             structure_type_id_type const& sid,          // This refers to the structure type of the planar surface
@@ -44,7 +46,7 @@ struct StructureUtils
             position_type const& unit_x,
             position_type const& unit_y,
             length_type const& lx,
-            length_type const& ly,
+            length_type const& ly,            
             structure_id_type const& parent_struct_id)
     {
         BOOST_ASSERT(is_cartesian_versor(unit_x));
@@ -59,10 +61,40 @@ struct StructureUtils
 
         const position_type pos(add(add(corner, multiply(unit_x, half_lx)),
                                                 multiply(unit_y, half_ly)));
+        const flag_type is_one_sided(true);
 
         return new planar_surface_type(name, sid, parent_struct_id,
                                        plane_type(pos, unit_x, unit_y,
-                                                  half_lx, half_ly));
+                                                  half_lx, half_ly, is_one_sided));
+    }
+    
+    static planar_surface_type* create_double_sided_planar_surface(
+            structure_type_id_type const& sid,          // This refers to the structure type of the planar surface
+            structure_name_type   const& name,
+            position_type const& corner,
+            position_type const& unit_x,
+            position_type const& unit_y,
+            length_type const& lx,
+            length_type const& ly,            
+            structure_id_type const& parent_struct_id)
+    {
+        BOOST_ASSERT(is_cartesian_versor(unit_x));
+        BOOST_ASSERT(is_cartesian_versor(unit_y));
+        BOOST_ASSERT(is_cartesian_versor(cross_product(unit_x, unit_y)));
+
+        // Note that when calling the function the origin is in the corner and the length
+        // is the whole length of the plane, whereas for 'plane_type' the origin is in the
+        // center of the plane (pos) and that the length is only half lengths 'half_lx' and 'half_ly'.
+        const length_type half_lx(lx / 2);
+        const length_type half_ly(ly / 2);
+
+        const position_type pos(add(add(corner, multiply(unit_x, half_lx)),
+                                                multiply(unit_y, half_ly)));
+        const flag_type is_one_sided(false);
+
+        return new planar_surface_type(name, sid, parent_struct_id,
+                                       plane_type(pos, unit_x, unit_y,
+                                                  half_lx, half_ly, is_one_sided));
     }
 
     static spherical_surface_type* create_spherical_surface(

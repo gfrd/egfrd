@@ -29,7 +29,8 @@ inline boost::python::objects::class_base register_plane_class(char const* name)
                   typename impl_type::position_type, 
                   typename impl_type::position_type, 
                   typename impl_type::length_type,
-                  typename impl_type::length_type>())
+                  typename impl_type::length_type,
+                  bool>())
         .def(init<typename impl_type::position_type, 
                   boost::array<typename impl_type::length_type, 2> >())
         .add_property("position",
@@ -102,6 +103,20 @@ inline boost::python::objects::class_base register_plane_class(char const* name)
                     typename impl_type::position_type,
                     &impl_type::unit_z,
                     &impl_type::unit_z>::set))
+        .add_property("is_one_sided",
+            make_function(
+                &peer::util::reference_accessor_wrapper<
+                    impl_type,
+                    typename impl_type::flag_type,
+                    &impl_type::is_one_sided,
+                    &impl_type::is_one_sided>::get,
+                return_value_policy<return_by_value>()),
+            make_function(
+                &peer::util::reference_accessor_wrapper<
+                    impl_type,
+                    typename impl_type::flag_type,
+                    &impl_type::is_one_sided,
+                    &impl_type::is_one_sided>::set))
         ;
                         
 }

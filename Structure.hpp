@@ -164,7 +164,7 @@ public:
     virtual position_structid_pair_type get_pos_sid_pair(structure_type const& target_structure, position_type const& position,
                                                          length_type const& offset, length_type const& rl, rng_type& rng) const = 0;
     // Second dispatch
-    // This helper function has to be declared for each derived structure class because C++ does not support virtual templates (yet).
+    // The helper functions are the dispatch acceptors and have to be declared for each derived structure class because C++ does not support virtual templates.
     virtual position_structid_pair_type get_pos_sid_pair_helper(CuboidalRegion<traits_type> const& origin_structure, position_type const& position,
                                                         length_type const& offset, length_type const& rl, rng_type& rng) const = 0;
     virtual position_structid_pair_type get_pos_sid_pair_helper(SphericalSurface<traits_type> const& origin_structure, position_type const& position,
@@ -180,7 +180,7 @@ public:
     virtual position_structid_pair_pair_type get_pos_sid_pair_pair(structure_type const& target_structure, position_type const& position,
                                                                    species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type& rng) const = 0;
     // Second dispatch
-    // This helper function has to be declared for each derived structure class because C++ does not support virtual templates (yet).
+    // The helper functions are dispatch acceptors and have to be declared for each derived structure class because C++ does not support virtual templates.
     virtual position_structid_pair_pair_type get_pos_sid_pair_pair_helper(CuboidalRegion<traits_type> const& origin_structure, position_type const& position,
                                                                           species_type const& s_orig, species_type const& s_targ, length_type const& rl, rng_type& rng) const = 0;
     virtual position_structid_pair_pair_type get_pos_sid_pair_pair_helper(SphericalSurface<traits_type> const& origin_structure, position_type const& position,
@@ -204,23 +204,25 @@ public:
     //   - in case of equal structure type id's it can end up on either origin structure
     //     and apply_boundary will handle the right placement afterwards.
        
-    // First dispatch, overloading method call structure.get_pos_sid_pair
+    // First dispatch
     // This is called as a method of origin_structure1 with origin_structure2 as an argument.
-    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                         length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;    
+    virtual position_structid_pair_type get_pos_sid_pair_2o(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+//     // Some convenient method overloading; this is just a redirect to the above                                       
+//     virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
+//                                                          length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
     // Second dispatch
-    // This helper function has to be declared for each derived structure class because C++ does not support virtual templates (yet).
-    // It is called as a method of origin_structure2 by origin_structure1 with origin_structure1 as an argument
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
-                                                                            length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+    // The helper functions are the dispatch acceptors and have to be declared for each derived structure class because C++ does not support virtual templates.
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                   length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                   length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                   length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                   length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+                                                                   length_type const& offset, length_type const& reaction_length, rng_type& rng) const = 0;
     
     // Some further helper functions used by template<typename Tstruct_> get_pos_sid_pair_helper_two_origins_any(...),
     // which is the final dispatch template defined in each of the derived classes and makes use of the two following checker functions:

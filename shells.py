@@ -188,7 +188,11 @@ class testInteractionSingle(testSingle, Others):
         self.particle_surface_distance = self.world.distance(self.target_structure.shape, self.pid_particle_pair[1].position)
 
         # The reference_vector is the normalized vector from the reference_point to the particle
-        self.reference_vector = normalize(pos_transposed - self.reference_point)
+        if any(pos_transposed != self.reference_point) :
+            self.reference_vector = normalize(pos_transposed - self.reference_point)
+        else:
+            self.reference_vector = 0
+            raise testShellError('(testInteractionSingle). reference vector = 0.')
 
 class testTransitionSingle(testSingle, Others):
 
@@ -809,6 +813,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
         z2 = z_right
 
     relative_orientation = abs(numpy.dot(orientation_vector, shape.unit_z))
+
     if feq(relative_orientation, 1.0):
     ### If the cylinders are oriented parallelly
 
@@ -980,7 +985,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 r1_min = math.sqrt((scale_center_to_shell_x-shell_half_length)**2 + (scale_center_to_shell_y-shell_radius)**2)*(1.0+TOLERANCE)
                 h1_min = r1_min/math.tan(scale_angle)
 
-#        print "situation= ", situation
+        #print "situation= ", situation
         #################
         if situation == 1:
             # shell hits the scaling cylinder with its flat surface on the radial side
@@ -992,8 +997,9 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             # TODO we have a solution but it can only be found with a root finder -> slow
             tan_scale_angle = math.tan(scale_angle)
 
-            if scale_angle <= Pi/4.0:
+            if scale_angle < Pi/4.0:
                 def h1(x):
+                    print "value = %s" % str((x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)) # TODO DEBUG output, remove when done
                     return x - scale_center_to_shell_z + \
                            math.sqrt(shell_radius**2 - (scale_center_to_shell_y - math.sqrt((x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2) )**2 )
 
@@ -1701,6 +1707,7 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
         # - dz_left stays constant and is equal to the cap-bound particle radius
         # - dz_right can be scaled, minimum is set accordingly
         # - dr stays constant and is determined by the maximal particle radius involved
+        #   plus the rod radius (particle unbinds perpendicularly to disk normal vector)
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
         self.r0_right   = self.pid_particle_pair[1].radius
@@ -1713,11 +1720,11 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
         # sizing up the shell to a zero shell
         self.dz_right = self.pid_particle_pair[1].radius
         self.dz_left  = self.pid_particle_pair[1].radius
-        self.dr       = self.pid_particle_pair[1].radius        
+        self.dr       = self.pid_particle_pair[1].radius + self.structure.shape.radius
 
     def get_orientation_vector(self):
         return self.structure.shape.unit_z
-        # just copy from disk structure; note that this defines the direction of dissociation!        
+        # just copy from disk structure
 
     def get_searchpoint(self):
         return self.pid_particle_pair[1].position
@@ -1727,14 +1734,14 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
 
     def get_min_dr_dzright_dzleft(self):
         # TODO This will never be called, right? Why do dz_right/dz_left have value larger than particle_radius?
-        dr       = self.pid_particle_pair[1].radius
+        dr       = self.dr
         dz_right = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0) #  TODO Use SINGLE_SHELL_FACTOR instead?
         dz_left  = dz_right
         return dr, dz_right, dz_left
         
     def get_max_dr_dzright_dzleft(self):
         # Radius is not scaled here so we do not to check for distance to shape edge
-        dr       = self.pid_particle_pair[1].radius
+        dr       = self.dr
         dz_right = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0) # same as the minimum, i.e. no scaling of this length
         dz_left  = dz_right
         return dr, dz_right, dz_left
@@ -1948,11 +1955,9 @@ class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testIntera
                                  (str(e)))
 
     def get_orientation_vector(self):
-        # The orientation vector is collinear with the parent cylinder axis and
-        # pointing "inwards", i.e. towards the center point of the parent cylinder
-        # TODO Check that this works properly!
-        return self.reference_vector     # from testInteractionSingle; reference vector always points from the
-                                         # particle position projected onto the target surface towards particle pos.
+        # Here we assume implicitly that the cap and the
+        # rod are collinear
+        return self.target_structure.shape.unit_z
 
     def get_searchpoint(self):
         return self.pid_particle_pair[1].position

@@ -18,6 +18,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef bool flag_type;
     typedef enum side_enum_type {TOP=0, BOTTOM=1, LEFT=2, RIGHT=3} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
@@ -27,7 +28,8 @@ public:
             create_vector<position_type>(1., 0., 0.),
             create_vector<position_type>(0., 1., 0.),
             create_vector<position_type>(0., 0., 1.))),
-          half_extent_(array_gen<length_type>(0.5, 0.5)) {}
+          half_extent_(array_gen<length_type>(0.5, 0.5)),
+          is_one_sided_(true) {}
 
     template<typename Tarray_>
     Plane(position_type const& position, Tarray_ const& half_extent)
@@ -35,7 +37,8 @@ public:
           units_(array_gen(
             create_vector<position_type>(1., 0., 0.),
             create_vector<position_type>(0., 1., 0.),
-            create_vector<position_type>(0., 0., 1.)))
+            create_vector<position_type>(0., 0., 1.))),
+          is_one_sided_(true)
     {
         std::copy(boost::begin(half_extent), boost::end(half_extent),
                   boost::begin(half_extent_));
@@ -44,7 +47,7 @@ public:
     template<typename Tarray1, typename Tarray2>
     Plane(position_type const& position,
         Tarray1 const& units, Tarray2 const& half_extent)
-        : position_(position)
+        : position_(position), is_one_sided_(true)
     {
         std::copy(boost::begin(units), boost::end(units),
                   boost::begin(units_));
@@ -57,7 +60,8 @@ public:
         position_type const& vx,
         position_type const& vy,
         Tarray_ const& half_extent = array_gen<length_type>(0.5, 0.5))
-        : position_(position), units_(array_gen(vx, vy, cross_product(vx, vy)))
+        : position_(position), units_(array_gen(vx, vy, cross_product(vx, vy))),
+          is_one_sided_(true)
     {
         std::copy(boost::begin(half_extent), boost::end(half_extent),
                   boost::begin(half_extent_));
@@ -67,9 +71,10 @@ public:
         position_type const& vx,
         position_type const& vy,
         length_type const& half_lx,
-        length_type const& half_ly)
+        length_type const& half_ly,
+        flag_type const& is_one_sided)
         : position_(position), units_(array_gen(vx, vy, cross_product(vx, vy))),
-          half_extent_(array_gen<length_type>(half_lx, half_ly)) {}
+          half_extent_(array_gen<length_type>(half_lx, half_ly)), is_one_sided_(is_one_sided) {}
 
     position_type const& position() const
     {
@@ -150,6 +155,16 @@ public:
     {
         return half_extent_;
     }
+    
+    flag_type const& is_one_sided() const
+    {
+        return is_one_sided_;
+    }
+    
+    flag_type& is_one_sided()
+    {
+        return is_one_sided_;
+    }
 
     bool operator==(const Plane& rhs) const
     {
@@ -174,6 +189,7 @@ protected:
     position_type position_;
     boost::array<position_type, 3> units_;
     boost::array<length_type, 2> half_extent_;
+    flag_type is_one_sided_;
 };
 
 template<typename T_>

@@ -316,41 +316,49 @@ public:
     };
     
     // *** 3 *** - Pair reactions => two origin structures
-    // Overloading get_pos_sid_pair with signature (origin_structure2, target_structure_type_id, ...)
-    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid,
+    // First dispatch
+//     // Overloading get_pos_sid_pair with signature (origin_structure2, target_structure_type_id, ...)
+//    virtual position_structid_pair_type get_pos_sid_pair(structure_type const& origin_structure2, structure_type_id_type const& target_sid, position_type const& CoM,
+//                                                         length_type const& offset, length_type const& reaction_length, rng_type& rng) const
+//     {   
+//         // this just redirects
+//         return this->get_pos_sid_pair_2o(origin_structure2, target_sid, CoM, offset, reaction_length, rng);                            
+//     }
+//     // The actual implementation of the first dispatch
+    virtual position_structid_pair_type get_pos_sid_pair_2o(structure_type const& origin_structure2, structure_type_id_type const& target_sid,
                                                          position_type const& CoM, length_type const& offset, length_type const& reaction_length, rng_type& rng) const
     {
-        return origin_structure2.get_pos_sid_pair_helper_two_origins(*this, target_sid, CoM, offset, reaction_length, rng);
+        return origin_structure2.get_pos_sid_pair_2o_helper(*this, target_sid, CoM, offset, reaction_length, rng);
     }
     // Second dispatch
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CuboidalRegion<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<CuboidalRegion<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<CuboidalRegion<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(SphericalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<SphericalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<SphericalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(CylindricalSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<CylindricalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<CylindricalSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(DiskSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<DiskSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<DiskSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }
-    virtual position_structid_pair_type get_pos_sid_pair_helper_two_origins(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
+    virtual position_structid_pair_type get_pos_sid_pair_2o_helper(PlanarSurface<traits_type> const& origin_structure1, structure_type_id_type const& target_sid,
                                                                             position_type const& CoM, length_type const& offset, length_type const& rl, rng_type& rng) const
     {                          
-        return this->get_pos_sid_pair_helper_two_origins_any<PlanarSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
+        return this->get_pos_sid_pair_2o_helper_any<PlanarSurface<traits_type> >(origin_structure1, target_sid, CoM, offset, rl, rng);
     }    
     // The template function that defines the actual final dispatch procedure.
     template<typename Tstruct_>
-    position_structid_pair_type get_pos_sid_pair_helper_two_origins_any(Tstruct_ const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
+    position_structid_pair_type get_pos_sid_pair_2o_helper_any(Tstruct_ const& origin_structure1, structure_type_id_type const& target_sid, position_type const& CoM,
                                                                         length_type const& offset, length_type const& reaction_length, rng_type& rng) const
     {
         if( this->is_parent_of_or_has_same_sid_as(origin_structure1) && origin_structure1.has_valid_target_sid(target_sid) )

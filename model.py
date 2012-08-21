@@ -1,6 +1,6 @@
 import _gfrd
 from _gfrd import create_cuboidal_region, create_cylindrical_surface, \
-        create_disk_surface, create_planar_surface
+        create_disk_surface, create_planar_surface, create_double_sided_planar_surface
 import numpy
 
 __all__ = [
@@ -20,6 +20,7 @@ __all__ = [
     'create_cylindrical_surface',
     'create_disk_surface',
     'create_planar_surface',
+    'create_double_sided_planar_surface',
     ]
 
 
@@ -100,7 +101,44 @@ Surfaces are not allowed to touch or overlap.
 _gfrd.create_planar_surface.__doc__ = \
 """create_planar_surface(sid, id, corner, unit_x, unit_y, length_x, length_y)
 
-Create and return a new planar Surface.
+Create and return a new planar surface with one-sided particle unbinding,
+i.e. particles on this surface will unbind in the direction of the normal
+vector unit_z (cross product of unit_x and unit_y).
+
+Arguments:
+    - sid
+        the structure type of the planar surface.
+    - id
+        the name of the structure
+    - corner
+        the point [x, y, z] on the plane closest to [0, 0, 0]. Units: 
+        [meters, meters, meters]
+    - unit_x
+        a unit vector [1, 0, 0], [0, 1, 0] or [0, 0, 1] along the 
+        plane.
+    - unit_y
+        a unit vector [1, 0, 0], [0, 1, 0] or [0, 0, 1] along the plane 
+        and perpendicular to unit_x.
+    - length_x
+        the length of the plane along the unit vector unit_x. Should be 
+        equal to the world_size. Units: meters.
+    - length_y
+        the length of the plane along the unit vector unit_y. Should be 
+        equal to the world_size. Units: meters.
+
+Surfaces are not allowed to overlap.
+
+Todo: allow the user to specify the position of a planar surface 
+relative to a region.
+
+"""
+
+_gfrd.create_double_sided_planar_surface.__doc__ = \
+"""create_double_sided_planar_surface(sid, id, corner, unit_x, unit_y, length_x, length_y)
+
+Create and return a new planar surface with double-sided particle unbinding,
+i.e. particles on this surface will unbind randomly in either unit_z or -unit_z
+direction (unit_z = cross product of unit_x and unit_y).
 
 Arguments:
     - sid

@@ -217,7 +217,7 @@ _greens_functions_la_SOURCES=\
 	Logger.cpp\
 	ConsoleAppender.cpp
 
-_gfrd_la_LDFLAGS = -module -export-dynamic -avoid-version $(no_undefined)
+_gfrd_la_LDFLAGS = -module -export-dynamic -avoid-version $(no_undefined) -Wl,--no-undefined
 _gfrd_la_LIBADD = binding/libbinding_utils.la
 _gfrd_la_LIBADD += $(LIBBOOSTPYTHON) $(LIBPYTHON) $(GSL_LIBS)
 

@@ -47,6 +47,8 @@ void register_module_functions()
     def( "cyclic_transpose", &cyclic_transpose<Position, element_type_of<Position>::type> );
     def("create_planar_surface", &StructureUtils::create_planar_surface,
             return_value_policy<manage_new_object>());
+    def("create_double_sided_planar_surface", &StructureUtils::create_double_sided_planar_surface,
+            return_value_policy<manage_new_object>());
     def("create_spherical_surface", &StructureUtils::create_spherical_surface,
             return_value_policy<manage_new_object>());
     def("create_cylindrical_surface", &StructureUtils::create_cylindrical_surface,

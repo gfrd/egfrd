@@ -223,7 +223,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         self.DEFAULT_DT_FACTOR = 1e-5           # Diffusion time prefactor in oldBD algortithm to determine time step.
         
-        self.DEFAULT_STEP_SIZE_FACTOR = 0.05    # The maximum step size in the newBD algorithm is determined as DSSF * sigma_min.
+        self.DEFAULT_STEP_SIZE_FACTOR = 0.05    # The maximum step size in the newBD algorithm is determined as DSSF * sigma_min.  # TESTING was 0.05
                                                 # Make sure that DEFAULT_STEP_SIZE_FACTOR < MULTI_SHELL_FACTOR, or else the 
                                                 # reaction volume sticks out of the multi. 
 
@@ -962,8 +962,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 # TODO make these generators for efficiency
                 product_pos_list = []
                 if isinstance(reactant_structure, PlanarSurface):
-                    a = myrandom.choice(-1, 1)
-                    directions = [-a,a]
+                    if reactant_structure.shape.is_one_sided:
+                        # unbinding always in direction of unit_z
+                        directions = [1]
+                    else:
+                        # randomize unbinding direction
+                        a = myrandom.choice(-1, 1)
+                        directions = [-a,a]
                     # place the center of mass of the particle 'at contact' with the membrane
                     vector_length = (product_radius + 0.0) * (MINIMAL_SEPARATION_FACTOR - 1.0)  # the thickness of the membrane is 0.0
                     product_pos_list = [reactant_pos + vector_length * reactant_structure.shape.unit_z * direction \
@@ -979,9 +984,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
                         product_pos_list.append(vector)
 
                 elif isinstance(reactant_structure, DiskSurface):
-                    vector_length = 1.0*product_radius * MINIMAL_SEPARATION_FACTOR
-                    vector        = reactant_pos + vector_length * reactant_structure.shape.unit_z
-                    product_pos_list.append(vector)
+                    # unbinding in direction of disk unit vector
+                    #vector_length = 1.0*product_radius * MINIMAL_SEPARATION_FACTOR
+                    #vector        = reactant_pos + vector_length * reactant_structure.shape.unit_z
+                    #product_pos_list.append(vector)
+                    # unbinding perpendicularly to disk unit vector (i.e. like on cylinder)
+                    vector_length = (product_radius + reactant_structure.shape.radius) * MINIMAL_SEPARATION_FACTOR
+                    for _ in range(self.dissociation_retry_moves):
+                        unit_vector3D = random_unit_vector()
+                        unit_vector2D = normalize(unit_vector3D - 
+                                        (reactant_structure.shape.unit_z * numpy.dot(unit_vector3D, reactant_structure.shape.unit_z)))
+                        vector = reactant_pos + vector_length * unit_vector2D
+                        product_pos_list.append(vector)
 
                 else:
                     # cannot decay from 3D to other structure
@@ -1084,7 +1098,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                 if isinstance(reactant_structure, PlanarSurface):
                     # draw a number of new positions for the two product particles
-                    # TODO make this into a generator
+                    # TODO make this a generator
 
                     product_pos_list = []
                     for _ in range(self.dissociation_retry_moves):
@@ -1097,7 +1111,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
                         iv *= MINIMAL_SEPARATION_FACTOR
 
                         # determine the side of the membrane the dissociation takes place
-                        unit_z = reactant_structure.shape.unit_z * myrandom.choice(-1, 1)
+                        if(reactant_structure.shape.is_one_sided):
+                            unit_z = reactant_structure.shape.unit_z
+                        else:
+                            unit_z = reactant_structure.shape.unit_z * myrandom.choice(-1, 1)
+
+                        # calculate the new positions and structure IDs
                         newposA, newposB, sidA, sidB = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
                                                                                        productA_radius, productB_radius,
                                                                                        reactant_structure, reactant_structure,
