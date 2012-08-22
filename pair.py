@@ -41,11 +41,23 @@ class Pair(ProtectiveDomain, Others):
     CUTOFF_FACTOR = 5.6
 
     def __init__(self, domain_id, shell_id, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:     multiplicity, single1, single2, pid_particle_pair1, 
+        #           pid_particle_pair2, structure1, structure2, 
+        #           interparticle_rrs, interparticle_ktot, com, iv, r0,
+        #           sigma
+        #
+        # Requires nothing to be set.
+
+        # Call init from parent class(es)
         ProtectiveDomain.__init__(self, domain_id, shell_id)
-        # Note: for the Others superclass nothing is to be initialized.
+            # Note: for the Others superclass nothing is to be initialized.
 
         assert self.testShell       # assume that the testShell exists
-        assert isinstance(self.testShell, testPair)
+        assert isinstance(self.testShell, testPair)  
+        
+        # Definitions
         self.multiplicity = 2
 
         self.single1 = self.testShell.single1
@@ -62,7 +74,7 @@ class Pair(ProtectiveDomain, Others):
         self.com   = self.testShell.com
         self.iv    = self.testShell.iv
         self.r0    = self.testShell.r0
-        self.sigma = self.testShell.sigma
+        self.sigma = self.testShell.sigma              
 
     def __del__(self):
         if __debug__:
@@ -206,14 +218,24 @@ class Pair(ProtectiveDomain, Others):
 class SimplePair(Pair):
 
     def __init__(self, domain_id, shell_id, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:     a_R, a_r, strucutre, shell_size
+        # Requires: r0, LD_MAX
 
-        Pair.__init__(self, domain_id, shell_id, rrs)
-
-        self.structure = self.testShell.structure # structure on which both particles live
-
-        shell_size = self.get_shell_size()                  # FIXME
+        # Inits from parent classes 
+        Pair.__init__(self, domain_id, shell_id, rrs) 
+        
+        # Definitions 
+        self.structure = self.testShell.structure # structure on which both particles live                    
+        
+        shell_size = self.get_shell_size()                  # FIXME                      
+                                                            # Needed by pair.init()?? No?
         self.a_R, self.a_r = self.determine_radii(self.r0, shell_size)
-        # set the radii of the inner domains as a function of the outer protective domain
+            # set the radii of the inner domains as a function of the outer protective domain
+            # (self.r0 is determined in Pair.__init__)
+            # determine_radii requires LD_MAX to be set
+
 
     @ classmethod
     def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
@@ -323,10 +345,17 @@ class SphericalPair(SimplePair, hasSphericalShell):
 
     """
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:         LD_MAX
+        # Requires:     nothing to be set       
 
         assert isinstance(testShell, SphericalPairtestShell)
-        hasSphericalShell.__init__(self, testShell, domain_id)
-        self.LD_MAX = numpy.inf
+        
+        # Parent classes
+        hasSphericalShell.__init__(self, testShell, domain_id) 
+
+        self.LD_MAX = numpy.inf # required by simplepair, set_radii           
         SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
 
     def com_greens_function(self):
@@ -422,10 +451,15 @@ class PlanarSurfacePair(SimplePair, hasCylindricalShell):
 
     """
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:         LD_MAX
+        # Requires:     Nothing to be set.       
 
         assert isinstance(testShell, PlanarSurfacePairtestShell)
-        hasCylindricalShell.__init__(self, testShell, domain_id)
-        self.LD_MAX = 20
+        hasCylindricalShell.__init__(self, testShell, domain_id)        
+        
+        self.LD_MAX = 20 # Required by SimplePair.__init__
         SimplePair.__init__(self, domain_id, shell_id, rrs)
 
     def com_greens_function(self):
@@ -519,15 +553,22 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
     # hasSphericalShell instead of hasCylindricalShell and a modified 
     # do_back_transform() method.
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:         structure1, strucutre2, structure, LD_MAX
+        # Requires:     nothing to be set
 
         assert isinstance(testShell, PlanarSurfaceTransitionPairtestShell)
+
         hasSphericalShell.__init__(self, testShell, domain_id)
         self.LD_MAX = numpy.inf # TODO was 20. Why? Because of convergence issues! Maybe not really an issue here though
+                                # Required by SimplePair.__init__        
         SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
-        
+
+        # Definitions
         self.structure1 = self.testShell.structure1
         self.structure2 = self.testShell.structure2
-        self.structure  = self.testShell.structure1 # just for safety
+        self.structure  = self.testShell.structure1 # just for safety          
 
     def com_greens_function(self):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
@@ -702,12 +743,24 @@ class CylindricalSurfacePair(SimplePair, hasCylindricalShell):
 
     """
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:         LD_MAX
+        # Requires:     nothing to be set        
 
         assert isinstance(testShell, CylindricalSurfacePairtestShell)
+
         hasCylindricalShell.__init__(self, testShell, domain_id)
-        self.LD_MAX = numpy.inf
+
+        self.LD_MAX = numpy.inf # Required by SimplePair.__init__
         SimplePair.__init__(self, domain_id, shell_id, rrs)
 
+        # The latter is defined for completeness and used by check_domain() in egfrd.py:
+        # (Note that that origin and target end up in same list.)
+        self.origin_structure = self.testShell.origin_structure
+        self.target_structure = self.testShell.target_structure         
+#        self.origin_structure = self.structure2D
+#        self.target_structure = self.structure2D #TODO: redundant..
 
     def get_shell_size(self):
         return self.shell.shape.half_length
@@ -796,12 +849,18 @@ class CylindricalSurfacePair(SimplePair, hasCylindricalShell):
 class MixedPair2D3D(Pair, hasCylindricalShell):
 
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:         structure2D, structure3D, z_scaling_factor, a_R, a_r
+        # Requires:     nothing to be set
 
         assert isinstance(testShell, MixedPair2D3DtestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
         Pair.__init__(self, domain_id, shell_id, rrs)
 
         assert isinstance(self.testShell, testMixedPair2D3D)
+        
+        # Some definitions 
         self.structure2D = self.testShell.structure2D   # the surface on which particle1 lives
         self.structure3D = self.testShell.structure3D   # structure on which both particles live
 
@@ -810,6 +869,13 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
         # set the radii of the inner domains as a function of the outer protective domain
         self.a_R, self.a_r = self.determine_radii()
+        
+        # The latter is defined for completeness and used by check_domain() in egfrd.py:
+        # (Note that that origin and target end up in same list.)
+        self.origin_structure = self.testShell.origin_structure
+        self.target_structure = self.testShell.target_structure         
+#        self.origin_structure = self.structure3D
+#        self.target_structure = self.structure2D
 
 
     def determine_radii(self):
@@ -865,7 +931,7 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
         return a_R, a_r
 
-    @ classmethod
+    @ classmethod 
     def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure2D, structure3D, unit_z):
     # here we assume that the com and iv are really in the structure and no adjustments have to be
     # made
@@ -876,7 +942,7 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         weight1 = D1 / D_tot
         weight2 = D2 / D_tot
 
-#        min_iv_z_length = radius2
+#       min_iv_z_length = radius2
         # get a sence of scale of the separation between the particle and the membrane
         min_iv_z_length = (radius1 + radius2) * 0.5 * (MINIMAL_SEPARATION_FACTOR - 1.0)
 
@@ -902,7 +968,8 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         pos1 = com - weight1 * (iv_x + iv_y)
         pos2 = com + weight2 * (iv_x + iv_y) + iv_z 
 
-        return pos1, pos2, self.structure2D.id, self.structure2D.id
+        # Class method; so don't use self.(..)
+        return pos1, pos2, structure2D.id, structure2D.id        
 
     @ classmethod
     def calc_z_scaling_factor(cls, D2d, D3d):
@@ -1018,7 +1085,8 @@ class MixedPair1D3D(Pair):
         pos1 = com - weight1 * iv_z
         pos2 = com + weight2 * iv_z + iv_r
 
-        return pos1, pos2, self.structure1D.id, self.structure1D.id
+        # Class method; so don't use self.(..)
+        return pos1, pos2, structure1D.id, structure1D.id
 
     @ classmethod
     def calc_r_scaling_factor(cls, D1, D2):
@@ -1035,6 +1103,10 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
     # TODO: Is the new pos. of the cap particle sampled correctly in case of a decay event?
 
     def __init__(self, domain_id, shell_id, testShell, rrs):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:             particle1D, structure1D, cap_particle, cap_structure
+        # Requires:         nothing to be set       
 
         assert isinstance(testShell, MixedPair1DCaptestShell)
         hasCylindricalShell.__init__(self, testShell, domain_id)
@@ -1042,15 +1114,17 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
 
         assert isinstance(self.testShell, MixedPair1DCaptestShell)
 
-        # Some useful definitions:
+        # Some useful definitions 
         self.particle1D    = self.testShell.particle1D
         self.structure1D   = self.testShell.structure1D
         self.cap_particle  = self.testShell.cap_particle
         self.cap_structure = self.testShell.cap_structure
 
         # The latter is defined for completeness and used by check_domain() in egfrd.py:
-        self.origin_structure = self.structure1D
-        self.target_structure = self.cap_structure
+        self.origin_structure = self.testShell.origin_structure
+        self.target_structure = self.testShell.target_structure         
+#        self.origin_structure = self.structure1D
+#        self.target_structure = self.cap_structure
 
         # The cap_particle should be immobile; check to be sure:
         assert self.cap_particle.D == 0

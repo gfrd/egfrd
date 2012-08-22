@@ -2605,7 +2605,11 @@ rejected moves = %d
     def check_domain(self, domain):
         domain.check()
 
-        # construct ignore list for surfaces and the structures that the domain is associated with
+        # Construct ignore list for surfaces and the structures that the domain is associated with
+        # __
+        # This is necessary because structures which are involved in the 
+        # mathematical solution need to be excluded from the overlap 
+        # check.
         if isinstance(domain, Multi):
             # Ignore all surfaces, multi shells can overlap with 
             # surfaces.

@@ -436,8 +436,8 @@ class PlanarSurfaceSingle(NonInteractionSingle, hasCylindricalShell):
         assert self.greens_function
         assert (self.shell.shape.unit_z == self.structure.shape.unit_z).all()
 
-        assert feq(numpy.dot(self.pid_particle_pair[1].position - self.structure.shape.position,
-                             self.structure.shape.unit_z), 0.0, typical=self.shell.shape.half_length)
+        assert feq(numpy.dot(self.pid_particle_pair[1].position - self.structure.shape.position,\
+                    self.structure.shape.unit_z), 0.0, typical=self.shell.shape.half_length)
 
         return True
 
@@ -688,7 +688,7 @@ class InteractionSingle(Single, hasCylindricalShell, Others):
 
         self.origin_structure = self.testShell.origin_structure
         self.target_structure = self.testShell.target_structure 
-             # The surface with which the particle is trying to interact
+             # The surface with which the particle is trying to interact                         
 
     def get_interaction_rule(self):
         if self.intrule == None:

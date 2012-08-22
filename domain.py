@@ -17,6 +17,11 @@ class Domain(object):
 # with an own domain_id
 
     def __init__(self, domain_id):
+        # Calls required parent inits and sets variables.
+        #    
+        # Sets:     domain_id, event_id, event_type, last_time, dt
+        # Requires nothing to be set.
+        
         self.domain_id = domain_id      # identifier for this domain object
         self.event_id = None            # identifier for the event coupled to this domain
 
@@ -69,8 +74,15 @@ class ProtectiveDomain(Domain):
 # their shell within a timestep, breaking the principle of a Protective Domain
 
     def __init__(self, domain_id, shell_id):
+        # Calls required parent inits and sets variables.
+        #
+        # Sets:     shell_id, num_shells
+        # Requires nothing to be set.            
+    
+        # Inits parent classes
         Domain.__init__(self, domain_id)
 
+        # Definitions
         self.shell_id = shell_id
 #        self.shell = None
         self.num_shells = 1             # all protective domains have only one shell

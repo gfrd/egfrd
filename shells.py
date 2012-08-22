@@ -315,16 +315,22 @@ class testMixedPair2D3D(testPair):
 
     def __init__(self, single2D, single3D):
 
+        # First define 
+        # for clarity:
+        self.structure2D = single2D.structure   # equal to self.structure1
+        self.structure3D = single3D.structure   # equal to self.structure2
+
+        # These methods need above definitions.
         if __debug__: 
                 assert isinstance(single2D.structure, PlanarSurface) 
                 assert isinstance(single3D.structure, CuboidalRegion)
         testPair.__init__(self, single2D, single3D)
           # note: this makes self.single1/self.pid_particle_pair1/self.structure1 for the 2D particle
           #              and self.single2/self.pid_particle_pair2/self.structure2 for the 3D particle
-
-        # for clarity:
-        self.structure2D = single2D.structure   # equal to self.structure1
-        self.structure3D = single3D.structure   # equal to self.structure2
+          
+        # TODO: modification by Martijn Wehrens (jintram@gmail.com) -- not absolutely sure this is correct place
+        self.origin_structure = self.structure3D
+        self.target_structure = self.structure2D        
 
     def get_sigma(self):
         # rescale sigma to correct for the rescaling of the coordinate system
