@@ -40,7 +40,7 @@ GreensFunction3DRadAbs::GreensFunction3DRadAbs(
 
     if (a < sigma)
     {
-        throw std::invalid_argument((boost::format("a >= sigma : a=%.16g, sigma=%.16g") % a % sigma).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: a >= sigma : a=%.16g, sigma=%.16g") % a % sigma).str());
     }
     clearAlphaTable();
 }
@@ -118,7 +118,7 @@ Real GreensFunction3DRadAbs::alpha0_i(Integer i) const
 {
     if (!(i >= 0))
     {
-        throw std::out_of_range((boost::format("i >= 0 : i=%.16g") % i).str());
+        throw std::out_of_range((boost::format("GreensFunction3DRadAbs: i >= 0 : i=%.16g") % i).str());
     }
 
 
@@ -161,7 +161,7 @@ Real GreensFunction3DRadAbs::alpha0_i(Integer i) const
             if (j >= maxIter)
             {
                 gsl_root_fsolver_free(solver);
-                throw std::runtime_error("alpha0_i: failed to converge");
+                throw std::runtime_error("GreensFunction3DRadAbs: alpha0_i: failed to converge");
             }
         }
         else
@@ -476,7 +476,7 @@ GreensFunction3DRadAbs::alpha_i(Integer i, Integer n,
             if (k >= maxIter)
             {
                 gsl_root_fsolver_free(solver);
-                throw std::runtime_error("alpha_i: failed to converge");
+                throw std::runtime_error("GreensFunction3DRadAbs: alpha_i: failed to converge");
             }
         }
         else
@@ -557,7 +557,7 @@ GreensFunction3DRadAbs::updateAlphaTable(const unsigned int n,
 {
     if (!(n >= 0 && n <= this->MAX_ORDER))
     {
-        throw std::range_error((boost::format("n >= 0 && n <= this->MAX_ORDER : n=%.16g, this->MAX_ORDER=%.16g") % n % this->MAX_ORDER).str());
+        throw std::range_error((boost::format("GreensFunction3DRadAbs: n >= 0 && n <= this->MAX_ORDER : n=%.16g, this->MAX_ORDER=%.16g") % n % this->MAX_ORDER).str());
     }
 
 
@@ -1333,12 +1333,12 @@ Real GreensFunction3DRadAbs::drawTime(Real rnd) const
 
     if (!(rnd < 1.0 && rnd >= 0.0))
     {
-        throw std::invalid_argument((boost::format("rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
     }
 
     if (!(r0 >= sigma && r0 <= a))
     {
-        throw std::invalid_argument((boost::format("r0 >= sigma && r0 <= a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 <= a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
     }
 
 
@@ -1396,7 +1396,7 @@ Real GreensFunction3DRadAbs::drawTime(Real rnd) const
             {
                 throw std::runtime_error(
                     (boost::format(
-                        "couldn't adjust high. F(%.16g) = %.16g; r0 = %.16g, %s") %
+                        "GreensFunction3DRadAbs: couldn't adjust high. F(%.16g) = %.16g; r0 = %.16g, %s") %
                         high % GSL_FN_EVAL(&F, high) % r0 % dump()).str());
             }
 
@@ -1422,7 +1422,7 @@ Real GreensFunction3DRadAbs::drawTime(Real rnd) const
             if (fabs(low) <= minT ||
                 fabs(low_value - low_value_prev) < TOLERANCE) 
             {
-                log_.info("couldn't adjust low. F(%.16g) = %.16g; r0 = %.16g, %s",
+                log_.info("GreensFunction3DRadAbs: couldn't adjust low. F(%.16g) = %.16g; r0 = %.16g, %s",
                           low, GSL_FN_EVAL(&F, low), r0,
                           dump().c_str());
                 log_.info("returning %.16g", low);
@@ -1455,17 +1455,17 @@ GreensFunction3DRadAbs::drawEventType(Real rnd, Real t) const
 
     if (!(rnd < 1.0 && rnd >= 0.0))
     {
-        throw std::invalid_argument((boost::format("rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
     }
 
     if (!(r0 >= sigma && r0 < a))
     {
-        throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
     }
 
     if (!(t > 0.0))
     {
-        throw std::invalid_argument((boost::format("t > 0.0 : t=%.16g") % t).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t > 0.0 : t=%.16g") % t).str());
     }
 
 
@@ -1545,7 +1545,7 @@ GreensFunction3DRadAbs::drawPleavea(gsl_function const& F,
             {
                 throw std::runtime_error(
                     (boost::format(
-                        "couldn't adjust high. Fa(%.16g) = %.16g; r0 = %.16g, %s") %
+                        "GreensFunction3DRadAbs: couldn't adjust high. Fa(%.16g) = %.16g; r0 = %.16g, %s") %
                         high % GSL_FN_EVAL(&F, high) % r0 % dump()).str());
             }
 
@@ -1625,7 +1625,7 @@ GreensFunction3DRadAbs::drawPleaves(gsl_function const& F,
             {
                 throw std::runtime_error(
                     (boost::format(
-                        "couldn't adjust high. Fs(%.16g) = %.16g; r0 = %.16g, %s") %
+                        "GreensFunction3DRadAbs: couldn't adjust high. Fs(%.16g) = %.16g; r0 = %.16g, %s") %
                         high % GSL_FN_EVAL(&F, high) % r0 % dump()).str());
             }
 
@@ -1685,12 +1685,12 @@ Real GreensFunction3DRadAbs::drawR(Real rnd, Real t) const
 
     if (!(rnd < 1.0 && rnd >= 0.0))
     {
-        throw std::invalid_argument((boost::format("rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
     }
 
     if (!(r0 >= sigma && r0 < a))
     {
-        throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
     }
 
 
@@ -1804,7 +1804,7 @@ Real GreensFunction3DRadAbs::drawR(Real rnd, Real t) const
             if (i >= maxIter)
             {
                 gsl_root_fsolver_free(solver);
-                throw std::runtime_error("drawR: failed to converge");
+                throw std::runtime_error("GreensFunction3DRadAbs: drawR: failed to converge");
             }
         }
         else
@@ -2126,23 +2126,23 @@ GreensFunction3DRadAbs::p_theta(Real theta, Real r, Real t) const
         
         if (!(theta >= 0.0 && theta <= M_PI))
         {
-            throw std::invalid_argument((boost::format("theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
         }
 
         // r \in (sigma, a);  not defined at r == sigma and r == a.
         if (!(r >= sigma && r < a))
         {
-            throw std::invalid_argument((boost::format("r >= sigma && r < a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r >= sigma && r < a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
         }
 
         if (!(r0 >= sigma && r0 < a))
         {
-            throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
         }
 
         if (!(t >= 0.0))
         {
-            throw std::invalid_argument((boost::format("t >= 0.0 : t=%.16g") % t).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t >= 0.0 : t=%.16g") % t).str());
         }
 
     }
@@ -2169,7 +2169,7 @@ Real GreensFunction3DRadAbs::dp_theta(Real theta, Real r, Real t) const
         
         if (!(theta >= 0.0 && theta <= M_PI))
         {
-            throw std::invalid_argument((boost::format("theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
         }
 
 
@@ -2177,17 +2177,17 @@ Real GreensFunction3DRadAbs::dp_theta(Real theta, Real r, Real t) const
         // defined at r == sigma and r == a.
         if (!(r >= sigma && r <= a))
         {
-            throw std::invalid_argument((boost::format("r >= sigma && r <= a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r >= sigma && r <= a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
         }
 
         if (!(r0 >= sigma && r0 < a))
         {
-            throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
         }
 
         if (!(t >= 0.0))
         {
-            throw std::invalid_argument((boost::format("t >= 0.0 : t=%.16g") % t).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t >= 0.0 : t=%.16g") % t).str());
         }
 
     }
@@ -2285,23 +2285,23 @@ GreensFunction3DRadAbs::ip_theta(Real theta, Real r, Real t) const
         
         if (!(theta >= 0.0 && theta <= M_PI))
         {
-            throw std::invalid_argument((boost::format("theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
         }
 
         // r \in (sigma, a)
         if (!(r >= sigma && r < a))
         {
-            throw std::invalid_argument((boost::format("r >= sigma && r < a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r >= sigma && r < a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
         }
 
         if (!(r0 >= sigma && r0 < a))
         {
-            throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
         }
 
         if (!(t >= 0.0))
         {
-            throw std::invalid_argument((boost::format("t >= 0.0 : t=%.16g") % t).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t >= 0.0 : t=%.16g") % t).str());
         }
 
     }
@@ -2330,23 +2330,23 @@ GreensFunction3DRadAbs::idp_theta(Real theta, Real r, Real t) const
         
         if (!(theta >= 0.0 && theta <= M_PI))
         {
-            throw std::invalid_argument((boost::format("theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: theta >= 0.0 && theta <= M_PI : theta=%.16g, M_PI=%.16g") % theta % M_PI).str());
         }
 
         // r \in [ sigma, a ]
         if (!(r >= sigma && r <= a))
         {
-            throw std::invalid_argument((boost::format("r >= sigma && r <= a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r >= sigma && r <= a : r=%.16g, sigma=%.16g, a=%.16g") % r % sigma % a).str());
         }
 
         if (!(r0 >= sigma && r0 < a))
         {
-            throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
         }
 
         if (!(t >= 0.0))
         {
-            throw std::invalid_argument((boost::format("t >= 0.0 : t=%.16g") % t).str());
+            throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t >= 0.0 : t=%.16g") % t).str());
         }
 
     }
@@ -2431,22 +2431,22 @@ GreensFunction3DRadAbs::drawTheta(Real rnd, Real r, Real t) const
     // input parameter range checks.
     if (!(rnd < 1.0 && rnd >= 0.0))
     {
-        throw std::invalid_argument((boost::format("rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: rnd < 1.0 && rnd >= 0.0 : rnd=%.16g") % rnd).str());
     }
 
     if (!(r0 >= sigma && r0 < a))
     {
-        throw std::invalid_argument((boost::format("r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r0 >= sigma && r0 < a : r0=%.16g, sigma=%.16g, a=%.16g") % r0 % sigma % a).str());
     }
 
     if (!(r >= sigma))
     {
-        throw std::invalid_argument((boost::format("r >= sigma : r=%.16g, sigma=%.16g") % r % sigma).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: r >= sigma : r=%.16g, sigma=%.16g") % r % sigma).str());
     }
 
     if (!(t >= 0.0))
     {
-        throw std::invalid_argument((boost::format("t >= 0.0 : t=%.16g") % t).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DRadAbs: t >= 0.0 : t=%.16g") % t).str());
     }
 
 
@@ -2497,7 +2497,7 @@ GreensFunction3DRadAbs::drawTheta(Real rnd, Real r, Real t) const
             if (i >= maxIter)
             {
                 gsl_root_fsolver_free(solver);
-                throw std::runtime_error("drawTheta: failed to converge");
+                throw std::runtime_error("GreensFunction3DRadAbs: drawTheta: failed to converge");
             }
         }
         else

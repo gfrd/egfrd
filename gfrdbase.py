@@ -246,7 +246,7 @@ def create_box(world, structure_type, center, size, one_sided=True):
     world.connect_structures(bottom, 3, right, 2)
     world.connect_structures(bottom, 2, left, 1)
 
-def create_rod(world, cyl_structure_type, cap_structure_type, name, position, radius, orientation, length):
+def create_rod(world, cyl_structure_type, cap_structure_type, name, position, radius, orientation, length, front_cap_structure_type=None, back_cap_structure_type=None):
     """ Creates a cylinder with two disk-caps at its ends and adds it to the world.
 
         The function ensures that the orientation vectors of the disks point
@@ -279,6 +279,13 @@ def create_rod(world, cyl_structure_type, cap_structure_type, name, position, ra
                 a 3D vector defining the the rod orientation
             - length
                 the rod length
+
+        Optional arguments:
+            - front_cap = [True/False]
+                if set to false, the front cap will not be placed;
+                True by default
+            - back_cap = [True/False]
+                same as above
     """    
     # Assert that the location and size is ok
     position = numpy.array(position)
@@ -295,21 +302,26 @@ def create_rod(world, cyl_structure_type, cap_structure_type, name, position, ra
     o = orientation
     l = length
 
+    front_cap_sid = cap_sid
+    back_cap_sid  = cap_sid
+
+    if front_cap_structure_type:
+        front_cap_sid = front_cap_structure_type.id
+    if back_cap_structure_type:
+        back_cap_sid  = back_cap_structure_type.id
+         
     # Create the cylinder of the rod
     rod = model.create_cylindrical_surface(cyl_sid, name+'_cylinder', position, radius, orientation, length, def_struct_id)
-    print rod
+    world.add_structure(rod) # This must happen directly here otherwise rod.id will be undefined
 
     # Create the caps
     front_cap_pos = [p[0]+l*o[0], p[1]+l*o[1], p[2]+l*o[2]]
-    front_cap = model.create_disk_surface(cap_sid, name+'_front_cap', front_cap_pos, radius, orientation, def_struct_id)
+    front_cap = model.create_disk_surface(front_cap_sid, name+'_front_cap', front_cap_pos, radius, orientation, rod.id)
+    world.add_structure(front_cap)
 
     back_cap_pos = position
-    back_cap = model.create_disk_surface(cap_sid, name+'_back_cap', back_cap_pos, radius, [-o[0],-o[1],-o[2]], def_struct_id)
-
-    # Add the new structures to the world
-    world.add_structure(rod)
-    world.add_structure(front_cap)
-    world.add_structure(back_cap)
+    back_cap = model.create_disk_surface(back_cap_sid, name+'_back_cap', back_cap_pos, radius, [-o[0],-o[1],-o[2]], rod.id)
+    world.add_structure(back_cap)    
 
     return rod.id
 

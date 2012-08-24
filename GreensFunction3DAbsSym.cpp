@@ -31,7 +31,7 @@ Real GreensFunction3DAbsSym::ellipticTheta4Zero(Real q)
 {
     if (fabs(q) > 1.0)
     {
-        throw std::invalid_argument((boost::format("fabs(%.16g) <= 1.0") % q).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DAbsSym: fabs(%.16g) <= 1.0") % q).str());
     }
 
     // et4z(1 - 1e4) ~= 7.2e-23
@@ -215,7 +215,7 @@ Real GreensFunction3DAbsSym::drawTime(Real rnd) const
 
     if (rnd >= 1.0 || rnd < 0.0)
     {
-        throw std::invalid_argument((boost::format("0.0 <= %.16g < 1.0") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DAbsSym: 0.0 <= %.16g < 1.0") % rnd).str());
     }
 
     const Real a(geta());
@@ -261,7 +261,7 @@ Real GreensFunction3DAbsSym::drawTime(Real rnd) const
             if (fabs(high) >= t_guess * 1e6)
             {
                 throw std::runtime_error(
-                    (boost::format("couldn't adjust high. F(%.16g) = %.16g; %s") %
+                    (boost::format("GreensFunction3DAbsSym: couldn't adjust high. F(%.16g) = %.16g; %s") %
                        high % GSL_FN_EVAL(&F, high) %
                        boost::lexical_cast<std::string>(*this)).str());
             }
@@ -330,12 +330,12 @@ Real GreensFunction3DAbsSym::drawR(Real rnd, Real t) const
 {
     if (rnd >= 1.0 || rnd < 0.0)
     {
-        throw std::invalid_argument((boost::format("0.0 <= %.16g < 1.0") % rnd).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DAbsSym: 0.0 <= %.16g < 1.0") % rnd).str());
     }
 
     if (t < 0.0)
     {
-        throw std::invalid_argument((boost::format("%.16g < 0.0") % t).str());
+        throw std::invalid_argument((boost::format("GreensFunction3DAbsSym: %.16g < 0.0") % t).str());
     }
 
     const Real a(geta());

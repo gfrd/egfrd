@@ -142,10 +142,10 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
             return CylindricalSurfacePairtestShell  (single1, single2, geometrycontainer, domains)
     elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, PlanarSurface)):
         return PlanarSurfaceTransitionPairtestShell (single1, single2, geometrycontainer, domains) 
-    elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
-        return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
-    elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
-        return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
+    #elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
+        #return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
+    #elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
+        #return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
     elif (isinstance(single1.structure, CylindricalSurface) and isinstance(single2.structure, DiskSurface)):
         return MixedPair1DCaptestShell(single1, single2, geometrycontainer, domains)
     elif (isinstance(single2.structure, CylindricalSurface) and isinstance(single1.structure, DiskSurface)):
@@ -1643,6 +1643,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 else:
                     # with a cylindrical surface it is the surface of the particle
                     surface_horizon = single_radius * MULTI_SHELL_FACTOR
+
                 multi_partners.append((surface, distance - surface_horizon))
 
 
@@ -2562,32 +2563,42 @@ class EGFRDSimulator(ParticleSimulatorBase):
             - None
 
         """
+        total_steps = self.step_counter
+        single_steps = numpy.array(self.single_steps.values()).sum()
+        interaction_steps = numpy.array(self.interaction_steps.values()).sum()
+        pair_steps = numpy.array(self.pair_steps.values()).sum()
+        multi_steps = self.multi_steps[3] # total multi steps
+
         report = '''
 t = %g
 steps = %d 
-\tSingle:\t%d\t(escape: %d, reaction: %d, bursted: %d)
-\tInteraction: %d\t(escape: %d, interaction: %d, bursted: %d)
-\tPair:\t%d\t(escape r: %d, R: %d, reaction pair: %d, single: %d, bursted: %d)
-\tMulti:\t%d\t(escape: %d, reaction pair: %d, single: %d, bursted: %d)
+\tSingle:\t%d\t(%.2f %%)\t(escape: %d, reaction: %d, bursted: %d)
+\tInteraction: %d\t(%.2f %%)\t(escape: %d, interaction: %d, bursted: %d)
+\tPair:\t%d\t(%.2f %%)\t(escape r: %d, R: %d, reaction pair: %d, single: %d, bursted: %d)
+\tMulti:\t%d\t(%.2f %%)\t(escape: %d, reaction pair: %d, single: %d, bursted: %d)
 total reactions = %d
 rejected moves = %d
 ''' \
-            % (self.t, self.step_counter,
-               numpy.array(self.single_steps.values()).sum(),
+            % (self.t, total_steps,
+               single_steps,
+               (100.0*single_steps) / total_steps,
                self.single_steps[EventType.SINGLE_ESCAPE],
                self.single_steps[EventType.SINGLE_REACTION],
                self.single_steps[EventType.BURST],
-               numpy.array(self.interaction_steps.values()).sum(),
+               interaction_steps,
+               (100.0*interaction_steps) / total_steps,
                self.interaction_steps[EventType.IV_ESCAPE],
                self.interaction_steps[EventType.IV_INTERACTION],
                self.interaction_steps[EventType.BURST],
-               numpy.array(self.pair_steps.values()).sum(),
+               pair_steps,
+               (100.0*pair_steps) / total_steps,
                self.pair_steps[EventType.IV_ESCAPE],
                self.pair_steps[EventType.COM_ESCAPE],
                self.pair_steps[EventType.IV_REACTION],
                self.pair_steps[EventType.SINGLE_REACTION],
                self.pair_steps[EventType.BURST],
-               self.multi_steps[3], # total multi steps
+               multi_steps,
+               (100.0*multi_steps) / total_steps,
                self.multi_steps[EventType.MULTI_ESCAPE],
                self.multi_steps[EventType.MULTI_BIMOLECULAR_REACTION],
                self.multi_steps[EventType.MULTI_UNIMOLECULAR_REACTION],

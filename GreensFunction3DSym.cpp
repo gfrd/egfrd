@@ -65,12 +65,12 @@ Real GreensFunction3DSym::drawR(Real rnd, Real t) const
     // input parameter range checks.
     if ( !(rnd <= 1.0 && rnd >= 0.0 ) )
     {
-        throw std::invalid_argument( ( boost::format( "rnd <= 1.0 && rnd >= 0.0 : rnd=%.16g" ) % rnd ).str() );
+        throw std::invalid_argument( ( boost::format( "GreensFunction3DSym: rnd <= 1.0 && rnd >= 0.0 : rnd=%.16g" ) % rnd ).str() );
     }
 
     if ( !(t >= 0.0 ) )
     {
-        throw std::invalid_argument( ( boost::format( "t >= 0.0 : t=%.16g" ) % t ).str() );
+        throw std::invalid_argument( ( boost::format( "GreensFunction3DSym: t >= 0.0 : t=%.16g" ) % t ).str() );
     }
 
 
@@ -115,7 +115,7 @@ Real GreensFunction3DSym::drawR(Real rnd, Real t) const
             if( i >= maxIter )
             {
                 gsl_root_fsolver_free( solver );
-                throw std::runtime_error("drawR: failed to converge");
+                throw std::runtime_error("GreensFunction3DSym: drawR: failed to converge");
             }
         }
         else

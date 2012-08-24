@@ -16,6 +16,7 @@
 #include <boost/array.hpp>
 
 #include <gsl/gsl_roots.h>
+#include "Logger.hpp"
 
 #include "PairGreensFunction.hpp"
 
@@ -344,6 +345,8 @@ private:
     // we're within margin of the distance to which they're expected to 
     // converge.
     mutable boost::array<int,MAX_ORDER+1> alpha_correctly_estimated_;
+    
+    static Logger& log_;
 
 };
 

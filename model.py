@@ -1,5 +1,5 @@
 import _gfrd
-from _gfrd import create_cuboidal_region, create_cylindrical_surface, \
+from _gfrd import create_cuboidal_region, create_spherical_surface, create_cylindrical_surface, \
         create_disk_surface, create_planar_surface, create_double_sided_planar_surface
 import numpy
 
@@ -17,6 +17,7 @@ __all__ = [
 
     # From _gfrd. Should be part of the world class.
     'create_cuboidal_region',
+    'create_spherical_surface',
     'create_cylindrical_surface',
     'create_disk_surface',
     'create_planar_surface',

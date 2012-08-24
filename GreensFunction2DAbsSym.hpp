@@ -5,7 +5,7 @@
 #include <boost/multi_array.hpp>
 
 #include "Defs.hpp"
-
+#include "Logger.hpp"
 
 class GreensFunction2DAbsSym
 {
@@ -88,6 +88,9 @@ private:
     const Real D;
 
     const Real a;
+    
+    static Logger& log_;
+    
 };
 
 
