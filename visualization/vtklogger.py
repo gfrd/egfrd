@@ -267,6 +267,8 @@ class VTKLogger:
             self.writelog(entry[0], index, entry[2:])
 
         # Write data for regions and surfaces only once.
+        self.make_snapshot('spherical_surfaces',
+                           self.get_spherical_surface_data())
         self.make_snapshot('cylindrical_surfaces', 
                            self.get_cylindrical_surface_data())
         self.make_snapshot('planar_surfaces',
@@ -364,6 +366,12 @@ class VTKLogger:
                              if isinstance(surface.shape, Cylinder)
                              or isinstance(surface.shape, Disk)]
         return self.process_cylinders(cylinders)
+
+    def get_spherical_surface_data(self):
+        spheres = [surface for surface
+                           in self.sim.world.structures
+                           if isinstance(surface.shape, Sphere)]
+        return self.process_spheres(spheres)
 
     def process_spheres(self, spheres=[], color_list=[]):
         # Return 4 lists:

@@ -5,6 +5,7 @@ import math
 from _gfrd import (
     Sphere,
     SphericalShell,
+    SphericalSurface,
     Cylinder,
     CylindricalShell,    
     CylindricalSurface,
@@ -1433,7 +1434,9 @@ class CylindricaltestShell(testShell):
         # or planar surfaces and parallel to the testCylinder axis
         for surface, distance in neighbor_surfaces:
             # TODO
-            if isinstance(surface, CylindricalSurface):
+            if isinstance(surface, SphericalSurface):
+                dr, dz_right, dz_left = get_dr_dzright_dzleft_to_SphericalShape(surface.shape, self, dr, dz_right, dz_left)
+            elif isinstance(surface, CylindricalSurface):
                 dr, dz_right, dz_left = get_dr_dzright_dzleft_to_CylindricalShape(surface.shape, self, dr, dz_right, dz_left)            
             elif isinstance(surface, PlanarSurface):
                 dr, dz_right, dz_left = get_dr_dzright_dzleft_to_PlanarShape(surface.shape, self, dr, dz_right, dz_left)

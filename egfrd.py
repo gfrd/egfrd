@@ -16,6 +16,7 @@ from _gfrd import (
     DomainID,
     ParticleContainer,
     CuboidalRegion,
+    SphericalSurface,
     CylindricalSurface,
     DiskSurface,
     PlanarSurface,
@@ -142,10 +143,10 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
             return CylindricalSurfacePairtestShell  (single1, single2, geometrycontainer, domains)
     elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, PlanarSurface)):
         return PlanarSurfaceTransitionPairtestShell (single1, single2, geometrycontainer, domains) 
-    #elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
-        #return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
-    #elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
-        #return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
+    elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
+        return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
+    elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
+        return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
     elif (isinstance(single1.structure, CylindricalSurface) and isinstance(single2.structure, DiskSurface)):
         return MixedPair1DCaptestShell(single1, single2, geometrycontainer, domains)
     elif (isinstance(single2.structure, CylindricalSurface) and isinstance(single1.structure, DiskSurface)):
@@ -1650,7 +1651,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # get the closest object (if there)
             if multi_partners:
                 multi_partners = sorted(multi_partners, key=lambda domain_overlap: domain_overlap[1])
-#                log.debug('multi_partners: %s' % str(multi_partners))
+                #log.debug('multi_partners: %s' % str(multi_partners))
                 closest_overlap = multi_partners[0][1]
             else:
                 # In case there is really nothing
@@ -2363,7 +2364,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     isinstance(partner, Multi) or \
                     isinstance(partner, PlanarSurface) or \
                     isinstance(partner, DiskSurface) or \
-                    isinstance(partner, CylindricalSurface)), \
+                    isinstance(partner, CylindricalSurface)) or \
+                    isinstance(partner, SphericalSurface), \
                     'multi_partner %s was not of proper type' % (partner)
 
 

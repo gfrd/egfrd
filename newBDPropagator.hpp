@@ -451,8 +451,10 @@ private:
                     case 1:
                     {
                         const position_type                             reactant_pos( pp.second.position() );
-                        const boost::shared_ptr<const structure_type>   reactant_structure( tx_.get_structure(pp.second.structure_id()) );
                         const structure_id_type                         reactant_structure_id( pp.second.structure_id() );
+                        const boost::shared_ptr<const structure_type>   reactant_structure( tx_.get_structure(reactant_structure_id) );
+                        const structure_id_type                         parent_structure_id( reactant_structure->structure_id() );
+                        const boost::shared_ptr<const structure_type>   parent_structure( tx_.get_structure( parent_structure_id ) );
                         const species_type                              product_species( tx_.get_species(products[0]) );
                         
                         // Set default values for the position and structure of the product
@@ -462,18 +464,48 @@ private:
                         
                         //// 1 - CREATE NEW POSITION AND STRUCTURE ID                                                
                         if( product_species.structure_type_id() != reactant_structure->sid() )
-                        {
-                            // Get target structure; if not staying on the origin structure, the particle is
-                            // assumed to go to its parent structure, which in most cases is the bulk;
-                            // For a disk bound particle it can be both the bulk and the cylinder
-                            const structure_id_type product_structure_id(reactant_structure->structure_id()); // the parent structure
+                        {                            
+                            LOG_DEBUG(("Attempting single reaction with one product." ));
+                            
+                            // Now determine the target structure id; if not staying on the origin structure,
+                            // the particle is assumed to go to either the default structure or its parent structure,
+                            // if different from the bulk.
+                            // For a disk-bound particle it can be both the bulk and the cylinder
+                            
+                            // Initialize: by default the particle goes to the bulk
+                            structure_id_type product_structure_id( tx_.get_def_structure_id() );
+                            
+                            if( product_species.structure_type_id() == tx_.get_def_structure_type_id() )
+                                ; // the product lives in the bulk; do nothing, set correctly already above
+                            
+                            else if( product_species.structure_type_id() == parent_structure->sid() )
+                                // the product lives on the parent structure 
+                                product_structure_id =  parent_structure_id;
+                            
+                            else
+                              
+                                throw not_implemented("Invalid product structure in single reaction: Must be either parent or default structure!");
+                            
+                            // Get the structure behind the product_structure_id
                             const boost::shared_ptr<const structure_type> product_structure( tx_.get_structure(product_structure_id) );
-                            // Produce new position and structure id
-                            LOG_DEBUG(("Attempting single reaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(product_structure).c_str())); // TESTING
+                            // Just one more check for safety
+                            assert( product_species.structure_type_id() == product_structure->sid() );
+
+                            // Some debug info // TESTING
+                            LOG_DEBUG(("Calling get_pos_sid_pair with:" ));
+                            LOG_DEBUG(("  reactant_structure = %s, sid = %s",
+                                          boost::lexical_cast<std::string>(*reactant_structure).c_str(),
+                                          boost::lexical_cast<std::string>( reactant_structure->sid()).c_str() ));
+                            LOG_DEBUG(("  product_structure = %s, sid = %s",
+                                          boost::lexical_cast<std::string>(*product_structure).c_str(),
+                                          boost::lexical_cast<std::string>( product_structure->sid()).c_str() ));
+                                          
+                            // Produce new position and structure id                            
                             const position_structid_pair_type new_pos_sid_pair( reactant_structure->get_pos_sid_pair(*product_structure, reactant_pos,
-                                                                                                                      product_species.radius(), reaction_length_, rng_) );                            
+                                                                                                                      product_species.radius(), reaction_length_, rng_) );                                                                                                                      
                             // Apply boundary conditions
-                            product_pos_struct_id = tx_.apply_boundary( new_pos_sid_pair );
+                            product_pos_struct_id = tx_.apply_boundary( new_pos_sid_pair );                            
+                            
                             // Particle is allowed to move after dissociation from surface. TODO Isn't it allways allowed to move?
                             product_pos_struct_id = make_move(product_species, product_pos_struct_id, pp.first);
                         }
@@ -522,38 +554,73 @@ private:
                     case 2:
                     {                        
                         //// 0 - SOME NECESSARY DEFINITONS
-                        const position_type                             reactant_pos(pp.second.position());
+                        const position_type                             reactant_pos(pp.second.position());                        
                         const boost::shared_ptr<const structure_type>   reactant_structure( tx_.get_structure( pp.second.structure_id() ) );
-                        const boost::shared_ptr<const structure_type>   parent_structure( tx_.get_structure( reactant_structure->structure_id() ) );
+                        const structure_type_id_type                    reactant_structure_type_id( reactant_structure->sid() );
+                        const structure_id_type                         parent_structure_id( reactant_structure->structure_id() );
+                        const boost::shared_ptr<const structure_type>   parent_structure( tx_.get_structure(parent_structure_id) );
+                        const structure_type_id_type                    parent_structure_type_id( parent_structure->sid() );
+                        const structure_id_type                         default_structure_id( tx_.get_def_structure_id() );
+                        const boost::shared_ptr<const structure_type>   default_structure( tx_.get_structure(default_structure_id) );
+                        const structure_type_id_type                    default_structure_type_id( tx_.get_def_structure_type_id() );
                         
                         // The following will store the new positions and structure IDs
-                        structure_id_type                               prod0_struct_id;
-                        structure_id_type                               prod1_struct_id;
+                        structure_id_type                               product0_struct_id;
+                        structure_id_type                               product1_struct_id;
                         posstructid_posstructid_pair_type               pos0pos1_pair;
                         
                         // Determine the structures on which the products will end up.
                         // By default we set both product structure to reactant_structure.
-                        const boost::shared_ptr<const structure_type> prod0_structure(reactant_structure);
-                        const boost::shared_ptr<const structure_type> prod1_structure(reactant_structure);
+                        const boost::shared_ptr<const structure_type> product0_structure(reactant_structure);
+                        const boost::shared_ptr<const structure_type> product1_structure(reactant_structure);
                         // Now check whether one of the products actually leaves reactant_structure according to the reaction rules.
                         species_type product0_species(tx_.get_species(products[0]));
-                        species_type product1_species(tx_.get_species(products[1]));
-                        // If the products live on different structures, one must be the parent of the other.
-                        // In the latter case we have to bring them into the right order.
-                        // We set: species 0 lives on the current structure; species 1 lives in the parent structure (if applicable).
-                        // Compare the structure type IDs of the product species to determine where products will end up:
+                        species_type product1_species(tx_.get_species(products[1]));                        
+
+                        LOG_DEBUG(("Attempting single reaction with two products." ));
+                        
+                        // If the products live on different structures, one must be the parent of the other or the default structure.
+                        // In this case we have to bring the products into the right order.
+                        // We set: species 0 lives on the current structure; species 1 lives in the product structure (if applicable).
+                        // Compare the structure type IDs of the product species to determine where products will end up:                                                                                                                                                                    
+
+                        // Initialize: by default the dissociating particle goes into the bulk
+                        structure_id_type product1_structure_id( tx_.get_def_structure_id() );
+                        
                         if( product0_species.structure_type_id() != product1_species.structure_type_id() )
-                        {
-                            if( !(product0_species.structure_type_id() == parent_structure->sid() || 
-                                  product1_species.structure_type_id() == parent_structure->sid())  )
-                                throw not_implemented("One of the product species should live on parent structure.");
-                                             
-                            if ( !(product0_species.structure_type_id() == reactant_structure->sid()) )
+                        {                          
+                            // First check whether the reaction rule defines a legal dissociation reaction
+                            if( !( product0_species.structure_type_id() == reactant_structure_type_id ||
+                                   product1_species.structure_type_id() == reactant_structure_type_id    )
+                              )
+                                throw not_implemented("Invalid product structure for first product in single reaction: One particle must stay behind on structure of origin!");
+                                
+                            if( !( product0_species.structure_type_id() == parent_structure_type_id  ||
+                                   product0_species.structure_type_id() == default_structure_type_id || 
+                                   product1_species.structure_type_id() == parent_structure_type_id  ||                                  
+                                   product1_species.structure_type_id() == default_structure_type_id    )
+                              )
+                                throw not_implemented("Invalid product structure for second product in single reaction: Must be either parent or default structure!");
+                            
+                            // OK, reaction rule is legal; set the product species according to the above convention
+                            if ( !(product0_species.structure_type_id() == reactant_structure_type_id) )
                                 std::swap(product0_species, product1_species);
                             
-                            // If the exception was not thrown, everything should be OK now.
+                            // Determine where the dissociating particle (product1) goes
+                            if( product1_species.structure_type_id() == default_structure_type_id )
+                                ; // the dissociating product lives in the bulk; do nothing, set correctly already above
+                            
+                            else if( product1_species.structure_type_id() == parent_structure_type_id )
+                                // the product lives on the parent structure 
+                                product1_structure_id =  parent_structure_id;
+                            
+                            else
+                              
+                              throw not_implemented("Invalid product structure: Must be either parent structure or default structure!");
+                                                        
+                            // If no exception was thrown, everything should be OK now.
                             // Change the default setting for product1
-                            const boost::shared_ptr<const structure_type> prod1_structure(parent_structure);
+                            const boost::shared_ptr<const structure_type> product1_structure( tx_.get_structure(product1_structure_id) );
                         }
                         // TODO Can we not outsource this part to the structure functions, too?
 
@@ -570,19 +637,28 @@ private:
                             }
                         
                             //// 1a - GENERATE POSITIONS AND STRUCTURE IDs FOR PRODUCT PARTICLES AFTER REACTION
-                            // If the product particles do NOT live on the same structure => structure -> structure + parent_structure dissociation.
+                            // If the product particles do NOT live on the same structure => structure -> structure + (parent or default structure) dissociation.
                             // Else, the products live on the same structure AND on the same structure as the reactant.
                             // This is all taken care of by the structure functions get_pos_sid_pair_pair; the latter has to be called
                             // with the right order of parameters, i.e. passing first the species of the particle staying on the reactant_structure,
-                            // then the species of the particle staying on the parent_structure.
+                            // then the species of the particle that leaves reactant_structure
                             
+                            // Some debug info // TESTING
+                            LOG_DEBUG(("Calling get_pos_sid_pair_pair with:" ));
+                            LOG_DEBUG(("  reactant_structure = %s, sid = %s",
+                                          boost::lexical_cast<std::string>(*reactant_structure).c_str(),
+                                          boost::lexical_cast<std::string>( reactant_structure->sid()).c_str() ));
+                            LOG_DEBUG(("  product1_structure = %s, sid = %s",
+                                          boost::lexical_cast<std::string>(*product1_structure).c_str(),
+                                          boost::lexical_cast<std::string>( product1_structure->sid()).c_str() ));
+                            LOG_DEBUG(("Note: product0_structure = reactant_structure"));
+                        
                             // Produce two new positions and structure IDs
-                            // Note that reactant_structure = prod0_structure here.
-                            LOG_DEBUG(("Attempting single reaction: calling get_pos_sid_pair_pair with %s", boost::lexical_cast<std::string>(prod1_structure).c_str())); // TESTING
-                            pos0pos1_pair = reactant_structure->get_pos_sid_pair_pair(*prod1_structure, reactant_pos, product0_species, product1_species, reaction_length_, rng_ );
+                            // Note that reactant_structure = product0_structure here.                            
+                            pos0pos1_pair = reactant_structure->get_pos_sid_pair_pair(*product1_structure, reactant_pos, product0_species, product1_species, reaction_length_, rng_ );
                             // Remember the new structure IDs
-                            prod0_struct_id = pos0pos1_pair.first.second;
-                            prod1_struct_id = pos0pos1_pair.second.second;
+                            product0_struct_id = pos0pos1_pair.first.second;
+                            product1_struct_id = pos0pos1_pair.second.second;
                             // Apply the boundary conditions
                             const position_structid_pair_type pos_structid0 (tx_.apply_boundary( pos0pos1_pair.first  ));
                             const position_structid_pair_type pos_structid1 (tx_.apply_boundary( pos0pos1_pair.second ));
@@ -763,7 +839,17 @@ private:
                         // structures are the same, no projection should occur. This is handled correctly by the structure functions defined for equal
                         // origin_structure types.
                         const length_type offset(0.0);
-                        LOG_DEBUG(("Attempting pair reaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(reactant1_structure).c_str())); // TESTING
+                        
+                        // Some debug info // TESTING
+                        LOG_DEBUG(("Attempting pair reaction: calling get_pos_sid_pair with:" ));
+                        LOG_DEBUG(("  reactant0_structure = %s, sid = %s",
+                                      boost::lexical_cast<std::string>(*reactant0_structure).c_str(),
+                                      boost::lexical_cast<std::string>( reactant0_structure->sid()).c_str() ));
+                        LOG_DEBUG(("  reactant1_structure = %s, sid = %s",
+                                      boost::lexical_cast<std::string>(*reactant1_structure).c_str(),
+                                      boost::lexical_cast<std::string>( reactant1_structure->sid()).c_str() ));
+                        LOG_DEBUG(("Note: product_structure_type_id = %s", boost::lexical_cast<std::string>( product_structure_type_id).c_str() ));
+                        
                         const position_structid_pair_type product_pos_struct_id( reactant0_structure->get_pos_sid_pair_2o(*reactant1_structure, product_structure_type_id,
                                                                                                                           reactants_CoM, offset, reaction_length_, rng_ ) );
                         // Apply the boundary conditions; this is particularly important here because the CoM projection as produced by the function above
@@ -877,7 +963,15 @@ private:
                         const species_type                              product_species( tx_.get_species(products[0]) );
 
                         //// 1 - GET NEW POSITION ON THE TARGET STRUCTURE                        
-                        LOG_DEBUG(("Attempting interaction: calling get_pos_sid_pair with %s", boost::lexical_cast<std::string>(product_structure).c_str())); // TESTING
+                        // Some debug info // TESTING
+                        LOG_DEBUG(("Attempting interaction: calling get_pos_sid_pair with:" ));
+                        LOG_DEBUG(("  reactant_structure = %s, sid = %s",
+                                      boost::lexical_cast<std::string>(*reactant_structure).c_str(),
+                                      boost::lexical_cast<std::string>( reactant_structure->sid()).c_str() ));
+                        LOG_DEBUG(("  product_structure = %s, sid = %s",
+                                      boost::lexical_cast<std::string>(*product_structure).c_str(),
+                                      boost::lexical_cast<std::string>( product_structure->sid()).c_str() ));
+                        
                         const position_structid_pair_type new_pos_sid_pair_tmp( reactant_structure->get_pos_sid_pair(*product_structure, reactant_pos,
                                                                                 product_species.radius(), reaction_length_, rng_) );
                         // Apply boundary conditions

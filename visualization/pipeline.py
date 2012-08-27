@@ -341,8 +341,21 @@ class Pipeline(object):
 
 
         if SURFACES:
-            # Cylindrical surfaces.
-            cylindrical_surface_data = self.add_extract_block(static, [2], 'b4')
+
+            istart=2
+
+            #### Spherical surfaces.
+            spherical_surface_data = self.add_extract_block(static, [istart], 'b4')
+            spherical_surfaces = self.add_sphere_glyph(spherical_surface_data, self.resolution, 
+                                                       name='Spherical Surfaces')
+            spherical_surfaces.SetScaleFactor = self.sphere_radius_scale_factor
+
+            rep4 = self.show(spherical_surfaces)
+            rep4.Representation = 'Surface'
+            rep4.Opacity = 0.5
+
+            #### Cylindrical surfaces.
+            cylindrical_surface_data = self.add_extract_block(static, [istart+2], 'b5')
 
 
             if not HELIX:
@@ -351,9 +364,9 @@ class Pipeline(object):
                                           name='Cylindrical Surfaces',
                                           scale=self.helix_radius_scale_factor)
 
-                rep4 = self.show(cylindrical_surfaces)
-                rep4.Representation = 'Wireframe'
-                rep4.Opacity = 0.5
+                rep5 = self.show(cylindrical_surfaces)
+                rep5.Representation = 'Wireframe'
+                rep5.Opacity = 0.5
             else:
                 helix_path = scripts_dir + '/helix.py'
                 assert os.path.isfile(helix_path), \
@@ -403,32 +416,31 @@ class Pipeline(object):
                 # Make double_helix a bit thinner than helix.
                 double_helix.Radius = helix_radius / 20
 
-                rep4 = self.show(double_helix)
-                self.set_color(double_helix, rep4, color_map=MakeCoolToWarmLT,
+                rep5 = self.show(double_helix)
+                self.set_color(double_helix, rep5, color_map=MakeCoolToWarmLT,
                                color_array_name='TubeNormals')
 
 
-            # Planar surfaces.
-            planar_surface_data = self.add_extract_block(static, [4], 'b5')
+            #### Planar surfaces.
+            planar_surface_data = self.add_extract_block(static, [istart+4], 'b6')
             planar_surfaces = self.add_tensor_glyph(planar_surface_data, 'Box', 
                                                     name='Planar Surfaces')
 
-            rep5 = self.show(planar_surfaces)
-            rep5.Representation = 'Surface'
-            rep5.Opacity = 0.5
-            rep5.Opacity = 0.5
+            rep6 = self.show(planar_surfaces)
+            rep6.Representation = 'Surface'
+            rep6.Opacity = 0.5
 
 
             # Cuboidal surfaces.
-            cuboidal_region_data = self.add_extract_block(static, [6], 'b6')
+            cuboidal_region_data = self.add_extract_block(static, [istart+6], 'b7')
             cuboidal_regions = self.add_tensor_glyph(cuboidal_region_data,
                                                      'Box',
                                                      name='Cuboidal Regions')
 
-            rep6 = self.show(cuboidal_regions)
-            rep6.Representation = 'Wireframe'
-            rep6.Opacity = 1.0
-            rep6.LineWidth = 2 #1
+            rep7 = self.show(cuboidal_regions)
+            rep7.Representation = 'Wireframe'
+            rep7.Opacity = 1.0
+            rep7.LineWidth = 2 #1
 
             if DARK_BACKGROUND:
                 color = [1, 1, 1] # White.
@@ -436,9 +448,9 @@ class Pipeline(object):
                 color = [0, 0, 0] # Black.
 
             if version == 4:
-                rep6.Color = color
+                rep7.Color = color
             else:
-                rep6.AmbientColor = color
+                rep7.AmbientColor = color
 
 
         # Set camera.
