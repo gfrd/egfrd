@@ -194,6 +194,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     object containing particles and structures, and can be attached and detached from
     this 'world'.
     """
+
     def __init__(self, world, rng=myrandom.rng, network_rules=None):
         """Create a new EGFRDSimulator.
 
@@ -224,12 +225,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         self.DEFAULT_DT_FACTOR = 1e-5           # Diffusion time prefactor in oldBD algortithm to determine time step.
         
-        self.DEFAULT_STEP_SIZE_FACTOR = 0.05    # The maximum step size in the newBD algorithm is determined as DSSF * sigma_min.  # TESTING was 0.05
+        self.DEFAULT_STEP_SIZE_FACTOR = 0.05    # The maximum step size in the newBD algorithm is determined as DSSF * sigma_min.
                                                 # Make sure that DEFAULT_STEP_SIZE_FACTOR < MULTI_SHELL_FACTOR, or else the 
                                                 # reaction volume sticks out of the multi. 
 
         self.BD_ONLY_FLAG = False               # Will force the algorithm into Multi-creation, i.e. always to use BD
-                                                # This is for testing only! Keep this 'False' for normal sims!
+                                                # Take care: This is for testing only! Keep this 'False' for normal sims!
+
+        self.BD_DT_HARDCORE_MIN = -1e-9         # This is to define a hardcore lower bound for the timestep that will be
+                                                # dynamically determined by the new BD scheme. It will prevent the algorithm
+                                                # to calculate ridiculously small timesteps, but will break detail balance.
+                                                # Take care: This is for testing only! Keep this at a negative value for normal sims!
 
         # used datastructrures
         self.scheduler = EventScheduler()       # contains the events. Note that every domains has exactly one event
@@ -256,9 +262,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         else:
             return self.scheduler.top[1].time
 
-    ###
-    # The next methods control the general functioning of the simulator
-    ###
+    #####################################################
+    #### METHODS FOR GENERAL SIMULATOR FUNCTIONALITY ####
+    #####################################################
     def reset(self):
         """
         This function resets the "records" of the simulator. This means
@@ -294,6 +300,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.last_reaction = None
 
         self.is_dirty = True            # simulator needs to be re-initialized
+
 
     def initialize(self):
         """Initialize the eGFRD simulator
@@ -332,6 +339,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 3. The simulator is now consistent with 'world'
         self.is_dirty = False
 
+
     def stop(self, t):
         """Bring the simulation to a full stop, which synchronizes all
         particles at time t. The state is similar to the state after
@@ -368,35 +376,37 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         self.t = t
 
-#        non_single_list = []
+        #non_single_list = []
 
         # Burst all the domains that we know of.
         self.burst_all_domains()
-        # first burst all Singles, and put Pairs and Multis in a list.
-#        for id, event in self.scheduler:
-#        ignore = []
-#        for domain_id, domain in self.domains.items():
-#            if domain_id not in ignore:
-##                domain = self.domains[event.data]
-#                if isinstance(domain, Pair) or isinstance(domain, Multi):
-#                    non_single_list.append(domain)
-#                elif isinstance(domain, Single):
-#                    if __debug__:
-#                        log.debug('burst %s, last_time= %s' % 
-#                                  (domain, FORMAT_DOUBLE % domain.last_time))
-#                    ignore.append(domain.domain_id)
-#                    ignore = self.burst_single(domain, ignore)
-#                else:
-#                    assert False, 'domain from domains{} was no Single, Pair or Multi'
-#
-#
-#        # then burst all Pairs and Multis.
-#        if __debug__:
-#            log.debug('burst %s' % non_single_list)
-#        non_single_ids = [non_single.domain_id for non_single in non_single_list]
-#        self.burst_domains(non_single_ids, ignore)
+
+        ##first burst all Singles, and put Pairs and Multis in a list.
+        #for id, event in self.scheduler:
+        #ignore = []
+        #for domain_id, domain in self.domains.items():
+            #if domain_id not in ignore:
+                  ##domain = self.domains[event.data]
+                #if isinstance(domain, Pair) or isinstance(domain, Multi):
+                    #non_single_list.append(domain)
+                #elif isinstance(domain, Single):
+                    #if __debug__:
+                        #log.debug('burst %s, last_time= %s' % 
+                                  #(domain, FORMAT_DOUBLE % domain.last_time))
+                    #ignore.append(domain.domain_id)
+                    #ignore = self.burst_single(domain, ignore)
+                #else:
+                    #assert False, 'domain from domains{} was no Single, Pair or Multi'
+
+
+        ## then burst all Pairs and Multis.
+        #if __debug__:
+            #log.debug('burst %s' % non_single_list)
+        #non_single_ids = [non_single.domain_id for non_single in non_single_list]
+        #self.burst_domains(non_single_ids, ignore)
 
         self.dt = 0.0
+
 
     def step(self):
         """Execute one eGFRD step.
@@ -461,15 +471,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 # TODO What is best solution here? Usually no prob, -> just let 
                 # user know?
                 if self.zero_steps >= max(self.scheduler.size * 3, self.MAX_NUM_DT0_STEPS): 
-                    #raise RuntimeError('too many dt=zero steps. '
-                    #                   'Simulator halted?'
-                    #                'dt= %.10g-%.10g' % (self.scheduler.top[1].time, self.t))
+                    raise RuntimeError('too many dt=zero steps. '
+                                       'Simulator halted?'
+                                    'dt= %.10g-%.10g' % (self.scheduler.top[1].time, self.t))
                     log.warning('dt=zero step, working in s.t >> dt~0 Python limit.')
             else:
                 self.zero_steps = 0
 
 
-
+    #####################################
+    #### METHODS FOR DOMAIN CREATION ####
+    #####################################
     def create_single(self, pid_particle_pair):
     # Create a new single domain from a particle.
     # The interaction can be any NonInteractionSingle (SphericalSingle, PlanarSurface or CylindricalSurface
@@ -502,20 +514,20 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 3. update the proper shell container
         self.geometrycontainer.move_shell(single.shell_id_shell_pair)
 
-#        if __debug__:
-#            # Used in __str__.
+        #if __debug__:
+            ## Used in __str__.
         single.world = self.world
 
         return single
+
 
     def create_interaction(self, testShell):
     # Create a new interaction domain from a testShell.
     # The interaction can be any interaction (PlanarSurface or CylindricalSurface). The creation of the testShell was
     # succesful, so here we can just make the domain.
 
-#       assert that the particle is not already associated with another domain
-
         assert isinstance(testShell, testInteractionSingle)
+        # TODO? Assert that the particle is not already associated with another domain
 
         # 1. generate identifiers for the domain and shell. event_id is generated by
         # the scheduler
@@ -544,8 +556,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 3. update the shell containers 
         self.geometrycontainer.move_shell(interaction.shell_id_shell_pair)
 
-#        if __debug__:
-#            # Used in __str__.
+        #if __debug__:
+            ## Used in __str__.
         interaction.world = self.world
 
         return interaction
@@ -610,18 +622,19 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 3. update the shell containers with the new shell
         self.geometrycontainer.move_shell(pair.shell_id_shell_pair)
 
-#        if __debug__:
-#            # Used in __str__.
+        #if __debug__:
+            ## Used in __str__.
         pair.world = self.world
 
         return pair
+
 
     def create_multi(self):
         # 1. generate necessary id's
         domain_id = self.domain_id_generator()
 
         # 2. Create and register domain object
-        multi = Multi(domain_id, self, self.DEFAULT_STEP_SIZE_FACTOR)
+        multi = Multi(domain_id, self, self.DEFAULT_STEP_SIZE_FACTOR, self.BD_DT_HARDCORE_MIN)
         self.domains[domain_id] = multi
 
         # 3. no shells are yet made, since these are added later
@@ -629,19 +642,23 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return multi
 
 
-#    def move_single(self, single, position, radius=None):
-#        single.pid_particle_pair = self.move_particle(single.pid_particle_pair, position)
-#        self.update_single_shell(single, position, radius)
-#
-#    def update_single_shell(self, single, shell):#position, radius=None):
-#        # Reuse shell_id.
-#        shell_id = single.shell_id
-#
-#        # Replace shell.
-#        shell_id_shell_pair = (shell_id, shell) 
-#
-#        single.shell_id_shell_pair = shell_id_shell_pair
-#        self.geometrycontainer.move_shell(shell_id_shell_pair)
+    ##############################################
+    #### METHODS FOR PARTICLE / DOMAIN UPDATE ####
+    ##############################################
+   #def move_single(self, single, position, radius=None):
+       #single.pid_particle_pair = self.move_particle(single.pid_particle_pair, position)
+       #self.update_single_shell(single, position, radius)
+
+   #def update_single_shell(self, single, shell):#position, radius=None):
+       ## Reuse shell_id.
+       #shell_id = single.shell_id
+
+       ## Replace shell.
+       #shell_id_shell_pair = (shell_id, shell) 
+
+       #single.shell_id_shell_pair = shell_id_shell_pair
+       #self.geometrycontainer.move_shell(shell_id_shell_pair)
+
 
     def move_particle(self, pid_particle_pair, position, structure_id):
         # Moves a particle in World and performs the required change of structure_id
@@ -659,6 +676,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return new_pid_particle_pair
 
+
     def remove_domain(self, obj):
         # Removes all the ties to a domain (single, pair, multi) from the system.
         # Note that the particles that it represented still exist
@@ -670,7 +688,11 @@ class EGFRDSimulator(ParticleSimulatorBase):
         for shell_id_shell_pair in obj.shell_list:
             self.geometrycontainer.remove_shell(shell_id_shell_pair)
 
-### TODO These methods can be made methods to the scheduler class
+
+    #######################################
+    #### METHODS FOR EVENT BOOKKEEPING ####
+    #######################################
+    # TODO This method can be made a method to the scheduler class
     def add_domain_event(self, domain):
     # This method makes an event for domain 'domain' in the scheduler.
     # The event will have the domain_id pointing to the appropriate domain in 'domains{}'.
@@ -684,11 +706,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
                       FORMAT_DOUBLE % (event_time)))
         domain.event_id = event_id                      # FIXME side effect programming -> unclear!!
 
+
+    # TODO This method can be made a method to the scheduler class
     def remove_event(self, event):
         if __debug__:
             log.info('remove_event: event=#%d' % event.event_id)
         del self.scheduler[event.event_id]
 
+
+    # TODO This method can be made a method to the scheduler class
     def update_domain_event(self, t, domain):
         if __debug__:
             log.info('update_event: %s, event=#%d, t=%s' %
@@ -696,8 +722,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.scheduler.update((domain.event_id, DomainEvent(t, domain)))
 
 
-
-
+    #####################################
+    #### METHODS FOR DOMAIN BURSTING ####
+    #####################################
     def burst_domain(self, domain, ignore):
     # Reduces 'domain' (Single, Pair or Multi) to 'zero_singles', singles
     # with the zero shell, and dt=0.
@@ -729,6 +756,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return zero_singles, ignore
 
+
     def burst_single(self, single, ignore):
         # Bursts the 'single' domain and updates the 'ignore' list.
         # Returns:
@@ -752,6 +780,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.remove_event(single)
 
         return self.process_single_event(single, ignore)
+
 
     def burst_pair(self, pair, ignore):
         # Bursts the 'pair' domain and updates the 'ignore' list.
@@ -777,6 +806,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return self.process_pair_event(pair, ignore)
 
+
     def burst_multi(self, multi, ignore):
         # Bursts the 'multi' domain and updates the 'ignore' list.
         # Returns:
@@ -799,6 +829,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return self.break_up_multi(multi, ignore)
 
+
     def burst_volume(self, pos, radius, ignore=[]):
         """ Burst domains within a certain volume and give their ids.
 
@@ -809,15 +840,17 @@ class EGFRDSimulator(ParticleSimulatorBase):
             - pos: position of area to be "bursted"
             - radius: radius of spherical area to be "bursted"
             - ignore: ids of domains that should be ignored, none by default.
-        """ # ~ MW
+        """
         # TODO burst_volume now always assumes a spherical volume to burst.
         # It is inefficient to burst on the 'other' side of the membrane or to
         # burst in a circle, when you want to make a new shell in the membrane.
         # Then we may want to burst in a cylindrical volume, not a sphere.
+        # Same for the 1D particles on rods.
 
         neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(pos, radius, ignore)
 
         return self.burst_domains(neighbor_ids, ignore)
+
 
     def burst_all_domains(self):
         # Bursts all the domains in the simulator
@@ -830,6 +863,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if __debug__:
             assert len(zero_singles) == self.world.num_particles
             assert len(ignore) == (len(all_domains) + self.world.num_particles)
+
 
     def burst_domains(self, domain_ids, ignore=[]):
         # bursts all the domains that are in the list 'domain_ids'
@@ -851,6 +885,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 zero_singles.extend(zero_singles2)
 
         return zero_singles, ignore
+
 
     def burst_non_multis(self, pos, radius, ignore):
         # Recursively bursts the domains within 'radius' centered around 'pos'
@@ -900,8 +935,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return zero_singles, ignore
 
 
-
-
+    ####################################
+    #### METHODS FOR EVENT HANDLING ####
+    ####################################
     def fire_single_reaction(self, single, reactant_pos, reactant_structure_id, ignore):
         # This takes care of the identity change when a single particle decays into
         # one or a number of other particles
@@ -1121,7 +1157,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                         newposA, newposB, sidA, sidB = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
                                                                                        productA_radius, productB_radius,
                                                                                        reactant_structure, reactant_structure,
-                                                                                       unit_z)
+                                                                                       unit_z, self.world)
                         # the second reactant_structure parameter passed is ignored here
 
                         if default:
@@ -1137,11 +1173,14 @@ class EGFRDSimulator(ParticleSimulatorBase):
                         iv = random_vector(particle_radius12 * MixedPair1D3D.calc_r_scaling_factor(DA, DB))
                         iv *= MINIMAL_SEPARATION_FACTOR
 
+                        unit_z = reactant_structure.shape.unit_z
+
                         newposA, newposB, sidA, sidB = MixedPair1D3D.do_back_transform(reactant_pos, iv, DA, DB,
                                                                                        productA_radius, productB_radius,
-                                                                                       reactant_structure, reactant_structure)
+                                                                                       reactant_structure, reactant_structure,
+                                                                                       unit_z, self.world)
                         # the second reactant_structure parameter passed is ignored here
-                        # TODO: Why is there no unit_z passed here?
+                        # unit_z is passed here for completeness but not used in the method
 
                         newposB = self.world.apply_boundary(newposB)
                         if __debug__:
@@ -1161,7 +1200,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
             #     If the two particles stay on the same structure type as the reactant
             #     (but not necessarily on the same structure!)
             else:
-                # generate new positions in the structure
+                # Case product1_structure_type_id == product2_structure_type_id
+                # Generate new positions in the structure
                 # TODO Make this into a generator
                 product_pos_list = []
                 for _ in range(self.dissociation_retry_moves):
@@ -1170,71 +1210,32 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     iv = _random_vector(reactant_structure, particle_radius12, self.rng)
                     iv *= MINIMAL_SEPARATION_FACTOR
 
-                    unit_z = reactant_structure.shape.unit_z    # not used
-                    newpos1, newpos2, sid1, sid2 = SimplePair.do_back_transform(reactant_pos, iv, D1, D2,
-                                                                                product1_radius, product2_radius,
-                                                                                reactant_structure, reactant_structure,
-                                                                                unit_z)
-                    # for the SimplePair do_back_transform() requires that the two structures passed are the same
-                    # because it will check for this!
+                    unit_z = reactant_structure.shape.unit_z    # not used but passed for completeness
 
                     # If reactant_structure is a finite PlanarSurface the new position potentially can
                     # lie outside of the plane. The two product particles then will end up on different
-                    # planes of the same structure_type.
-                    #
-                    # In this case we have to:
-                    #
-                    # (1) Check whether one of the new positions are out of plane reactant_structure
-                    #     (note that this can be the case for at most one of the particles).
-                    # (2) If yes, find the plane that they should be deflected to, which is
-                    #     the closest one with respect to the new position.
-                    # (3) Calculate the new postions again using the correct back transform function.
+                    # planes of the same structure_type. Therefore this case is treated separately.
+                    # We use a specific do_back_transform method here which automatically takes care
+                    # of the potential structure change and potentially resulting overlaps.
                     if isinstance(reactant_structure, PlanarSurface):
 
-                        dist1 = self.world.distance(reactant_structure.shape, newpos1)
-                        dist2 = self.world.distance(reactant_structure.shape, newpos2)
-
-                        newpos1_is_out = 0
-                        newpos2_is_out = 0
-                        if(dist1 > 0.0):
-                            newpos1_is_out = 1
-                            out_pos = newpos1
-                            in_pos  = newpos2
-
-                        if(dist2 > 0.0):
-                            newpos2_is_out = 1
-                            out_pos = newpos2
-                            in_pos  = newpos1
-
-                        assert(newpos1_is_out * newpos2_is_out == 0)
-                            # at most one particle should be out if the CoM did not move out of the plane!
-
-                        if(newpos1_is_out or newpos2_is_out):
-
-                            # Get the closest plane
-                            neighbors = []
-                            neighbors = self.geometrycontainer.get_neighbor_surfaces(out_pos, reactant_structure.id, ignores=[])
-
-                            neighbor_planes = []
-                            for structure, structure_distance in neighbors:
-                                if isinstance(structure, PlanarSurface):
-                                    neighbor_planes.append((structure, structure_distance))
+                        # Recalculate the back transform taking into account the deflection
+                        newpos1, newpos2, sid1, sid2 = PlanarSurfaceTransitionPair.do_back_transform(reactant_pos, iv,
+                                                                                                      D1, D2,
+                                                                                                      product1_radius, product2_radius,
+                                                                                                      reactant_structure, reactant_structure,
+                                                                                                      unit_z, self.world)
+                    else:
                         
-                            neighbor_planes = sorted(neighbor_planes, key=lambda plane_and_dist: plane_and_dist[1])
-                            target_structure, _  = neighbor_planes[0]
+                        # Calculate the standard back transform
+                        newpos1, newpos2, sid1, sid2 = SimplePair.do_back_transform(reactant_pos, iv, D1, D2,
+                                                                                    product1_radius, product2_radius,
+                                                                                    reactant_structure, reactant_structure,
+                                                                                    unit_z, self.world)
+                        # for the SimplePair do_back_transform() requires that the two structures passed are the same
+                        # because it will check for this!
 
-                            # Recalculate the back transform taking into account the deflection
-                            newpos1, newpos2, sid1, sid2 = PlanarSurfaceTransitionPair.do_back_transform(reactant_pos, iv,
-                                                                                                         D1, D2,
-                                                                                                         product1_radius, product2_radius,
-                                                                                                         reactant_structure, target_structure,
-                                                                                                         unit_z)
-
-                        # If none of the new pos. is out the call to SimplePair.do_back_transform() should have
-                        # produced the correct positions.
-
-                # End of special treatment for PlanarSurface particles
-                                        
+                # Pass on the newly generated information
                 product_pos_list.append((newpos1, newpos2))
                 product1_structure_id = sid1
                 product2_structure_id = sid2
@@ -1296,6 +1297,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return products, zero_singles, ignore
 
+
     def fire_interaction(self, single, reactant_pos, reactant_structure_id, ignore):
         # This takes care of the identity change when a particle associates with a surface.
         # It performs the reactions:
@@ -1343,9 +1345,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
             product_structure    = single.target_structure
 
             # TODO make sure that the product species lives on the same type of the interaction surface
-#            product_structure_type = self.world.get_structure(product_species.structure_id)
-#            assert (single.target_structure.sid == self.world.get_structure(product_species.structure_id)), \
-#                   'Product particle should live on the surface of interaction after the reaction.'
+           #product_structure_type = self.world.get_structure(product_species.structure_id)
+           #assert (single.target_structure.sid == self.world.get_structure(product_species.structure_id)), \
+                  #'Product particle should live on the surface of interaction after the reaction.'
 
             # 1.5 get new position and structure_id of particle
             transposed_pos       = self.world.cyclic_transpose(reactant_pos, product_structure.shape.position)
@@ -1455,7 +1457,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             # 2.  make space for products
             # 2.1 if the product particle sticks out of the shell
-#            if self.world.distance(old_com, product_pos) > (pair.get_shell_size() - product_radius):
+
+            #if self.world.distance(old_com, product_pos) > (pair.get_shell_size() - product_radius): # TODO What is that?
             zero_singles, ignore = self.burst_volume(product_pos, product_radius, ignore)
 
             # 3. check that there is space for the products ignoring the reactants
@@ -1528,7 +1531,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return [moved_reactant]
 
 
-
+    #########################################
+    #### METHODS FOR NEW DOMAIN CREATION ####
+    #########################################
     def make_new_domain(self, single):
         ### Make a new domain out of a NonInteractionSingle that was
         ### just fired
@@ -1540,11 +1545,11 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # Special case: When D=0, nothing needs to change and only new event
         # time is drawn
         # TODO find nicer construction than just this if statement
-#        if single.getD() == 0:
-#            single.dt, single.event_type = single.determine_next_event() 
-#            single.last_time = self.t
-#            self.add_domain_event(single)
-#            return single
+       #if single.getD() == 0:
+           #single.dt, single.event_type = single.determine_next_event() 
+           #single.last_time = self.t
+           #self.add_domain_event(single)
+           #return single
 
 
         # 0. Get generic info
@@ -1577,13 +1582,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 pair_horizon  = (single_radius + domain.pid_particle_pair[1].radius) * SINGLE_SHELL_FACTOR
                 pair_interaction_partners.append((domain, pair_distance - pair_horizon))
         
-        for surface, surface_distance in surface_distances:
-            if isinstance(surface, PlanarSurface) and isinstance(single.structure, PlanarSurface):
-                # a transition going from one plane to the next can be initiated from a distance    TODO still not sure this is the right place
-                surface_horizon = single_radius * SINGLE_SHELL_FACTOR * 2        # HACK  to be balanced
-            elif isinstance(surface, PlanarSurface) or isinstance(surface, DiskSurface):
-                # with a planar or disk surface it is the center of mass that 'looks around'
-                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0)
+        for surface, surface_distance in surface_distances:            
+            if isinstance(surface, PlanarSurface):# or isinstance(surface, DiskSurface):
+                # with a planar surface it is the center of mass that 'looks around'
+                surface_horizon = single_radius * (SINGLE_SHELL_FACTOR - 1.0)            
             else:
                 # with a cylindrical surface it is the surface of the particle
                 surface_horizon = single_radius * SINGLE_SHELL_FACTOR
@@ -1671,27 +1673,28 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         return domain
 
-##### Redundant but maybe useful for parts
+
+    #### Redundant but maybe useful for parts
     def calculate_simplepair_shell_size(self, single1, single2):
         # 3. Calculate the maximum based on some other criterium (convergence?)
         radius1 = single1.pid_particle_pair[1].radius
         radius2 = single2.pid_particle_pair[1].radius
         sigma = radius1 + radius2
         distance_from_sigma = r0 - sigma        # the distance between the surfaces of the particles
-#        convergence_max = distance_from_sigma * 100 + sigma + shell_size_margin                # FIXME
-#       max_shell_size = min(max_shell_size, convergence_max)
+       #convergence_max = distance_from_sigma * 100 + sigma + shell_size_margin                # FIXME
+      #max_shell_size = min(max_shell_size, convergence_max)
 
-        # 5. Calculate the 'ideal' shell size, it matches the expected first-passage time of the closest particle
-        # with the expected time of the particles in the pair.
-#        D1 = single1.pid_particle_pair[1].D
-#        D2 = single2.pid_particle_pair[1].D
-#        D12 = D1 + D2
-#
-#        D_closest = closest.pid_particle_pair[1].D
-#        D_tot = D_closest + D12
-#        ideal_shell_size = min((D12 / D_tot) *
-#                            (closest_particle_distance - min_shell_size - closest_min_radius) +
-#                            min_shell_size,
+        #5. Calculate the 'ideal' shell size, it matches the expected first-passage time of the closest particle
+        #with the expected time of the particles in the pair.
+       #D1 = single1.pid_particle_pair[1].D
+       #D2 = single2.pid_particle_pair[1].D
+       #D12 = D1 + D2
+
+       #D_closest = closest.pid_particle_pair[1].D
+       #D_tot = D_closest + D12
+       #ideal_shell_size = min((D12 / D_tot) *
+                           #(closest_particle_distance - min_shell_size - closest_min_radius) +
+                           #min_shell_size,
         ideal_shell_size = numpy.inf
         shell_size = min(max_shell_size, ideal_shell_size)
 
@@ -1714,6 +1717,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
             return None, None, None
 
 
+    #################################################
+    #### METHODS FOR EVENT CONSEQUENCES HANDLING ####
+    #################################################
     def update_single(self, single): 
     # updates a NonInteractionSingle given that the single already holds its new position
 
@@ -1758,21 +1764,24 @@ class EGFRDSimulator(ParticleSimulatorBase):
     # produced by a single. The single can be a NonInteractionSingle or an InteractionSingle.
     # Note that this method is also called when a single is bursted, in that case the event
     # is a BURST event.
-    # Note that 'ignore' should already contain the id of 'pair'.
-    # Returns:
-    # - the 'domains' that were the results of the processing. This can be a newly made domain
-    #   (since make_new_domain is also called from here) or zero_singles that are the result of
-    #   the process. Note that these could be many since the event can induce recursive bursting.
-    # - the updated ignore list. This contains the id of the 'single' domain, ids of domains
-    #   bursted in the process and the ids of zero-dt singles.
+    #
+    # Note that 'ignore' should already contain the id of 'single'.
+    #
+    # This method returns:
+    #
+    # - the 'domains' that were created as a result of the processing. This can be a newly made domains
+    #   (since make_new_domain is also called from here) or zero_singles
+    #   Note that these could be many since the event can induce recursive bursting. 
+    # - the updated ignore list. This contains the id of the 'single' domain, IDs of domains
+    #   bursted in the process and the IDs of zero-dt singles.
 
         if __debug__:
-#            # TODO assert that there is no event associated with this domain in the scheduler
-#            assert self.check_domain(single)
+           ## TODO assert that there is no event associated with this domain in the scheduler
+           #assert self.check_domain(single)
             assert (single.domain_id in ignore), \
                    'Domain_id should already be on ignore list before processing event.'
 
-        ### SPECIAL CASE:
+        ### SPECIAL CASE 1:
         # If just need to make new domain.
         if single.is_reset():
             if __debug__:
@@ -1781,7 +1790,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             domains = [self.make_new_domain(single)]
             # domain is already scheduled in make_new_domain
 
-        ### SPECIAL CASE:
+        ### SPECIAL CASE 2:
         # In case nothing is scheduled to happen: do nothing and just reschedule
         elif single.dt == numpy.inf:
             if __debug__:
@@ -1789,9 +1798,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 log.info('single = %s' % single)
             self.add_domain_event(single)
             domains = [single]
-
-
-
 
         ### NORMAL:
         # Process 'normal' event produced by the single
@@ -1844,39 +1850,47 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     log.info('reactant = %s' % single)
 
                 if single.event_type == EventType.SINGLE_REACTION:
-                    self.single_steps[single.event_type] += 1       # TODO counters should also be updated for escape events
+                    self.single_steps[single.event_type] += 1
                     particles, zero_singles_b, ignore = self.fire_single_reaction(single, newpos, struct_id, ignore)
                     # The 'zero_singles_b' list now contains the resulting singles of a putative burst
                     # that occured in fire_single_reaction
 
                 else:
-                    self.interaction_steps[single.event_type] += 1  # TODO similarly here
+                    self.interaction_steps[single.event_type] += 1
                     particles, zero_singles_b, ignore = self.fire_interaction(single, newpos, struct_id, ignore)
 
             else:
                 particles = self.fire_move(single, newpos, struct_id)
-                zero_singles_b = []     # no bursting takes place
-                # ignore is unchanged
+                zero_singles_b = []   # no bursting takes place, ignore list remains unchanged
+                # Update statistics
+                if single.event_type == EventType.SINGLE_ESCAPE or\
+                   single.event_type == EventType.BURST:
+                    self.single_steps[single.event_type] += 1                
+                elif __debug__:
+                    log.warning('Omitting to count a single event with unforeseen event type (%s).' % single.event_type)
+                    
+
             domains = zero_singles_b
 
-            ### 5. Make a (new) domain (reuse) domain for each particle(s)
+            ### 5. Make a new domain (or reuse the old one) for each particle(s)
             #      (Re)schedule the (new) domain
             zero_singles = []
             for pid_particle_pair in particles:
-#               single.pid_particle_pair = pid_particle_pair    # reuse single
+#               single.pid_particle_pair = pid_particle_pair         # TODO reuse single
                 zero_single = self.create_single(pid_particle_pair)  # TODO re-use NonInteractionSingle domain if possible
                 self.add_domain_event(zero_single)                   # TODO re-use event if possible
                 zero_singles.append(zero_single)       # Add the newly made zero-dt singles to the list
-                ignore.append(zero_single.domain_id)   # Ignore these newly made singles (cannot be bursted)
+                ignore.append(zero_single.domain_id)   # Ignore these newly made singles (they should not be bursted)
             domains.extend(zero_singles)
 
             ### 6. Recursively burst around the newly made zero-dt NonInteractionSingles that surround the particles.
+            #      For each zero_single the burst radius equals the particle radius * SINGLE_SHELL_FACTOR
             #      Add the resulting zero_singles to the already existing list.
             for zero_single in zero_singles:
-                zero_singles2, ignore = self.burst_non_multis(zero_single.pid_particle_pair[1].position,
-                                                              zero_single.pid_particle_pair[1].radius*SINGLE_SHELL_FACTOR,
-                                                              ignore)
-                domains.extend(zero_singles2)
+                more_zero_singles, ignore = self.burst_non_multis(zero_single.pid_particle_pair[1].position,
+                                                                  zero_single.pid_particle_pair[1].radius*SINGLE_SHELL_FACTOR,
+                                                                  ignore)
+                domains.extend(more_zero_singles)
 
             if __debug__:
                 # check that at least all the zero_singles are on the ignore list
@@ -1884,20 +1898,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
             ### 7. Log change?
                 
-# NOTE Code snippets to re-use the domain/event
-#
-#        if isinstance(single, InteractionSingle):
-#            # When bursting an InteractionSingle, the domain changes from Interaction
-#           # NonInteraction domain. This needs to be reflected in the event 
-#            self.remove_event(single)
-#            self.add_domain_event(newsingle)
-#        else:
-#            assert single == newsingle
-#            self.update_domain_event(self.t, single)
-#
-#        particle_radius = single.pid_particle_pair[1].radius
-#        assert newsingle.shell.shape.radius == particle_radius
+       #NOTE Code snippets to re-use the domain/event
+       #if isinstance(single, InteractionSingle):
+           ## When bursting an InteractionSingle, the domain changes from Interaction
+          ## NonInteraction domain. This needs to be reflected in the event 
+           #self.remove_event(single)
+           #self.add_domain_event(newsingle)
+       #else:
+           #assert single == newsingle
+           #self.update_domain_event(self.t, single)
 
+       #particle_radius = single.pid_particle_pair[1].radius
+       #assert newsingle.shell.shape.radius == particle_radius
 
         return domains, ignore
 
@@ -1950,6 +1962,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
 
         ### 3. Process the event produced by the pair
+
+        # Count the event in the event statistics
         self.pair_steps[pair.event_type] += 1
 
         ### 3.1 Get new position and current structures of particles
@@ -1971,8 +1985,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
             struct2_id = pid_particle_pair2[1].structure_id
         # TODO? Check if the new positions are within domain
         # TODO? some more consistency checking of the positions
-##            assert self.check_pair_pos(pair, newpos1, newpos2, old_com,
-##                                       pair.get_shell_size())
+        #     assert self.check_pair_pos(pair, newpos1, newpos2, old_com,
+        #                                pair.get_shell_size())
 
 
         # newpos1/2 now hold the new positions of the particles (not yet committed to the world)
@@ -1991,13 +2005,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 # first move the non-reacting particle
                 particles = self.fire_move(single2, newpos2, struct2_id, pid_particle_pair1)
                 # don't ignore the (moved) non-reacting particle
-                particles2, zero_singles_b, ignore = self.fire_single_reaction(single1, newpos1, struct1_id, ignore)
-                particles.extend(particles2)
+                more_particles, zero_singles_b, ignore = self.fire_single_reaction(single1, newpos1, struct1_id, ignore)
+                particles.extend(more_particles)
             else:
                 theothersingle = single1
                 particles = self.fire_move(single1, newpos1, struct1_id, pid_particle_pair2)
-                particles2, zero_singles_b, ignore = self.fire_single_reaction(single2, newpos2, struct2_id, ignore)
-                particles.extend(particles2)
+                more_particles, zero_singles_b, ignore = self.fire_single_reaction(single2, newpos2, struct2_id, ignore)
+                particles.extend(more_particles)
 
             if __debug__:
                 log.info('reactant = %s' % reactingsingle)
@@ -2027,7 +2041,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # Just moving the particles
         #       3a. IV escape
-        #       3b. com escape
+        #       3b. CoM escape
         elif(pair.event_type == EventType.IV_ESCAPE or
              pair.event_type == EventType.COM_ESCAPE or
              pair.event_type == EventType.BURST):
@@ -2048,51 +2062,51 @@ class EGFRDSimulator(ParticleSimulatorBase):
         else:
             raise SystemError('process_pair_event: invalid event_type.')
 
-# NOTE code snippit to reuse domains that were cached in pair domain
-#        # re-use single domains for particles
-#        # normally we would take the particles + new positions from the old pair
-#        # and use them to make new singles. Now we re-use the singles stored in the
-#        # pair
-#        single1 = pair.single1
-#        single2 = pair.single2
-#        assert single1.domain_id not in self.domains
-#        assert single2.domain_id not in self.domains
-#        single1.pid_particle_pair = pid_particle_pair1  # this is probably redundant
-#        single2.pid_particle_pair = pid_particle_pair2
-#
-#        # 'make' the singles
-#        single1.initialize(self.t)
-#        single2.initialize(self.t)
-#        
-#        self.update_single_shell(single1, newpos1, pid_particle_pair1[1].radius)
-#        self.update_single_shell(single2, newpos2, pid_particle_pair2[1].radius)
-#
-#
-#        self.domains[single1.domain_id] = single1
-#        self.domains[single2.domain_id] = single2
-#
-#        # Check the dimensions of the shells of the singles with the shell in the container
-#        if __debug__:
-#            container1 = self.geometrycontainer.get_container(single1.shell)
-#            assert container1[single1.shell_id].shape.radius == \
-#                   single1.shell.shape.radius
-#            if type(single1.shell) is CylindricalShell:
-#                assert container1[single1.shell_id].shape.half_length == \
-#                       single1.shell.shape.half_length
-#
-#            container2 = self.geometrycontainer.get_container(single2.shell)
-#            assert container2[single2.shell_id].shape.radius == \
-#                   single2.shell.shape.radius
-#            if type(single2.shell) is CylindricalShell:
-#                assert container2[single2.shell_id].shape.half_length == \
-#                       single2.shell.shape.half_length
-#
-#        assert single1.shell.shape.radius == pid_particle_pair1[1].radius
-#        assert single2.shell.shape.radius == pid_particle_pair2[1].radius
-#        # even more checking
-#        assert self.check_domain(single1)
-#        assert self.check_domain(single2)
-#        # Now finally we are convinced that the singles were actually made correctly
+       ##NOTE code snippit to reuse domains that were cached in pair domain
+       ## re-use single domains for particles
+       ## normally we would take the particles + new positions from the old pair
+       ## and use them to make new singles. Now we re-use the singles stored in the
+       ## pair
+       #single1 = pair.single1
+       #single2 = pair.single2
+       #assert single1.domain_id not in self.domains
+       #assert single2.domain_id not in self.domains
+       #single1.pid_particle_pair = pid_particle_pair1  # this is probably redundant
+       #single2.pid_particle_pair = pid_particle_pair2
+
+       ## 'make' the singles
+       #single1.initialize(self.t)
+       #single2.initialize(self.t)
+       
+       #self.update_single_shell(single1, newpos1, pid_particle_pair1[1].radius)
+       #self.update_single_shell(single2, newpos2, pid_particle_pair2[1].radius)
+
+
+       #self.domains[single1.domain_id] = single1
+       #self.domains[single2.domain_id] = single2
+
+       ## Check the dimensions of the shells of the singles with the shell in the container
+       #if __debug__:
+           #container1 = self.geometrycontainer.get_container(single1.shell)
+           #assert container1[single1.shell_id].shape.radius == \
+                  #single1.shell.shape.radius
+           #if type(single1.shell) is CylindricalShell:
+               #assert container1[single1.shell_id].shape.half_length == \
+                      #single1.shell.shape.half_length
+
+           #container2 = self.geometrycontainer.get_container(single2.shell)
+           #assert container2[single2.shell_id].shape.radius == \
+                  #single2.shell.shape.radius
+           #if type(single2.shell) is CylindricalShell:
+               #assert container2[single2.shell_id].shape.half_length == \
+                      #single2.shell.shape.half_length
+
+       #assert single1.shell.shape.radius == pid_particle_pair1[1].radius
+       #assert single2.shell.shape.radius == pid_particle_pair2[1].radius
+       ## even more checking
+       #assert self.check_domain(single1)
+       #assert self.check_domain(single2)
+       ## Now finally we are convinced that the singles were actually made correctly
 
 
         # Put the zero singles resulting from putative bursting in fire_... in the final list.
@@ -2104,14 +2118,14 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         ### 6. Recursively burst around the newly made zero-dt NonInteractionSingles that surround the particles.
         for zero_single in zero_singles:
-            zero_singles2, ignore = self.burst_non_multis(zero_single.pid_particle_pair[1].position,
-                                                          zero_single.pid_particle_pair[1].radius*SINGLE_SHELL_FACTOR,
-                                                          ignore)
+            more_zero_singles, ignore = self.burst_non_multis(zero_single.pid_particle_pair[1].position,
+                                                              zero_single.pid_particle_pair[1].radius*SINGLE_SHELL_FACTOR,
+                                                              ignore)
             # Also add the zero-dt singles from this bursting to the final list
-            zero_singles_fin.extend(zero_singles2)
+            zero_singles_fin.extend(more_zero_singles)
 
-
-        # check that at least all the zero_singles are on the ignore list
+        # Some usefull checks in debugging mode
+        # Check that at least all the zero_singles are on the ignore list
         if __debug__:
             assert all(zero_single.domain_id in ignore for zero_single in zero_singles_fin)
 
@@ -2161,7 +2175,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         if multi.last_event is not EventType.MULTI_DIFFUSION:                # if an event took place
             zero_singles, ignore = self.break_up_multi(multi, ignore)
-#            self.multi_steps[multi.last_event] += 1
+            #self.multi_steps[multi.last_event] += 1
         else:
             multi.last_time = self.t
             self.add_domain_event(multi)
@@ -2169,6 +2183,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # ignore is unchanged
 
         return zero_singles, ignore
+
 
     def break_up_multi(self, multi, ignore):
         # Dissolves 'multi' into zero_singles, single with a zero shell (dt=0)
@@ -2202,6 +2217,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return zero_singles_fin, ignore
 
 
+    ###################################################
+    #### METHODS FOR NEW SHELL CONSTRUCTION TRIALS ####
+    ###################################################
     def try_interaction(self, single, target_structure):
     # Try to form an interaction between the 'single' particle and the 'target_structure'. The interaction can be a:
     # -CylindricalSurfaceInteraction
@@ -2354,6 +2372,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
             return None
     
 
+    ##############################################
+    #### METHODS FOR MULTI SHELL CONSTRUCTION ####
+    ##############################################
     def form_multi(self, single, multi_partners):
         # form a Multi with the 'single'
 
@@ -2516,6 +2537,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # TODO maybe also cache the singles in the Multi for reuse?
 
+
     def merge_multis(self, multi1, multi2):
         # merge multi1 into multi2. multi1 will be removed.
         if __debug__:
@@ -2542,6 +2564,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.remove_event(multi1)
 
 
+    ##############################
+    #### SOME HELPER METHODS  ####
+    ##############################
     def domain_distance(self, pos, domain):
         # calculates the shortest distance from 'pos' to A shell (a Multi
         # can have multiple) of 'domain'.
@@ -2549,15 +2574,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
         return min(self.world.distance(shell.shape, pos)
                    for i, (_, shell) in enumerate(domain.shell_list))
 
+
     def obj_distance_array(self, pos, domains):
         dists = numpy.array([self.domain_distance(pos, domain) for domain in domains])
         return dists
             
 
-    #
-    # statistics reporter
-    #
-
+    ###########################
+    #### STATISTICS REPORT ####
+    ###########################
     def print_report(self, out=None):
         """Print various statistics about the simulation.
         
@@ -2576,8 +2601,8 @@ t = %g
 steps = %d 
 \tSingle:\t%d\t(%.2f %%)\t(escape: %d, reaction: %d, bursted: %d)
 \tInteraction: %d\t(%.2f %%)\t(escape: %d, interaction: %d, bursted: %d)
-\tPair:\t%d\t(%.2f %%)\t(escape r: %d, R: %d, reaction pair: %d, single: %d, bursted: %d)
-\tMulti:\t%d\t(%.2f %%)\t(escape: %d, reaction pair: %d, single: %d, bursted: %d)
+\tPair:\t%d\t(%.2f %%)\t(r-escape: %d, R-escape: %d, reaction pair: %d, single: %d, bursted: %d)
+\tMulti:\t%d\t(%.2f %%)\t(diffusion: %d, escape: %d, reaction pair: %d, single: %d, bursted: %d)
 total reactions = %d
 rejected moves = %d
 ''' \
@@ -2601,6 +2626,7 @@ rejected moves = %d
                self.pair_steps[EventType.BURST],
                multi_steps,
                (100.0*multi_steps) / total_steps,
+               self.multi_steps[EventType.MULTI_DIFFUSION],
                self.multi_steps[EventType.MULTI_ESCAPE],
                self.multi_steps[EventType.MULTI_BIMOLECULAR_REACTION],
                self.multi_steps[EventType.MULTI_UNIMOLECULAR_REACTION],
@@ -2611,10 +2637,10 @@ rejected moves = %d
 
         print >> out, report
 
-    #
-    # consistency checkers
-    #
 
+    ##########################################
+    #### METHODS FOR CONSISTENCY CHECKING ####
+    ##########################################
     def check_domain(self, domain):
         domain.check()
 
@@ -2652,8 +2678,6 @@ rejected moves = %d
             # Ignore the structure that the particles are associated with
             ignores = []
             associated = [domain.structure.id]
-
-
 
         ###### check shell consistency
         # check that shells of the domain don't overlap with surfaces that are not associated with the domain.
@@ -2715,6 +2739,7 @@ rejected moves = %d
                 (str(shell_id), FORMAT_DOUBLE % shell_size, FORMAT_DOUBLE % self.geometrycontainer.get_max_shell_size())
 
         return True
+
 
     def check_shape_overlap(self, shape1, shape2):
     # Return the distance between two shapes (positive number means no overlap, negative means overlap)
@@ -2829,6 +2854,7 @@ rejected moves = %d
         for domain in self.domains.itervalues():
             self.check_domain(domain)
 
+
     def check_event_stoichiometry(self):
         ### check scheduler
         # -check that every event on scheduler is associated with domain or is a non domain related event
@@ -2879,27 +2905,27 @@ rejected moves = %d
             raise RuntimeError('population %d != domain_population %d' %
                                (world_population, domain_population))
 
-#        # Next, check that every particle in the domains is once and only once in the world.
-#        already_in_domain = set()
-#        world_particles = list(self.world)
-#        for domain in self.domains.itervalues():
-#            for domain_particle in domain.particles:
-#                for world_particle in world_particles:
-#                    if domain_particle == world_particle:
-#                        break
-#                else:
-#                    raise RuntimeError('particle %s not in world' % str(domain_particle))
-#
-#                assert domain_particle not in already_in_domain, 'particle %s twice in domains' % str(domain_particle)
-#                already_in_domain.add(domain_particle)
-#
-#        # This now means that all the particles in domains are represented in the world and that
-#        # all the particles in the domains are unique (no particle is represented in two domains)
-#
-#        assert already_in_domain == len(world_particles)
-        # Since the number of particles in the domains is equal to the number of particles in the
-        # world this now also means that all the particles in the world are represented in the
-        # domains.
+       ## Next, check that every particle in the domains is once and only once in the world.
+       #already_in_domain = set()
+       #world_particles = list(self.world)
+       #for domain in self.domains.itervalues():
+           #for domain_particle in domain.particles:
+               #for world_particle in world_particles:
+                   #if domain_particle == world_particle:
+                       #break
+               #else:
+                   #raise RuntimeError('particle %s not in world' % str(domain_particle))
+
+               #assert domain_particle not in already_in_domain, 'particle %s twice in domains' % str(domain_particle)
+               #already_in_domain.add(domain_particle)
+
+       ## This now means that all the particles in domains are represented in the world and that
+       ## all the particles in the domains are unique (no particle is represented in two domains)
+
+       #assert already_in_domain == len(world_particles)
+       ## Since the number of particles in the domains is equal to the number of particles in the
+       ## world this now also means that all the particles in the world are represented in the
+       ## domains.
 
     def check_shell_matrix(self):
         ### checks the consistency between the shells in the geometry container and the domains
@@ -2945,7 +2971,10 @@ rejected moves = %d
         # This now also means that the shells of all the cached singles in Pairs are not in the containers.
 
 
-# check that all the cached singles in Pairs are not in domains{}.
+#####################################################
+#### TODO: METHODS PROTOTYPES FOR FURTHER CHECKS ####
+#####################################################
+### check that all the cached singles in Pairs are not in domains{}.
 
 ### check world
 # check that particles do not overlap with cylinderical surfaces unless the domain is associated with the surface
@@ -2982,9 +3011,6 @@ rejected moves = %d
 
 ### check Interaction
 # check shell.unit_z = +- surface.unit_z
-
-
-
 
 ### check consistency of the model
 # check that the product species of an interaction lives on the interaction surface.
@@ -3044,9 +3070,9 @@ rejected moves = %d
 
         return True
 
-
-
-
+    ##########################
+    #### CHECKLIST METHOD ####
+    ##########################
     def check(self):
         ParticleSimulatorBase.check(self)
 
@@ -3062,10 +3088,10 @@ rejected moves = %d
         
         self.check_domain_for_all()
 
-    #
-    # methods for debugging.
-    #
 
+    ###############################
+    #### METHODS FOR DEBUGGING ####
+    ###############################
     def dump_scheduler(self):
         """Dump scheduler information.
 

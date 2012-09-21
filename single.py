@@ -1080,9 +1080,12 @@ class CylindricalSurfaceCapInteraction(InteractionSingle):
         # towards the absorbing cylinder boundary opposite of the cap.
         # Note that the reference point of the shell is the cap position,
         # therefore we have to subtract particle_surface_distance here.
-        return self.testShell.dz_right - self.testShell.particle_surface_distance \
-                                       - self.pid_particle_pair[1].radius
-        # TODO is shell.dz_right always positive?
+        to_abs_bnd_distance = self.testShell.dz_right \
+                              - self.testShell.particle_surface_distance \
+                              - self.pid_particle_pair[1].radius
+        assert to_abs_bnd_distance >= 0.0
+
+        return to_abs_bnd_distance
 
     def determine_next_event(self):
         """Return an (event_time, event_type)-tuple.
@@ -1098,7 +1101,10 @@ class CylindricalSurfaceCapInteraction(InteractionSingle):
         dz_cap = -self.get_inner_dz_left()
         dz_abs = self.get_inner_dz_right()
 
-        return GreensFunction1DRadAbs(self.D, self.v, self.interaction_ktot, 0.0, dz_cap, dz_abs)
+        if( numpy.isinf(self.interaction_ktot) ):
+            return GreensFunction1DAbsAbs(self.D, self.v, 0.0, dz_cap, dz_abs)
+        else:
+            return GreensFunction1DRadAbs(self.D, self.v, self.interaction_ktot, 0.0, dz_cap, dz_abs)
 
     def draw_new_position(self, dt, event_type):
 

@@ -121,6 +121,12 @@ to_internal(Cylinder<T_> const& obj, typename Cylinder<T_>::position_type const&
     return std::make_pair(r, z);
 }
 
+// The following projects 'pos' on the cylinder
+// It returns a pair of which the first component is the projected position.
+// The second is again a pair of which the first entry is the distance of 'pos'
+// from the cylinder axis, the second a length l which indicates whether the
+// projected position is in the cylinder (true if l negative; l is the negative
+// distance of the projected position to the cylinder edge).
 template<typename T_>
 inline std::pair<typename Cylinder<T_>::position_type,
                  std::pair<typename Cylinder<T_>::length_type,

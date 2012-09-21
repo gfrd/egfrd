@@ -42,15 +42,13 @@ cyclic_transpose (std::pair<typename Ttraits_::position_type, typename Ttraits_:
 
 
 
-
-
 template <typename Tobj_, typename Tid_, typename Ttraits_>
 class StructureContainer
 {
 public:
-    typedef Tobj_               structure_type;
-    typedef Tid_                structure_id_type;
-    typedef Ttraits_            traits_type;
+    typedef Tobj_                                                                   structure_type;
+    typedef Tid_                                                                    structure_id_type;
+    typedef Ttraits_                                                                traits_type;
     typedef std::set<structure_id_type>                                             structure_id_set;
     typedef std::pair<const structure_id_type, boost::shared_ptr<structure_type> >  structure_id_pair;
     typedef std::map<structure_id_type, boost::shared_ptr<structure_type> >         structure_map;
@@ -61,11 +59,11 @@ protected:
             typename structure_map::const_iterator>                                 structure_iterator;
     typedef typename std::map<structure_id_type, structure_id_set>                  per_structure_substructure_id_set;
 
-    typedef typename structure_type::length_type                        length_type;
-    typedef typename structure_type::position_type                      position_type;
-    typedef typename structure_type::position_type                      vector_type;
+    typedef typename structure_type::length_type                                    length_type;
+    typedef typename structure_type::position_type                                  position_type;
+    typedef typename structure_type::position_type                                  vector_type;
 
-    typedef std::pair<structure_id_type, vector_type>                   neighbor_id_vector_type;    // FIXME this is actually a datatype of the ConnectivityContainer.
+    typedef std::pair<structure_id_type, vector_type>                               neighbor_id_vector_type; // FIXME this is actually a datatype of the ConnectivityContainer.
 
 public:
     typedef SphericalSurface<traits_type>                                               spherical_surface_type;
@@ -292,7 +290,7 @@ public:
         structure_substructures_map_[default_structid] = structure_id_set();
     }
 
-    // The constructor
+//    // The constructor
 //    StructureContainer() {}
 //    StructureContainer(structure_id_type default_structid) : default_structure_id_(default_structid)
 //    {
@@ -369,7 +367,7 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
 // query the boundary conditions and connectivity.
 {
     // useful typedefs
-    typedef Ttraits_        traits_type;
+    typedef Ttraits_                                        traits_type;
     typedef typename traits_type::structure_id_type         structure_id_type;
 
     typedef typename PlanarSurface<Ttraits_>::shape_type    plane_type;
@@ -472,7 +470,7 @@ cyclic_transpose (std::pair<typename Ttraits_::position_type, typename Ttraits_:
                   StructureContainer<typename Ttraits_::structure_type, typename Ttraits_::structure_id_type, Ttraits_> const& sc)
 {
     // useful typedefs
-    typedef Ttraits_        traits_type;
+    typedef Ttraits_                                        traits_type;
     typedef typename traits_type::structure_id_type         structure_id_type;
 
     typedef typename PlanarSurface<Ttraits_>::shape_type    plane_type;
@@ -569,7 +567,7 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
 // to query the boundary conditions and connectivity.
 {
     // useful typedefs
-    typedef Ttraits_        traits_type;
+    typedef Ttraits_                                            traits_type;
     typedef typename traits_type::structure_id_type             structure_id_type;
 
     typedef typename CylindricalSurface<Ttraits_>::shape_type   cylinder_type;

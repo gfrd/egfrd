@@ -212,7 +212,9 @@ inline std::pair<typename Plane<T_>::position_type,
                            typename Plane<T_>::length_type> >
 project_point(Plane<T_> const& obj, typename Plane<T_>::position_type const& pos)
 // Calculates the projection of 'pos' onto the plane 'obj' and also returns the coefficient
-// for the normal component (z) of 'pos' in the basis of the plane
+// for the normal component (z) of 'pos' in the basis of the plane (pair entry .second.first)
+// and the negative distance to the closest edge (pair entry .second.second). Note that the
+// latter also indicates whether the projected point is in the plane.
 {
     typedef typename Plane<T_>::length_type length_type;
 

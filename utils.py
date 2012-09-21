@@ -29,13 +29,15 @@ TIME_TOLERANCE = 1e-10
 MINIMAL_SEPARATION_FACTOR = 1.0 + TOLERANCE
 
 
-MULTI_SHELL_FACTOR = math.sqrt(3) # MULTI_SHELL_FACTOR should be AT LEAST sqrt(2)
-                                    # This stems from the fact that there vacant space in the cylinder
-                                    # NonInteractionSingles to a Multi and also defines the Multi
-                                    # shell size.
-SINGLE_SHELL_FACTOR = 2.0           # This is the threshold for when the algorithm switches from
-                                    # NonInteractionSingles to a Pair or Interaction. It also defines
-                                    # the radius in which the NonInteractionSingle will burst.
+MULTI_SHELL_FACTOR = math.sqrt(3)   # This factor multiplied with the particle radius decides when to add
+                                    # NonInteractionSingles to a Multi and also defines the Multi shell size.
+                                    # IMPORTANT NOTE: MULTI_SHELL_FACTOR should be AT LEAST sqrt(2) !
+                                    # This stems from the fact that there is vacant space in the cylinder
+
+SINGLE_SHELL_FACTOR = 2.0           # This is the threshold for when the algorithm switches from forming
+                                    # NonInteractionSingles to forming a Pair or Interaction. It also defines
+                                    # the radius in which the NonInteractionSingle will burst intruding domains.
+                                    # IMPORTANT NOTE: SINGLE_SHELL_FACTOR should be AT_LEAST 2 !
 
 if __debug__:
     PRECISION = 7

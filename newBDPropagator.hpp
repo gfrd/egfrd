@@ -651,7 +651,7 @@ private:
                             LOG_DEBUG(("  product1_structure = %s, sid = %s",
                                           boost::lexical_cast<std::string>(*product1_structure).c_str(),
                                           boost::lexical_cast<std::string>( product1_structure->sid()).c_str() ));
-                            LOG_DEBUG(("Note: product0_structure = reactant_structure"));
+                            LOG_DEBUG(("  Note: product0_structure = reactant_structure"));
                         
                             // Produce two new positions and structure IDs
                             // Note that reactant_structure = product0_structure here.                            
@@ -816,9 +816,11 @@ private:
                         if ((s0.structure_type_id() == s1.structure_type_id()) &&
                             (reactant0_structure_id != reactant1_structure_id))
                         {
+                            LOG_DEBUG(("Transforming postion of reactant1 into structure of reactant0")); // TESTING
                             const position_structid_pair_type pos_cyclic1 (tx_.cyclic_transpose(std::make_pair(reactant1_pos, reactant1_structure_id),
                                                                                                 (*reactant0_structure) ));
                             reactant1_pos = pos_cyclic1.first;
+                            LOG_DEBUG(("  reactant1_pos=%s", boost::lexical_cast<std::string>(reactant1_pos).c_str() )); // TESTING
                         }
 
                         // calculate the product position (CoM of the two particles)
@@ -838,7 +840,10 @@ private:
                         // get_pos_sid_pair should result in projecting the CoM onto the lower level origin structure in this case. If both reactant
                         // structures are the same, no projection should occur. This is handled correctly by the structure functions defined for equal
                         // origin_structure types.
-                        const length_type offset(0.0);
+                        
+                        // This has to be passed to get_pos_sid_pair_2o because in some cases it will use feq() to compare whether a normal component
+                        // is zero; for that a typical length scale is needed
+                        const length_type typical_length( s0.radius() );
                         
                         // Some debug info // TESTING
                         LOG_DEBUG(("Attempting pair reaction: calling get_pos_sid_pair with:" ));
@@ -848,10 +853,11 @@ private:
                         LOG_DEBUG(("  reactant1_structure = %s, sid = %s",
                                       boost::lexical_cast<std::string>(*reactant1_structure).c_str(),
                                       boost::lexical_cast<std::string>( reactant1_structure->sid()).c_str() ));
-                        LOG_DEBUG(("Note: product_structure_type_id = %s", boost::lexical_cast<std::string>( product_structure_type_id).c_str() ));
+                        LOG_DEBUG(("  Note: product_structure_type_id = %s", boost::lexical_cast<std::string>( product_structure_type_id).c_str() ));                        
+                        LOG_DEBUG(("  Note: reactants_CoM=%s", boost::lexical_cast<std::string>(reactants_CoM).c_str() ));
                         
                         const position_structid_pair_type product_pos_struct_id( reactant0_structure->get_pos_sid_pair_2o(*reactant1_structure, product_structure_type_id,
-                                                                                                                          reactants_CoM, offset, reaction_length_, rng_ ) );
+                                                                                                                          reactants_CoM, typical_length, reaction_length_, rng_ ) );
                         // Apply the boundary conditions; this is particularly important here because the CoM projection as produced by the function above
                         // in some cases might end up out of the target_structure (e.g. in case the two reactants are coming from adjacent planes
                         tx_.apply_boundary(product_pos_struct_id);

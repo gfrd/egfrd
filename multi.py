@@ -13,7 +13,7 @@ from shells import (hasSphericalShell, Others)
 import os
 
 class Multi(Domain, hasSphericalShell, Others):
-    def __init__(self, domain_id, main, step_size_factor):
+    def __init__(self, domain_id, main, step_size_factor, dt_hardcore_min = -1):
         Domain.__init__(self, domain_id)
         # note: hasSphericalShell.__init__ is not called and that the Multi has no self.testShell
         #       Only the methods of the hasSphericalShell class are used
@@ -26,6 +26,7 @@ class Multi(Domain, hasSphericalShell, Others):
         self.particle_container = _gfrd.MultiParticleContainer(main.world)
         self.escaped = False
         self.step_size_factor = step_size_factor
+        self.dt_hardcore_min = dt_hardcore_min
         self.last_reaction = None
         self.reaction_length = 0
 
@@ -74,7 +75,7 @@ class Multi(Domain, hasSphericalShell, Others):
     def set_dt_and_reaction_length(self):
         main = self.main()
         self.dt, self.reaction_length = \
-            self.particle_container.determine_dt_and_reaction_length(main.network_rules, self.step_size_factor)
+            self.particle_container.determine_dt_and_reaction_length(main.network_rules, self.step_size_factor, self.dt_hardcore_min)
 
     def step(self):
         self.escaped = False

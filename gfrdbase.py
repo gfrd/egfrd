@@ -328,7 +328,7 @@ def create_rod(world, cyl_structure_type, cap_structure_type, name, position, ra
 def create_network_rules_wrapper(model):
     return _gfrd.NetworkRulesWrapper(model.network_rules)
 
-def throw_in_particles(world, sid, n):
+def throw_in_particles(world, sid, n, bound_1=[0,0,0], bound_2=[0,0,0]):
     """Add n particles of a certain Species to the specified world.
 
     Arguments:
@@ -338,6 +338,17 @@ def throw_in_particles(world, sid, n):
         - n
             the number of particles to add.
 
+    Optional arguments:
+        - bound_1
+            a 3D vector specifying corner 1 of a bounding box
+            that defines a rectangular region to which the placement
+            of the particles is restricted.
+            All vector components must be >=0 and <=world_size.
+        - bound_2
+            a 3D vector specifying corner 2 of the bounding box.
+            All vector components must be bigger than the components
+            of bound_1 and <=world_size.
+
     Make sure to first add the Species to the model with the method
     model.ParticleModel.add_species_type.
 
@@ -346,12 +357,33 @@ def throw_in_particles(world, sid, n):
     structure_type = world.get_structure_type(species.structure_type_id)
     structure_list = list(world.get_structure_ids(structure_type))
 
+    ws = world.world_size
+    # For comparison purposes:
+    bound_1 = numpy.array(bound_1)
+    bound_2 = numpy.array(bound_2)
+
+    if all(bound_1 == bound_2):
+      
+        # Don't allow a zero bounding box
+        bound_1 = numpy.array([0,0,0])
+        bound_2 = numpy.array([ws,ws,ws])
+
+        log.info('\n\tZero bounding box; setting bound_1 = %s and bound_2 = %s' % (bound_1, bound_2) )
+
+    correct_bounding_box = ( all(bound_1 >= 0) and all(bound_1 - bound_2 < 0) and all(bound_2 - [ws,ws,ws] <= 0) )
+
     if __debug__:
-        name = world.model.get_species_type_by_id(sid)["name"]
-        if name[0] != '(':
-            name = '(' + name + ')'
-        log.info('\n\tthrowing in %s particles of type %s to %s' %
-                 (n, name, structure_type.id))
+
+        if not correct_bounding_box:
+            log.error('\n\tIncorrect bounding box!')
+        else:
+            name = world.model.get_species_type_by_id(sid)["name"]
+            if name[0] != '(':
+                name = '(' + name + ')'
+            log.info('\n\tthrowing in %s particles of type %s to %s' % (n, name, structure_type.id))
+            log.info('\n\tbounding box = (%s, %s)' % (bound_1, bound_2))        
+
+    assert(correct_bounding_box)
 
     i = 0
     while i < int(n):
@@ -366,7 +398,9 @@ def throw_in_particles(world, sid, n):
         surface_overlaps  = world.check_surface_overlap((position, species.radius*MINIMAL_SEPARATION_FACTOR),
                                                         position, structure_id, species.radius)
 
-        if (not particle_overlaps) and (not surface_overlaps):
+        out_of_bounds = ( any(position < bound_1) or any(position > bound_2) )
+
+        if (not particle_overlaps) and (not surface_overlaps) and (not out_of_bounds):
             # All checks passed. Create particle.
             p = world.new_particle(sid, structure_id, position)
             i += 1
@@ -377,6 +411,8 @@ def throw_in_particles(world, sid, n):
                 log.info('\t%d-th particle rejected. Too close to particle. I will keep trying.' % i)
             if surface_overlaps:
                 log.info('\t%d-th particle rejected. Too close to surface. I will keep trying.' % i)
+            if out_of_bounds:
+                log.info('\t%d-th particle rejected. Out of bounding box. I will keep trying.' % i)
 
 def place_particle(world, sid, position):
     """Place a particle of a certain Species at a specific position in 

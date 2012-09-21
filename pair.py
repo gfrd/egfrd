@@ -161,7 +161,7 @@ class Pair(ProtectiveDomain, Others):
                                                   self.pid_particle_pair2[1].radius,
                                                   self.structure1,
                                                   self.structure2,
-                                                  unit_z)
+                                                  unit_z, self.world)
         # sid = structure_id
 
         return newpos1, newpos2, sid1, sid2
@@ -238,7 +238,7 @@ class SimplePair(Pair):
 
 
     @ classmethod
-    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z, world):
     # here we assume that the com and iv are really in the structure and no adjustments have to be
     # made
 
@@ -647,32 +647,36 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
         return new_iv_x + new_iv_y
 
     @ classmethod
-    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z, world):
 
         # structure should be = structure1, but for safety we use the structures
         # inherited from the test shell
 
-        # Calculate the new positions still in structure1
+        # Calculate the new positions (still in structure1)
         D_tot = D1 + D2
         pos1 = com - iv * (D1 / D_tot)
         pos2 = com + iv * (D2 / D_tot)
 
-        # Check whether the new positions will end up on the same structure
-        # by comparing their orthogonal components in the coordinate system of
-        # structure2 (which is orthogonal to structure1).
-        # These components also are used to calculate the safety factor for
-        # interparticle vector enlargement in case that the two particles
-        # indeed are on two different planes.
-        _, (pos1_orth, _) = structure2.project_point(pos1)
-        _, (pos2_orth, _) = structure2.project_point(pos2)
+        # Tentatively apply boundaries; this will also set the new structure IDs.
+        # In some cases the new positions may end up on adjacent planar surfaces.
+        # This may lead to an overlap which has to be checked for and removed if present
+        # in the next step.
+        new_pos1, new_sid1 = world.apply_boundary((pos1, structure1.id))
+        new_pos2, new_sid2 = world.apply_boundary((pos2, structure1.id))
 
-        if( pos1_orth * pos2_orth < 0.0 ) :
-            # The particles will end up on different planes, i.e.
-            # that one of the points will be deflected.
-            # The interparticle vector therefore must be enlarged to
-            # ensure that there is no overlap after deflection.
-            particles_on_same_structure = 0
-            # Calculate the safety (= IPV enlargement) factor
+        # If the new positions lead to an overlap we have to enlarge the IV by a safety factor
+        if world.distance(new_pos1, new_pos2) <= (radius1+radius2) * MINIMAL_SEPARATION_FACTOR :
+
+            new_structure1 = world.get_structure(new_sid1)
+            new_structure2 = world.get_structure(new_sid2)
+
+            # Calculate the distances from the two new positions to the edge between the planes
+            # in which the particles temporarily ended up
+            # This is easily done by projecting new_pos1 into new_structure2 + vice versa and
+            # computing the orthogonal components of the projections:
+            _, (pos1_orth, _) = new_structure2.project_point(new_pos1)
+            _, (pos2_orth, _) = new_structure1.project_point(new_pos2)
+
             l_iv = length(iv)
             assert(2.0*abs(pos1_orth*pos2_orth) < (l_iv*l_iv))  # That should never fail!
             iv_safety = 1.0/( 1.0 - 2.0*abs(pos1_orth*pos2_orth)/(l_iv*l_iv) )
@@ -681,28 +685,9 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
             pos1 = com - iv_rescaled * (D1 / D_tot)
             pos2 = com + iv_rescaled * (D2 / D_tot)
 
-        else :
-            particles_on_same_structure = 1
-
-        # Now we have to check (for both[!] new positions) whether they are still in plane1;
-        # if not, they have to be deflected on structure2.
-        # The structure.deflect() method requires a starting point and a displacement; we can construct
-        # bogus parameters for these by subtracting the center position of structure1 from pos1 and pos2.
-        s1_ctr = structure1.shape.position
-
-        new_pos1, changeflag1 = structure2.deflect(s1_ctr, pos1 - s1_ctr)   #TODO replace by world.apply_boundary
-        new_pos2, changeflag2 = structure2.deflect(s1_ctr, pos2 - s1_ctr)
-        
-        # adjust the structure_ids of the particles
-        if changeflag1 == 0 :
-            new_sid1 = structure1.id
-        else :
-            new_sid1 = structure2.id
-
-        if changeflag2 == 0 :
-            new_sid2 = structure1.id
-        else :
-            new_sid2 = structure2.id
+            # Re-apply boundaries
+            new_pos1, new_sid1 = world.apply_boundary((pos1, structure1.id))
+            new_pos2, new_sid2 = world.apply_boundary((pos2, structure1.id))               
 
         # TODO: Check that the new positions are in their new planes and 
         # maybe also that pos1 and pos2 are in structure1 in the first place?
@@ -925,7 +910,7 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         return a_R, a_r
 
     @ classmethod 
-    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure2D, structure3D, unit_z):
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure2D, structure3D, unit_z, world):
     # here we assume that the com and iv are really in the structure and no adjustments have to be
     # made
     #
@@ -1043,10 +1028,11 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 class MixedPair1D3D(Pair):
 
     @ classmethod
-    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1D, structure3D, unit_z):
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1D, structure3D, unit_z, world):
     # here we assume that the com and iv are really in the structure and no adjustments have to be
     # made
-    # unit_z is a putatively different unit_z than that available in the surface object
+    # unit_z is a putatively different unit_z than that available in the surface object and should not be
+    # of use here (however the method is defined with the same parameter signature as elsewhere)
     #
     # note that structure1D is not a 1D object but the surface that the 1D particle is bound to
     #
@@ -1158,14 +1144,17 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
         return GreensFunction1DAbsAbs(self.D_R, self.v_R, 0.0, -self.a_R, self.a_R)
 
     def iv_greens_function(self, r0):
-        return GreensFunction1DRadAbs(self.D_r, self.v_r, self.interparticle_ktot, r0, self.sigma, self.a_r)
+        if( numpy.isinf(self.interparticle_ktot) ):
+            return GreensFunction1DAbsAbs(self.D_r, self.v_r, r0, self.sigma, self.a_r)
+        else:
+            return GreensFunction1DRadAbs(self.D_r, self.v_r, self.interparticle_ktot, r0, self.sigma, self.a_r)
 
     def choose_pair_greens_function(self, r0, t):
         # Todo
         return self.iv_greens_function(r0)
 
     @ classmethod
-    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z):
+    def do_back_transform(cls, com, iv, D1, D2, radius1, radius2, structure1, structure2, unit_z, world):
     # here we assume that structure1 = structure1D and structure2 = cap_structure
     # and that com has been correctly initialized with the initial (and constant) position
     # of the cap particle.
