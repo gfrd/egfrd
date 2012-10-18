@@ -17,7 +17,8 @@ INF = numpy.inf
 ZEROPOS = numpy.array([0., 0., 0.])
 NOWHERE = numpy.array((INF, INF, INF))
 
-SAFETY = 1.0 + 1e-3
+SAFETY = 1.0 + 1e-2     # Lengths of shell in construction are divided by this safety factor 
+                        # to make sure that they do not overlap due to numerical rounding errors
 
 # Tolerance used for float comparison functions. Oversimplifying: two floats a 
 # and b are considered to be equal if abs(a - b) < TOLERANCE * abs(a).
@@ -29,15 +30,24 @@ TIME_TOLERANCE = 1e-10
 MINIMAL_SEPARATION_FACTOR = 1.0 + TOLERANCE
 
 
-MULTI_SHELL_FACTOR = math.sqrt(3)   # This factor multiplied with the particle radius decides when to add
-                                    # NonInteractionSingles to a Multi and also defines the Multi shell size.
-                                    # IMPORTANT NOTE: MULTI_SHELL_FACTOR should be AT LEAST sqrt(2) !
-                                    # This stems from the fact that there is vacant space in the cylinder
+MULTI_SHELL_FACTOR = math.sqrt(3)
+                     # This factor multiplied with the particle radius decides when to add
+                     # NonInteractionSingles to a Multi and also defines the Multi shell size.
+                     # IMPORTANT NOTE: MULTI_SHELL_FACTOR should be AT LEAST sqrt(2) !
+                     # This stems from the fact that there is vacant space in the cylinder
 
-SINGLE_SHELL_FACTOR = 2.0           # This is the threshold for when the algorithm switches from forming
-                                    # NonInteractionSingles to forming a Pair or Interaction. It also defines
-                                    # the radius in which the NonInteractionSingle will burst intruding domains.
-                                    # IMPORTANT NOTE: SINGLE_SHELL_FACTOR should be AT_LEAST 2 !
+SINGLE_SHELL_FACTOR = 2.5 #2.0*MULTI_SHELL_FACTOR
+                      # This is the threshold for when the algorithm switches from forming
+                      # NonInteractionSingles to forming a Pair or Interaction. It also defines
+                      # the radius in which the NonInteractionSingle will burst intruding domains.
+                      # IMPORTANT NOTE: SINGLE_SHELL_FACTOR should be AT_LEAST 2 * MULTI_SHELL_FACTOR !
+                      # Otherwise we risk the construction of situations in which two neighbouring
+                      # particles neither can burst nor form a multi nor form a minimal single!
+
+CYLINDER_R_FACTOR = 1.0
+                    # This factor rescales all cylindrical domains constructed on cylindrical
+                    # surfaces. It should be ALWAYS at least 1.0. Keep it at 1.0 if you do not
+                    # know what it does.
 
 if __debug__:
     PRECISION = 7

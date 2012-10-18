@@ -481,6 +481,12 @@ def place_particle(world, sid, position):
     return particle
 
 
+class DomainEvent(_gfrd.Event):
+    __slot__ = ['data']
+    def __init__(self, time, domain):
+        _gfrd.Event.__init__(self, time)
+        self.data = domain.domain_id            # Store the domain_id key refering to the domain
+                                                # in domains{} in the scheduler
 
 class ParticleSimulatorBase(object):
     def __init__(self, world, rng, network_rules):
@@ -512,6 +518,10 @@ class ParticleSimulatorBase(object):
     def initialize(self):
         pass
 
+    def reset_seed(self, s):
+
+        self.rng.seed(s)
+
     def get_species(self):
         """
         Return an iterator over the Species in the simulator. 
@@ -541,6 +551,31 @@ class ParticleSimulatorBase(object):
 
         """ #TODO: Added by wehrens@amolf.nl; please revise
         return self.world.species
+
+    def get_structure_types(self):
+        """
+        Return an iterator over the StructureTypes in the simulator.
+
+        Structure types basically have only an id and a name, the
+        latter of which is accessible via a dictionary lookup:
+
+        e.g. structure_type['name'] = 'membrane'
+        
+        Arguments: 
+            - sim an EGFRDSimulator. 
+        
+        """
+        return self.world.structure_types
+
+    def get_structures(self):
+        """
+        Return an iterator over the Structures in the simulator.        
+        
+        Arguments: 
+            - sim an EGFRDSimulator. 
+        
+        """
+        return self.world.structures
 
     def get_first_pid(self, sid):
         """

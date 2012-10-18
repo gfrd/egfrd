@@ -565,10 +565,11 @@ class PlanarSurfaceTransitionPair(SimplePair, hasSphericalShell):
                                 # Required by SimplePair.__init__        
         SimplePair.__init__(self, domain_id, shell_id, rrs)     # Always initialize AFTER hasSphericalShell
 
-        # Definitions
+        # extra definitions for the TransitionPair
         self.structure1 = self.testShell.structure1
         self.structure2 = self.testShell.structure2
-        self.structure  = self.testShell.structure1 # just for safety          
+        # self.structure is equal to self.structure1 and inherited from the testShell
+        # and SimplePair
 
     def com_greens_function(self):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)

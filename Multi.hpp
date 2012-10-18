@@ -400,6 +400,8 @@ public:
                     {
                         if(s0.structure_type_id() == get_def_structure_type_id())
                             k = 0.001;  // HACK k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
+                                        // TODO This is because we do not know the structure here, only structure type
+                                        // Use structure functions here?
                         else
                             k = 0.001;  // HACK k = get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
                     }

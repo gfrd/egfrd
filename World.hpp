@@ -223,13 +223,13 @@ public:
     typedef typename traits_type::structure_type_id_type    structure_type_id_type;
 
     //
-    typedef typename base_type::particle_id_pair                            particle_id_pair;      // defines the pid_particle_pair tuple
-    typedef typename base_type::structure_id_pair                           structure_id_pair;
-    typedef std::pair<position_type, length_type>                           projected_type;
+    typedef typename base_type::particle_id_pair                    particle_id_pair;      // defines the pid_particle_pair tuple
+    typedef typename base_type::structure_id_pair                   structure_id_pair;
+    typedef std::pair<position_type, length_type>                   projected_type;
 
-    typedef typename base_type::particle_id_set                             particle_id_set;
-    typedef typename base_type::structure_id_set                            structure_id_set;
-    typedef typename base_type::structure_types_range                       structure_types_range;
+    typedef typename base_type::particle_id_set                     particle_id_set;
+    typedef typename base_type::structure_id_set                    structure_id_set;
+    typedef typename base_type::structure_types_range               structure_types_range;
 
     typedef typename base_type::cuboidal_region_type                cuboidal_region_type;
     typedef typename base_type::planar_surface_type                 planar_surface_type;
@@ -238,6 +238,9 @@ public:
     typedef typename base_type::spherical_surface_type              spherical_surface_type;
     typedef typename planar_surface_type::side_enum_type            planar_surface_side_type;
     typedef typename cylindrical_surface_type::side_enum_type       cylindrical_surface_side_type;
+    
+    typedef typename structure_type::position_type                  vector_type;
+    typedef std::pair<structure_id_type, vector_type>               neighbor_id_vector_type;
 
 protected:
     typedef std::map<species_id_type, species_type>                         species_map;
@@ -418,11 +421,25 @@ public:
         //  -only remove if no particles
         return base_type::remove_structure(id);
     }
+    
+    // Connectivity related stuff
     template <typename Tstructure_, typename Tside_enum_>
     bool connect_structures(Tstructure_ const& structure1, Tside_enum_ const& side1,
                             Tstructure_ const& structure2, Tside_enum_ const& side2)
     {
         return base_type::structures_.connect_structures(structure1, side1, structure2, side2);
+    }
+    
+    template <typename Tstructure_, typename Tside_enum_>
+    neighbor_id_vector_type get_neighbor_info(Tstructure_ const& structure, Tside_enum_ side)
+    {
+        return base_type::structures_.get_neighbor_info(structure, side);
+    }
+    
+    template <typename Tstructure_, typename Tside_enum_>
+    structure_id_type get_neighbor_id(Tstructure_ const& structure, Tside_enum_ side)
+    {
+        return base_type::structures_.get_neighbor_info(structure, side).first;
     }
 
     // Get all the structure ids by structure_type id
