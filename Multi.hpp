@@ -106,12 +106,16 @@ public:
     {
         return world_.get_structures();     // TODO now gets all structures in world, -> make structure local to Multi
     }
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const
+    {
+        return world_.get_some_structure_of_type(sid);
+    }
     // virtual structure_id_type add_structure(structure_type const& structure); // TODO add structure from the world to multi
     template <typename Tstructid_pair_>
     bool update_structure(Tstructid_pair_ const& structid_pair)
     {
         return world_.update_structure(structid_pair);
-    }
+    }    
     virtual bool remove_structure(structure_id_type const& id)
     {
         return world_.remove_structure(id);
@@ -351,15 +355,17 @@ public:
             //structure_id_and_distance_pair const struct_id_and_dist( 
             //    get_closest_surface( pp.second.position(), pp.second.structure_id() ) );    // only ignore structure that the particle is on.
             
-            // If structure is within specified range and this particle lives in the default structure
-            //    TODO Extend the last requirement to all "allowed" interactions using the new structure functions
-            if( struct_and_dist.second < 2.0 * s.radius() && s.structure_type_id() == get_def_structure_type_id() )
+            // If the structure is within a specified range
+            // Here we assume that the user defined the reaction rules for allowed combinations of origin and
+            // target structure type (if this is not the case the simulation will fail at a later stage when
+            // propagation is attempted).
+            if( struct_and_dist.second < 2.0 * s.radius() )
             {
                 // Get the reaction rule for this particle-structure interaction
                 structure_type_id_type const struct_sid( struct_and_dist.first->sid() );
                 reaction_rules const& rrules(rules.query_reaction_rule( s.id(), struct_sid ));
                 if (::size(rrules) == 0)
-                    continue;
+                    continue; // no reaction rule for this structure type
 
                 // If there is rules, determine the largest on-rate for this interaction
                 for (typename boost::range_const_iterator<reaction_rules>::type
@@ -388,31 +394,49 @@ public:
                 
                 reaction_rules const& rrules(rules.query_reaction_rule( s0.id(), s1.id() ));
                 if (::size(rrules) == 0)
-                    continue;
+                    continue;   // no rule for reactions between these two species
                                             
                 for (typename boost::range_const_iterator<reaction_rules>::type
                 it(boost::begin(rrules)), e(boost::end(rrules)); it != e; ++it)
                 {
+                    // We have found a valid rule - get the rate
                     const length_type r01( s0.radius() + s1.radius() );
-                    Real k;
+                    Real k(0.0), k0, k1;
                     
-                    if(s0.structure_type_id() != s1.structure_type_id())
-                    {
-                        if(s0.structure_type_id() == get_def_structure_type_id())
-                            k = 0.001;  // HACK k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
-                                        // TODO This is because we do not know the structure here, only structure type
-                                        // Use structure functions here?
-                        else
-                            k = 0.001;  // HACK k = get_structure( s1.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 );
-                    }
+                    // To access the rate functions we first find some structure of the structure type of the 
+                    // species considered and then calculate the modified rate. This is a necessary workaround
+                    // because as yet the rate functions are methods to the structure, not the structure type.
+                    
+                    // If one of the two particles lives in the default structure (bulk) we always take the 
+                    // 3D rate, i.e. call the get_1D_rate_geminate() method of the bulk structure.
+                    if      (s0.structure_type_id() == get_def_structure_type_id() )
+                        
+                        k = get_some_structure_of_type(s0.structure_type_id())->get_1D_rate_geminate( (*it).k(), r01 );
+                    
+                    else if (s1.structure_type_id() == get_def_structure_type_id() )
+                        
+                        k = get_some_structure_of_type(s1.structure_type_id())->get_1D_rate_geminate( (*it).k(), r01 );
+                    
                     else
+                    // If both particles live on lower dimensionality structures for now we take the maximal rate
+                    // as determined from get_1D_rate_geminate() of both structures. TODO This may lead to a maximal
+                    // rate which actually is higher than the one used in BD propagation and therefore waste resources.
+                    // Until now this case basically only comprises the rod-particle/cap-particle interaction. Since
+                    // both rates are equal in this case we do not make any approximation in that case. However, if we
+                    // allow for other types of lower dimensionality particle-particle reactions we should fix this.
                     {
-                        k = 0.001;      // HACK k = get_structure( s0.structure_id() )->get_1D_rate_geminate( (*it).k(), r01 ); 
+                        k0 = get_some_structure_of_type(s0.structure_type_id())->get_1D_rate_geminate( (*it).k(), r01 );
+                        k1 = get_some_structure_of_type(s1.structure_type_id())->get_1D_rate_geminate( (*it).k(), r01 );
+                        
+                        k = k0 > k1 ? k0 : k1;
                     }
-                
-                    if ( k_max < k )
-                        k_max = k;
-                }          
+                    // NOTE: If a structure of the required structure type can not be found a not_found exception
+                    // is risen. This however should never happen, because whenever a particle of species s0 (s1)
+                    // is in the system also at least one structure of the associated structure type should exist.
+                    
+                    // Compare with the fasted rate found so far
+                    k_max = k > k_max ? k : k_max;
+                }
             }
             i++;
         }

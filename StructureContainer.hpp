@@ -61,7 +61,8 @@ protected:
 
     typedef typename structure_type::length_type                                    length_type;
     typedef typename structure_type::position_type                                  position_type;
-    typedef typename structure_type::position_type                                  vector_type;
+    typedef typename structure_type::position_type                                  vector_type;    
+    typedef typename structure_type::structure_type_id_type                         structure_type_id_type;
 
     typedef std::pair<structure_id_type, vector_type>                               neighbor_id_vector_type; // FIXME this is actually a datatype of the ConnectivityContainer.
 
@@ -256,6 +257,22 @@ public:
         structure_iterator(structure_map_.begin(), structures_second_selector_type()),
         structure_iterator(structure_map_.end(),   structures_second_selector_type()),
         structure_map_.size());
+    }
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const
+    {
+        // This returns a structure of the structure type given as an argument, if it exists
+        // in the container. Otherwise it throws an exception.
+        typename structure_map::const_iterator i;
+        
+        for(i = structure_map_.begin(); i != structure_map_.end(); i++)
+          
+            if( (*i).second->sid() == sid )        break;
+        
+        if (structure_map_.end() == i)
+        {
+            throw not_found(std::string("Could not find any structure of specified structure type (sid=") + boost::lexical_cast<std::string>(sid) + ")");
+        }
+        return (*i).second;
     }
     virtual bool remove_structure(structure_id_type const& id)
     {

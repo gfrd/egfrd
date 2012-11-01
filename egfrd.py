@@ -60,11 +60,11 @@ from shells import (
     MixedPair1DCaptestShell,
     )
 
-import logging
-import os
-
 import loadsave
 from histograms import *
+
+import logging
+import os
 
 log = logging.getLogger('ecell')
 
@@ -192,7 +192,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     this 'world'.
     """
 
-    def __init__(self, world, rng=myrandom.rng, network_rules=None):
+    def __init__(self, world, rng=myrandom.rng, network_rules=None, reset=True):
         """Create a new EGFRDSimulator.
 
         Arguments:
@@ -260,7 +260,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                                                 # consistent with the content of the world that it represents
                                                 # (or if we don't know for sure)
 
-        self.reset()                            # The Simulator is only initialized at the first step, allowing
+        if reset:
+            self.reset()                        # The Simulator is only initialized at the first step, allowing
                                                 # modifications to the world to be made before simulation starts
 
     def get_next_time(self):
@@ -284,12 +285,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
         Can be for example usefull when users want to first do an equilibration
         run before starting the "real experiment".
         """ #~ MW
-        self.t = 0.0
-        self.dt = 0.0
+        self.t = 0.0        
+        self.dt = 0.0        
         self.step_counter = 0
         self.single_steps = {EventType.SINGLE_ESCAPE:0,
                              EventType.SINGLE_REACTION:0,
-                             EventType.BURST:0}
+                             EventType.BURST:0,
+                             'MAKE_NEW_DOMAIN':0}
         self.interaction_steps = {EventType.IV_INTERACTION:0,
                                   EventType.IV_ESCAPE:0,
                                   EventType.BURST:0}
@@ -308,6 +310,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         self.multi_time = 0.0
         self.nonmulti_time = 0.0
+
+        self.multi_rl = 0.0
 
         self.rejected_moves = 0
         self.reaction_events = 0
@@ -450,12 +454,12 @@ class EGFRDSimulator(ParticleSimulatorBase):
             self.t, self.last_event = self.MAX_TIME_STEP, event
         else:
             self.t, self.last_event = event.time, event
-
+        
         if __debug__:
             domain_counts = self.count_domains()
-            log.info('\n\n%d: t=%s dt=%s\t' %
-                     (self.step_counter, FORMAT_DOUBLE % self.t,
-                      FORMAT_DOUBLE % self.dt) + 
+            log.info('\n\n%d: t=%s dt=%s (next_time=%s)\t' %
+                     (self.step_counter, self.t,
+                      self.dt, self.scheduler.top[1].time) + 
                      'Singles: %d, Pairs: %d, Multis: %d\n' % domain_counts + 
                      'event=#%d reactions=%d rejectedmoves=%d' %
                      (id, self.reaction_events, self.rejected_moves))
@@ -481,6 +485,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # 3. Adjust the simulation time
         #
         next_time = self.scheduler.top[1].time
+        log.info('next_time=%s' % next_time)
         self.dt = next_time - self.t
 
         # assert if not too many successive dt=0 steps occur.
@@ -716,13 +721,18 @@ class EGFRDSimulator(ParticleSimulatorBase):
     # This method makes an event for domain 'domain' in the scheduler.
     # The event will have the domain_id pointing to the appropriate domain in 'domains{}'.
     # The domain will have the event_id pointing to the appropriate event in the scheduler.
+
+        # Adapt the sampled dt to the preset scheduler precision
+        dt_rounded = round(domain.dt, SCHEDULER_DIGITS)
+        domain.dt = dt_rounded
+
         event_time = self.t + domain.dt
         event_id = self.scheduler.add(
             DomainEvent(event_time, domain))
         if __debug__:
             log.info('add_event: %s, event=#%d, t=%s' %
-                     (domain.domain_id, event_id,
-                      FORMAT_DOUBLE % (event_time)))
+                     (domain.domain_id, event_id, event_time )
+                    )
         domain.event_id = event_id                      # FIXME side effect programming -> unclear!!
 
 
@@ -737,7 +747,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     def update_domain_event(self, t, domain):
         if __debug__:
             log.info('update_event: %s, event=#%d, t=%s' %
-                     (domain.domain_id, domain.event_id, FORMAT_DOUBLE % t))
+                     (domain.domain_id, domain.event_id, t))
         self.scheduler.update((domain.event_id, DomainEvent(t, domain)))
 
 
@@ -873,6 +883,14 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
     def burst_all_domains(self):
         # Bursts all the domains in the simulator
+
+        # First apply all changes that may have been triggered by the last event
+        # These are for example new shellmaking steps with dt==0 which logically
+        # still are part of the last update. This is also to ensure that we do not
+        # attempt to "double burst" domains, i.e. run this routine on domains which
+        # are just bursted. In that case the checks below would fail.
+        while self.dt == 0.0:
+            self.step()
 
         all_domains = self.domains.items()
         all_domain_ids =[domain_id for domain_id, _ in all_domains]
@@ -1725,6 +1743,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if self.CREATION_HISTOGRAMS:
             self.DomainCreationHists.bin_domain(bin_domain)
 
+        self.single_steps['MAKE_NEW_DOMAIN'] += 1
+
         return domain
 
 
@@ -1921,7 +1941,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
                 # Update statistics
                 if single.event_type == EventType.SINGLE_ESCAPE or\
                    single.event_type == EventType.BURST:
-                    self.single_steps[single.event_type] += 1                
+                    self.single_steps[single.event_type] += 1
                 elif __debug__:
                     log.warning('Omitting to count a single event with unforeseen event type (%s).' % single.event_type)
                     
@@ -2019,6 +2039,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if pair.event_type == EventType.IV_EVENT:
             # Draw actual pair event for iv at very last minute.
             pair.event_type = pair.draw_iv_event_type(pair.r0)
+
+            if __debug__:
+                log.info('Specified event type: IV_EVENT = %s' % pair.event_type)
 
 
         ### 3. Process the event produced by the pair
@@ -2212,7 +2235,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     #   particles.
 
         if __debug__:
-            log.info('FIRE MULTI: %s' % multi.last_event)
+            log.info('FIRE MULTI: %s (dt=%s)' % (multi.last_event, multi.dt))
 
         if __debug__:
             assert (multi.domain_id in ignore), \
@@ -2227,6 +2250,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         self.multi_steps[multi.last_event] += 1
         self.multi_steps[3] += 1  # multi_steps[3]: total multi steps
         self.multi_time += multi.dt
+        self.multi_rl   += multi.reaction_length
         multi.step()
 
         if(multi.last_event == EventType.MULTI_UNIMOLECULAR_REACTION or
@@ -2650,30 +2674,34 @@ class EGFRDSimulator(ParticleSimulatorBase):
         Arguments:
             - None
 
-        """
-        total_steps = self.step_counter
+        """        
         single_steps = numpy.array(self.single_steps.values()).sum()
         interaction_steps = numpy.array(self.interaction_steps.values()).sum()
         pair_steps = numpy.array(self.pair_steps.values()).sum()
         multi_steps = self.multi_steps[3] # total multi steps
+        total_steps = single_steps + interaction_steps + pair_steps + multi_steps
 
         report = '''
 t = %g
 \tNonmulti: %g\tMulti: %g
-steps = %d 
-\tSingle:\t%d\t(%.2f %%)\t(escape: %d, reaction: %d, bursted: %d)
+steps: %d 
+updates: %d
+\tSingle:\t%d\t(%.2f %%)\t(escape: %d, reaction: %d, bursted: %d, make_new_domain: %d)
 \tInteraction: %d\t(%.2f %%)\t(escape: %d, interaction: %d, bursted: %d)
 \tPair:\t%d\t(%.2f %%)\t(r-escape: %d, R-escape: %d, reaction pair: %d, single: %d, bursted: %d)
 \tMulti:\t%d\t(%.2f %%)\t(diffusion: %d, escape: %d, reaction pair: %d, single: %d, bursted: %d)
-total reactions = %d
-rejected moves = %d
+\tavg. multi time step: %e, avg. multi reaction length: %e
+total reactions: %d
+rejected moves:  %d
 ''' \
-            % (self.t, self.nonmulti_time, self.multi_time, total_steps,
+            % (self.t, self.nonmulti_time, self.multi_time,
+               self.step_counter, total_steps,
                single_steps,
                (100.0*single_steps) / total_steps,
                self.single_steps[EventType.SINGLE_ESCAPE],
                self.single_steps[EventType.SINGLE_REACTION],
                self.single_steps[EventType.BURST],
+               self.single_steps['MAKE_NEW_DOMAIN'],
                interaction_steps,
                (100.0*interaction_steps) / total_steps,
                self.interaction_steps[EventType.IV_ESCAPE],
@@ -2693,6 +2721,8 @@ rejected moves = %d
                self.multi_steps[EventType.MULTI_BIMOLECULAR_REACTION],
                self.multi_steps[EventType.MULTI_UNIMOLECULAR_REACTION],
                self.multi_steps[EventType.BURST],
+               1.0 * self.multi_time / multi_steps,
+               1.0 * self.multi_rl   / multi_steps,
                self.reaction_events,
                self.rejected_moves
                )
@@ -2958,7 +2988,7 @@ rejected moves = %d
                        elif length(inter_pos_z) == 0.0:
                           total_overlap = overlap_r
                        else:
-                          total_overlap = -1.0 * sqrt(overlap_r*overlap_r + overlap_z*overlap_z)
+                          total_overlap = -1.0 * math.sqrt(overlap_r*overlap_r + overlap_z*overlap_z)
                         
                        return total_overlap
 
@@ -3223,27 +3253,60 @@ rejected moves = %d
     # These are just wrappers around the methods
     # in loadsave.py :
 
-    def save_state(self, filename):
+    def save_state(self, filename, reload=False):
+        """ Save the state of the simulator after bursting
+            all domains. The latter facilitates reconstruction
+            of precisely the state saved.
+            
+            Arguments:
+            - filename : a string specifying the name of
+                         the file that the state will be
+                         saved in.
+            - [reload] : (optional) if this this set
+                         to 'True' the simulator will
+                         be re-initialized with the state
+                         from the save-file ('filename').
+                         Use this if you experience divergence
+                         between the original and saved
+                         simulations caused by limited
+                         Python float precision.
 
+                         reload = False by default.
+        """
         loadsave.save_state(self, filename)
+
+        if(reload):
+            self.load_state(filename)
 
 
     def load_state(self, filename):
-
-        #assert self.is_dirty == True   # TODO
-
+        """ Load a state previously saved via save_state()
+            and re-initialize the simulator with the loaded
+            data.
+            
+            Takes the name of the save-file as an argument
+            of string-type.
+        """
         # Run the load function which will return a
         # new world containing the read-in model and
         # objects in the right positions and the seed
         # that was used to reset the RNG at output
-        world, seed = loadsave.load_state(filename)
-        myrandom.seed(seed)
+        world, seed, time_info = loadsave.load_state(filename)
 
         if __debug__:
-            log.info('Loaded state from file %s \nRe-initializing the simulator...' % filename)
+            log.info('Loaded state from file %s, re-initializing the simulator...' % filename)
 
-        # Re-initialize the simulator
-        self.__init__(world, myrandom.rng)
+        # Re-initialize the simulator using the seed
+        # from the input file
+        self.reset_seed(seed)
+        self.__init__(world, myrandom.rng, reset=False)
+            # reset=False ensures the statistics are not lost
+
+        # Set the simulator time to the time it had at output
+        # This is to avoid divergence between the original and the
+        # restarted simulation because of the limited floating point 
+        # precision of Python
+        self.t = time_info[0]
 
 
     ###############################

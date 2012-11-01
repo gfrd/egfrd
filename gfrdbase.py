@@ -8,6 +8,15 @@ import scipy
 
 
 import _gfrd
+from _gfrd import (
+    CuboidalRegion,
+    SphericalSurface,
+    CylindricalSurface,
+    DiskSurface,
+    PlanarSurface,
+    Surface
+    )  # to perform instance checks
+
 from utils import *
 
 import os
@@ -429,6 +438,13 @@ def place_particle(world, sid, position):
     model.ParticleModel.add_species_type.
 
     """
+    if __debug__:
+        name = world.model.get_species_type_by_id(sid)["name"]
+        if name[0] != '(':
+            name = '(' + name + ')'
+        log.info('Attempting to place particle of species %s at position %s' %
+                 (name, position) )
+
     species = world.get_species(sid)
     radius = species.radius
 
@@ -436,32 +452,71 @@ def place_particle(world, sid, position):
 
     # check that particle doesn't overlap with other particles.
     if world.check_overlap((position, radius)):
-        raise NoSpace, 'Placing particle failed: overlaps with other particle.'
+        raise NoSpace, '  Placing particle failed: overlaps with other particle.'
 
+    # Get the IDs of all structures of the structure type that this particle species lives on
+    structure_ids = world.get_structure_ids(world.get_structure_type(species.structure_type_id))
+
+    # Get all neighboring surfaces ordered by their distance to the particle
     surfaces = get_all_surfaces(world, position, [])
-    if surfaces:
-        surface, distance = surfaces[0]
-    else:
-        surface, distance = None, numpy.inf
 
-    # Check if not too close to a neighbouring structures for particles 
+    # If this particle does not live on the default structure first check whether
+    # the position is indeed within a structure of the right structure type
+    if species.structure_type_id != world.get_def_structure_type_id():
+
+        if surfaces:
+            # Get the closest surface of the structure type 
+            # for this particle species. We cannot simply take
+            # the closest structure because for a disk-bound
+            # particle this can be either the disk or cylinder
+            # => choose the one with the right structure type
+            for s in range(0, len(surfaces)):
+                surface, distance = surfaces[s]
+
+                if surface.id in structure_ids:
+                    # we have found the closest surface with
+                    # the required structure type
+                    break;
+                else:
+                    # there is no such structure, placement
+                    # will be impossible
+                    surface, distance = None, numpy.inf
+
+            if __debug__ and surface == None:
+                log.warning('  Could not find any structure with required structure type in the system.')
+        else:
+            # no structure around, we can't place the particle
+            surface, distance = None, numpy.inf
+            if __debug__:
+                log.warning('  No surfaces around, cannot place particle of surface-bound species %s.' % str(species)) 
+
+    # Check if not too close to neighbouring structures for particles 
     # added to the world, or added to a self-defined box.
     if species.structure_type_id == world.get_def_structure_type_id():
-        structure_id = world.get_def_structure_id()
-        if world.check_surface_overlap((position, radius*MINIMAL_SEPARATION_FACTOR),
-                                       position, structure_id, radius):#(surface and distance < surface.minimal_distance(species.radius)):
-            raise RuntimeError('Placing particle failed: %s %s. '
-                               'Too close to surface: %s.' %
-                               (sid, position, distance))
+        
+        structure_id = world.get_def_structure_id()        
+        surface, distance = surfaces[0]  # the closest surface
+        overlaps = world.check_surface_overlap((position, radius*MINIMAL_SEPARATION_FACTOR),
+                                                position, structure_id, radius)
+
+        # Raise an error in case of overlap with a surface other than PlanarSurface
+        # (the latter we allow to overlap with bulk particles)
+        if overlaps and not isinstance(surface, PlanarSurface):
+            raise RuntimeError('  Placing particle failed: %s %s. '
+                               '  Too close to surface: %s.' %
+                                  (sid, position, surface) )
+
+        if overlaps and isinstance(surface, PlanarSurface):
+            log.warning('  Particle of species %s placed at position %s overlaps with surface %s.' % \
+                           (sid, position, surface) )
     else:
         # If the particle lives on a surface then the position should be in the closest surface.
-        # The closest surface should also be of the structure_type associated with the species.
-        structure_ids = world.get_structure_ids(world.get_structure_type(species.structure_type_id))
+        # The closest surface should also be of the structure_type associated with the species.        
         if not (surface and 
                 distance < TOLERANCE*radius and 
                 surface.id in structure_ids):
-            raise RuntimeError('Placing particle failed: %s %s. Position should be in structure of structure_type \"%s\".' %
-                                (sid, position, world.get_structure_type(species.structure_type_id)['name']))
+            raise RuntimeError('  Placing particle failed: %s %s. Position should be in structure of structure_type \"%s\".' %
+                                  (sid, position, world.get_structure_type(species.structure_type_id)['name']) )
         else:
             structure_id = surface.id
 
@@ -469,14 +524,14 @@ def place_particle(world, sid, position):
         name = world.model.get_species_type_by_id(sid)["name"]
         if name[0] != '(':
             name = '(' + name + ')'
-        log.info('\n\tplacing particle of type %s to structure \"%s\" at position %s' %
-                 (name, world.get_structure(structure_id).name, position))
+        log.info('  Placed particle of species %s on structure \"%s\" at position %s' %
+                    (name, world.get_structure(structure_id).name, position))
 
     position, structure_id = world.apply_boundary((position, structure_id))
     particle = world.new_particle(sid, structure_id, position)
 
     if __debug__:
-        log.info('(%s,\n %s' % (particle[0], particle[1]))
+        log.info('  Particle info: (%s, %s)' % (particle[0], particle[1]) )
 
     return particle
 

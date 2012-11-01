@@ -219,6 +219,10 @@ public:
     {
         return pc_.get_structures();
     }    
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const
+    {
+        return pc_.get_some_structure_of_type(sid);
+    }
     template <typename Tstructid_pair_>
     bool update_structure(Tstructid_pair_ const& structid_pair)
     {

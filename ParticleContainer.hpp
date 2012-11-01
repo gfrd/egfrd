@@ -104,8 +104,10 @@ public:
     virtual boost::shared_ptr<structure_type> get_structure(structure_id_type const& id) const = 0;
     
     virtual structures_range get_structures() const = 0;
+    
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const = 0;
 
-//    virtual bool update_structure(structure_id_pair const& structid_pair) = 0;
+//    virtual bool update_structure(structure_id_pair const& structid_pair) = 0;    
 
     virtual bool remove_structure(structure_id_type const& id) = 0;
 

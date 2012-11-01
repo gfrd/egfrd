@@ -406,6 +406,11 @@ public:
     {
         return py_wrapper_type::get_override("get_structures")();
     }
+    
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const
+    {
+        return py_wrapper_type::get_override("get_some_structure_of_type")(sid);
+    }
 /*
     virtual bool update_structure(cuboidal_region_id_pair_type const& structid_pair)
     {
@@ -638,6 +643,7 @@ inline boost::python::objects::class_base register_particle_container_class(
         // Structure stuff
         .def("get_structure", pure_virtual(&impl_type::get_structure))
         .def("get_structures", pure_virtual(&impl_type::get_structures))
+        .def("get_some_structure_of_type", pure_virtual(&impl_type::get_some_structure_of_type))
 //        .def("update_structure", pure_virtual(&impl_type::update_structure))
 //        .def("update_structure", &impl_type::template update_structure<typename impl_type::cuboidal_region_id_pair_type>)
 //        .def("update_structure", &impl_type::template update_structure<typename impl_type::planar_surface_id_pair_type>)

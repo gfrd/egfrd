@@ -78,10 +78,8 @@ public:
     // Rate for binding to particle on the structure
     virtual Real get_1D_rate_geminate( Real const& k, length_type const& r01) const
     {
-        // This rate does not make sense on the ("zero-dimensional") disk object
-        // but is used to determine the maximal time step in a Multi object and
-        // therefore should be defined in a proper way.
-        return 0.0;
+        // Same as for particle-particle reactions on the cylinder
+        return k;
     }
     
     // Rate for binding to the structure
@@ -110,21 +108,25 @@ public:
     {
         // This function produces a position for a particle unbinding from the disk onto the rod.
         // It should lie within the reaction volume around the disk.
-        // TODO: THIS IS THE CODE COPIED FROM CylindricalSurface
-        // FIXME WTF is all this calculation!! The dissociation vector is supposed to be super simple!
+        // Note that this is the same code as for the CylindricalSurface.
         Real X( rng.uniform(0.,1.) );
         length_type const rod_radius = base_type::shape().radius();
         position_type const unit_z = base_type::shape().unit_z();
 
+        // Calculate the length of the vector first
         length_type const rrl( rod_radius + r0 + rl );
         length_type const rrl_sq( gsl_pow_2(rrl) );
-        length_type const rr_sq( gsl_pow_2(rod_radius + r0) );
-        
-        length_type const diss_vec_length( sqrt( X * (rrl_sq - rr_sq) + rr_sq ) );
+        length_type const rr_sq( gsl_pow_2(rod_radius + r0) );        
+        // Create a random length between rr_sq and rrl_sq
+        length_type const diss_vec_length( sqrt( rr_sq + X * (rrl_sq - rr_sq) ) );
 
-        position_type v(rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5);        
+        // Create a 3D vector with totally random orientation
+        position_type v(rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5);
+        // Subtract the part parallel to the axis to get the orthogonal components and normalize
+        // This creates a normed random vector orthogonal to the cylinder axis
         v = normalize( subtract(v, multiply( unit_z, dot_product( unit_z, v ) ) ) );
          
+        // Return the created vector with the right length
         return multiply( v, diss_vec_length); 
     }
     

@@ -1304,6 +1304,12 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             # the scaling cylinder hits the barrel of 'shell' with its edge
             shell_radius_sq = shell_radius*shell_radius
 
+            # If scale_angle == 0, the scale center is offset from the reference point,
+            # located at the barrel of the scaled cylinder. In order for the below calculation
+            # to succeed we have to take this into account. In general scale_center_r == 0
+            # so that this step only affects the scale_angle == 0 cases:
+            scale_center_to_shell_y -= scale_center_r
+
             ss_sq = (scale_center_to_shell_z**2 + scale_center_to_shell_y**2)
             scale_center_to_shell = math.sqrt(ss_sq)
 
@@ -1313,8 +1319,10 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             cos_angle_diff = math.cos(angle_diff)
 
             # TODO TESTING Laurens' version
+            # Remove this when it is certain that the new version does not fail
             #scale_center_shell_dist = (scale_center_to_shell * cos_angle_diff -
                                        #math.sqrt(shell_radius_sq - (ss_sq * sin_angle_diff * sin_angle_diff) ))
+            
             assert scale_center_to_shell >= shell_radius
             ss_angle = math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius)
             scale_center_shell_dist = shell_radius * math.sin(math.pi-(angle_diff+ss_angle)) / math.sin(angle_diff)

@@ -101,9 +101,9 @@ public:
         // Calculate the length of the vector first
         length_type const rrl( rod_radius + r0 + rl );
         length_type const rrl_sq( gsl_pow_2(rrl) );
-        length_type const rr_sq( gsl_pow_2(rod_radius + r0) );
-        
-        length_type const diss_vec_length( sqrt( X * (rrl_sq - rr_sq) + rr_sq ) );
+        length_type const rr_sq( gsl_pow_2(rod_radius + r0) );        
+        // Create a random length between rr_sq and rrl_sq
+        length_type const diss_vec_length( sqrt( rr_sq + X * (rrl_sq - rr_sq) ) );
 
         // Create a 3D vector with totally random orientation
         position_type v(rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5, rng.uniform(0.,1.) - .5);

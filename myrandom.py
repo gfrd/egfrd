@@ -23,7 +23,13 @@ def uniform(min=0.0, max=1.0, size=None):
 get_raw = rng.get_raw
 random = rng
 normal = rng.normal
-seed = rng.seed
+
+def seed(myseed):
+
+    rng.seed(myseed)
+
+    # for the case we would like to remember the seed used
+    return myseed
 
 # By default seed is 0.
 myseed = 0

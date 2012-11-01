@@ -136,8 +136,12 @@ class Pair(ProtectiveDomain, Others):
                    self.draw_single_reaction_time_tuple()) 
 
     def draw_iv_event_type(self, r0):
-        gf = self.iv_greens_function(r0)
-        event_kind = draw_event_type_wrapper(gf, self.dt)
+        gf = self.iv_greens_function(r0)        
+        if self.dt < TIME_TOLERANCE**2:
+            dt = TIME_TOLERANCE**2
+        else:
+            dt = self.dt
+        event_kind = draw_event_type_wrapper(gf, dt)
         if event_kind == PairEventKind.IV_REACTION:
             return EventType.IV_REACTION
         elif event_kind == PairEventKind.IV_ESCAPE:
@@ -271,7 +275,9 @@ class SimplePair(Pair):
 
         # Make sure that D1 != 0 to avoid division by zero in the followings.
         if D1 == 0:
-            D1, D2 = D2, D1     # shouldn't we also here swap the particle radii if we're swapping diffusion contants?
+            D1, D2 = D2, D1     # FIXME shouldn't we also here swap the particle radii if we're swapping diffusion contants?
+            if __debug__:
+                log.info('Swapping D1 and D2 because D1==0 (to avoid division by zero).')
 
         shell_size /= SAFETY    #??
 
@@ -310,7 +316,7 @@ class SimplePair(Pair):
             a_r = a_r_max
             a_R = shell_size - radiusa - a_r * Da / D_tot
             if __debug__:
-                log.info('domainsize changed for convergence.')
+                log.info('Domainsize changed for convergence: a_r = a_r_max = %s, a_R = %s' % (a_r, a_R))
 
         assert a_R + a_r * Da / D_tot + radiusa >= \
                a_R + a_r * Db / D_tot + radiusb
@@ -320,15 +326,15 @@ class SimplePair(Pair):
 
 
         if __debug__:
-          log.debug('a %g, r %g, R %g r0 %g' % 
+          log.debug('shell_size = %g, a_r = %g, a_R = %g r0 = %g' % 
                  (shell_size, a_r, a_R, r0))
         if __debug__:
-            tr = ((a_r - r0)**2) / (6 * self.D_r)       # the expected escape time of the iv
+            tr = ((a_r - r0)**2) / (6 * self.D_r)       # the expected escape time of the IV
             if self.D_R == 0:
                 tR = numpy.inf 
             else:
                 tR = (a_R**2) / (6 * self.D_R)          # the expected escape time of the CoM
-            log.debug('tr %g, tR %g' % (tr, tR))
+            log.debug('tr = %g, tR = %g' % (tr, tR))
 
 
         assert a_r > 0
@@ -1110,7 +1116,7 @@ class MixedPair1DCap(Pair, hasCylindricalShell):
         # D_r and D_R are inherited from Pair class;
         # This results in D_r = particle1D.D and D_R = 0
 
-        self.LD_MAX = numpy.inf # TODO what is that for?
+        self.LD_MAX = numpy.inf
 
     def get_shell_size(self):   # TODO Is that even used?
         return self.shell.shape.half_length

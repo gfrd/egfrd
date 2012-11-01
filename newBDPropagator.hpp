@@ -268,7 +268,7 @@ public:
                                  accumulated_prob, reaction_length_, dt_));
                 }
                 
-                if( accumulated_prob > rnd ) // OK, try to fire the interaction
+                if(accumulated_prob > rnd) // OK, try to fire the interaction
                 {   
                     LOG_DEBUG( ("attempting surface interaction, acc_prob = %g", accumulated_prob) ); // TESTING
                     try

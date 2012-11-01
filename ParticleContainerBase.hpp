@@ -109,6 +109,7 @@ public:
     typedef typename traits_type::size_type                 size_type;
     typedef typename traits_type::structure_id_type         structure_id_type;
     typedef typename traits_type::structure_type            structure_type;
+    typedef typename traits_type::structure_type_id_type    structure_type_id_type;
     typedef typename base_type::particle_id_set             particle_id_set;
     typedef typename base_type::particle_id_pair            particle_id_pair;
     typedef typename base_type::structure_id_set            structure_id_set;
@@ -400,12 +401,18 @@ public:
         return structures_.get_structures_range();
     }
     
+    // Getter structure_type_id -> some structure of that type
+    virtual boost::shared_ptr<structure_type> get_some_structure_of_type(structure_type_id_type const& sid) const
+    {
+        return structures_.get_some_structure_of_type(sid);
+    }
+    
     // Update structure wrapper
     template <typename Tstructid_pair_>
     bool update_structure(Tstructid_pair_ const& structid_pair)
     {
         return structures_.update_structure(structid_pair);
-    }
+    }   
     
     // Remove structure wrapper
     virtual bool remove_structure(structure_id_type const& id)
