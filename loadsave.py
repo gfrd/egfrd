@@ -809,12 +809,12 @@ def load_state(filename):
 
         # For each neighbor_id find the side with which the neighbor is
         # connected to the structure with con_id
-        for side in range(0,3):
+        for side in range(0,4):
 
             n_id = neighbor_list[side]
             nn_list = connections_dict[n_id]
 
-            for n_side in range(0,3):
+            for n_side in range(0,4):
             
                 nn_id = nn_list[n_side]
                 if nn_id == to_connect_id:

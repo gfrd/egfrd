@@ -37,6 +37,9 @@ __all__ = [
     'PlanarSurfaceTransitionSingle',
     ]
 
+import logging
+log = logging.getLogger('ecell')
+
 
 class Single(ProtectiveDomain):
     """There are 2 main types of Singles:

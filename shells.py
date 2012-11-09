@@ -54,6 +54,10 @@ __all__ = [
     'MixedPair1DCaptestShell',
     ]
 
+import logging
+log = logging.getLogger('ecell')
+
+
 # These are exceptions that are raise when trying to make a new domain
 class ShellmakingError(Exception):
     # This ShellmakingError is raised when a Spherical or Cylindrical shell could
@@ -92,9 +96,9 @@ class Others(object):
     def shell_list_for_single(self):
         # The shell dimensions for the Other classes are unmodified, regardless of the asker.
         return self.shell_list
+
     def shell_list_for_other(self):
         return self.shell_list
-
 
     # The next method is only relevant for TESTSHELL subclasses that derive from this class.
     def get_neighbor_shell_list(self, neighbor):
@@ -108,7 +112,7 @@ class NonInteractionSingles(object):
         pass    # do nothing
 
     # The next two methods are only relevant for HASSHELL subclasses that derive from this class.
-    # NOTE below two methods have quite a different purpose!
+    # NOTE the two methods below have quite a different purpose!
     def shell_list_for_single(self):
         # In case the asker is also a NonInteractionSingle, the shell dimensions of the current domain
         # is modified such that the domain is at least the size of the Multi shell.
@@ -132,8 +136,8 @@ class NonInteractionSingles(object):
         # NOTE: Since the burst radius is spherical, a spherical shell of the size of the burst radius is returned
         # when the real shell is small enough to fit inside the burst radius. When the real shell no longer fits inside
         # the burst radius the real shell is returned.
-        # This means that more bursting will take place than necessary because cylindrical domain do not keep the domains
-        # that are out of the 'diffusion dimension' at the proper distance -> TODO
+        # This means that more bursting will take place than necessary because cylindrical domains do not keep the 
+        # domains that are out of the 'diffusion dimension' at the proper distance -> TODO
 
         pass    # needs to be specified in the subclass
 
@@ -1108,14 +1112,14 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     r1_min = math.sqrt((scale_center_to_shell_x-shell_half_length)**2 + (scale_center_to_shell_y-shell_radius)**2)*(1.0+TOLERANCE)
                     h1_min = r1_min/math.tan(scale_angle)
 
-        # TODO TESTING Debug info
-        #print "  *** QUADRANT = %s ***" % str(quadrant)
-        #print "  *** Situation = ", situation_string[situation]
-        #print "  *** testShell=%s, r=%s, z1=%s" % (str(testShell), r, z1)
-        #print "  *** scale_angle=%s, tan_scale_angle=%s, scale_center_z=%s, scale_center_r=%s" % (scale_angle, tan_scale_angle, scale_center_z, scale_center_r)
-        #print "  *** shell_radius=%s, shell_half_length=%s" % (shell_radius, shell_half_length)
-        #print "  *** ref_to_shell_x=%s, ref_to_shell_y=%s, ref_to_shell_z=%s" % (ref_to_shell_x, ref_to_shell_y, ref_to_shell_z)
-        #print "  *** scale_center_to_shell_x=%s, scale_center_to_shell_y=%s, scale_center_to_shell_z=%s" % (scale_center_to_shell_x, scale_center_to_shell_y, scale_center_to_shell_z)
+        ##TODO TESTING Debug info
+        #log.info("  *** QUADRANT = %s ***" % str(quadrant) )
+        #log.info("  *** Situation = %s" % str(situation_string[situation]) )
+        #log.info("  *** testShell=%s, r=%s, z1=%s" % (str(testShell), r, z1) )
+        #log.info("  *** scale_angle=%s, tan_scale_angle=%s, scale_center_z=%s, scale_center_r=%s" % (scale_angle, tan_scale_angle, scale_center_z, scale_center_r) )
+        #log.info("  *** shell_radius=%s, shell_half_length=%s" % (shell_radius, shell_half_length) )
+        #log.info("  *** ref_to_shell_x=%s, ref_to_shell_y=%s, ref_to_shell_z=%s" % (ref_to_shell_x, ref_to_shell_y, ref_to_shell_z) )
+        #log.info("  *** scale_center_to_shell_x=%s, scale_center_to_shell_y=%s, scale_center_to_shell_z=%s" % (scale_center_to_shell_x, scale_center_to_shell_y, scale_center_to_shell_z) )
 
         ##### (2) Treat the situation accordingly        
         if situation == BARREL_HITS_FLAT:
@@ -1318,15 +1322,25 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             sin_angle_diff = math.sin(angle_diff)
             cos_angle_diff = math.cos(angle_diff)
 
-            # TODO TESTING Laurens' version
+            # TODO TESTING Laurens' version, remove when the other works well
             # Remove this when it is certain that the new version does not fail
             #scale_center_shell_dist = (scale_center_to_shell * cos_angle_diff -
                                        #math.sqrt(shell_radius_sq - (ss_sq * sin_angle_diff * sin_angle_diff) ))
             
-            assert scale_center_to_shell >= shell_radius
-            ss_angle = math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius)
+            assert scale_center_to_shell >= shell_radius # should never fail
+            #ss_angle = math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius) ## TESTING Old version
+            ss_angle = math.pi - math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius)
+            assert(ss_angle >= math.pi/2.0), 'EDGE_HITS_BARREL: ss_angle must be >= Pi/2.0; ss_angle = %s' % str(ss_angle)
+                    # We know that this angle must be larger than Pi/2 here by construction of the problem
+
             scale_center_shell_dist = shell_radius * math.sin(math.pi-(angle_diff+ss_angle)) / math.sin(angle_diff)
-            assert scale_center_shell_dist>0 # TESTING
+            assert scale_center_shell_dist>0, 'EDGE_HITS_BARREL: scale_center_shell_dist not positive, scale_center_shell_dist = %s'\
+                                              % str(scale_center_shell_dist)
+
+            # Check whether the calculated distance is within the forseen bounds and warn if not
+            if not(scale_center_shell_dist <= scale_center_to_shell_y and scale_center_shell_dist <= scale_center_to_shell_z):
+                log.warning('EDGE_HITS_BARREL: scale-center-to-shell distance is out of forseen bounds, distance=%s' \
+                              % str(scale_center_shell_dist) )
 
             if scale_angle <= Pi/4.0:
                 cos_scale_angle = math.cos(scale_angle)
@@ -1722,7 +1736,7 @@ class CylindricaltestShell(testShell):
 
         # then check against all the shells of the neighboring domains (remember that domains can have
         # multiple shells).
-        for neighbor, distance in neighbor_domains:
+        for neighbor, distance in neighbor_domains:            
 
             shell_list = self.get_neighbor_shell_list(neighbor)
             for _, shell_appearance in shell_list:

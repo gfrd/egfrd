@@ -12,6 +12,10 @@ from shells import (hasSphericalShell, Others)
 
 import os
 
+import logging
+log = logging.getLogger('ecell')
+
+
 class Multi(Domain, hasSphericalShell, Others):
     def __init__(self, domain_id, main, step_size_factor, dt_hardcore_min = -1):
         Domain.__init__(self, domain_id)

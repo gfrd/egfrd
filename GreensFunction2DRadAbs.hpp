@@ -42,7 +42,7 @@ private:
 
     static const Real L_TYPICAL = 1E-7; // typical length scale
     static const Real T_TYPICAL = 1E-5; // typical time scale
-    static const Real EPSILON = 1E-9    // relative numeric error  // TESTING temporarily increased; was 1e-12
+    static const Real EPSILON   = 1E-9; // relative numeric error  // TESTING temporarily increased; was 1e-12
 
     // DEFAULT = 30
     static const unsigned int MAX_ORDER = 30;         // The maximum number of m 

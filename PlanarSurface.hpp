@@ -125,8 +125,8 @@ public:
     }
 
     // Positions created at dissociation of one particle on the structure into two particles on the structure
-    virtual position_pair_type geminate_dissociation_positions( rng_type& rng, species_type const& s0, species_type const& s1, position_type const& op, 
-        length_type const& rl ) const
+    virtual position_pair_type geminate_dissociation_positions( rng_type& rng, species_type const& s0, species_type const& s1, 
+                                                                position_type const& op, length_type const& rl ) const
     {
         length_type const r01( s0.radius() + s1.radius() );
         Real const D01( s0.D() + s1.D() );
@@ -137,8 +137,10 @@ public:
         length_type const r01l_sq( r01l * r01l );
         length_type const r01_sq( r01 * r01 );
         
-        length_type const diss_vec_length( sqrt( X * (r01l_sq - r01_sq) + r01_sq ) );
-
+        // The square takes into account the radial character of the sampled length
+        length_type const diss_vec_length( sqrt( r01_sq + X * (r01l_sq - r01_sq) ) );
+        assert(diss_vec_length >= r01);
+        
         position_type const m( random_vector( diss_vec_length, rng ) );
 
         return position_pair_type( op - m * s0.D() / D01,

@@ -64,9 +64,9 @@ import loadsave
 from histograms import *
 
 import logging
-import os
-
 log = logging.getLogger('ecell')
+
+import os
 
 ### Singles
 def create_default_single(domain_id, shell_id, pid_particle_pair, structure, reaction_rules, geometrycontainer, domains):
@@ -876,7 +876,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         # Then we may want to burst in a cylindrical volume, not a sphere.
         # Same for the 1D particles on rods.
 
-        neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(pos, radius, ignore)
+        neighbor_ids = self.geometrycontainer.get_neighbors_within_radius_no_sort(pos, SAFETY*radius, ignore)
 
         return self.burst_domains(neighbor_ids, ignore)
 
@@ -1086,7 +1086,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             if not ((product_pos_list[0] == reactant_pos).all()) or product_radius > reactant_radius:
                 product_pos = self.world.apply_boundary(product_pos_list[0])
                 radius = self.world.distance(product_pos, reactant_pos) + product_radius
-                zero_singles, ignore = self.burst_volume(product_pos, radius, ignore)
+                zero_singles, ignore = self.burst_volume(product_pos, radius*SINGLE_SHELL_FACTOR, ignore)
 
             # 3. check that there is space for the products (try different positions if possible)
             # accept the new positions if there is enough space.
@@ -1307,7 +1307,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             product2_pos = self.world.apply_boundary(product_pos_list[0][1])
             radius = max(self.world.distance(product1_pos, reactant_pos) + product1_radius,
                          self.world.distance(product2_pos, reactant_pos) + product2_radius)
-            zero_singles, ignore = self.burst_volume(reactant_pos, radius, ignore)
+            zero_singles, ignore = self.burst_volume(reactant_pos, radius*SINGLE_SHELL_FACTOR, ignore)
 
             # 3. check that there is space for the products (try different positions if possible)
             # accept the new positions if there is enough space.
@@ -1419,7 +1419,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             #    reactant particle moving into the surface.
             #    Note that the burst is recursive!!
             if product_radius > reactant_radius:
-                zero_singles, ignore = self.burst_volume(product_pos, product_radius, ignore)
+                zero_singles, ignore = self.burst_volume(product_pos, product_radius*SINGLE_SHELL_FACTOR, ignore)
 
             # 3. check that there is space for the products 
             # Note that we do not check for interfering surfaces (we assume this is no problem)
@@ -1518,7 +1518,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # 2.1 if the product particle sticks out of the shell
 
             #if self.world.distance(old_com, product_pos) > (pair.get_shell_size() - product_radius): # TODO What is that?
-            zero_singles, ignore = self.burst_volume(product_pos, product_radius, ignore)
+            zero_singles, ignore = self.burst_volume(product_pos, product_radius*SINGLE_SHELL_FACTOR, ignore)
 
             # 3. check that there is space for the products ignoring the reactants
             # Note that we do not check for interfering surfaces (we assume this is no problem)
@@ -1560,7 +1560,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
     def fire_move(self, single, reactant_pos, reactant_structure_id, ignore_p=None):
         # No reactions/Interactions have taken place -> no identity change of the particle
-        # Just only move the particles and process putative structure change
+        # Just move the particles and process putative structure change
 
         # Note that the reactant_structure_id is the id of the structure on which the particle was located at the time of the move.
 
@@ -2034,7 +2034,6 @@ class EGFRDSimulator(ParticleSimulatorBase):
         pid_particle_pair2 = pair.pid_particle_pair2
         oldpos1 = pid_particle_pair1[1].position
         oldpos2 = pid_particle_pair2[1].position
-
 
         if pair.event_type == EventType.IV_EVENT:
             # Draw actual pair event for iv at very last minute.
@@ -2969,7 +2968,41 @@ rejected moves:  %d
 
                 # If the unit_z of cylinder1 (disk1) is perpendicular to the axis of cylinder2 (disk2).
                 if feq(relative_orientation, 0.0):
-                    return 1                                      # TODO Why does this always return 1 ?
+
+                    # Project the inter-cylinder distance on the axes of the two cylinders (disks)
+                    inter_pos_proj_1 = numpy.dot(inter_pos, shape1.unit_z) * shape1.unit_z
+                    inter_pos_proj_2 = numpy.dot(inter_pos, shape2.unit_z) * shape2.unit_z
+                    # Also calculate the part orthogonal to both projections
+                    inter_pos_proj_3 = inter_pos - inter_pos_proj_1 - inter_pos_proj_2
+
+                    delta_1 = length(inter_pos_proj_1)
+                    delta_2 = length(inter_pos_proj_2)
+                    delta_3 = length(inter_pos_proj_3)                    
+
+                    # Collision is impossible if the half-length of the cylinder that we projected on
+                    # plus the radius of the other cylinder are smaller then the projected distance
+                    if delta_1 > shape1_hl + shape2.radius:
+                        return 1
+                    # Also check for the vice-versa projection
+                    if delta_2 > shape2_hl + shape1.radius:
+                        return 1                                                                               
+
+                    # Treat the obvious collisions:
+                    # If the following criterion is fulfilled we certainly have one
+                    if delta_3 <= shape1.radius + shape2.radius and \
+                       shape1_hl > delta_1 and shape2_hl > delta_2:
+
+                        return -1
+
+                    else:
+                        # The cylinders overlap in one of the planes defined by the cylinder axes
+                        # as plane normal vectors. That does not necessarily mean that they also overlap
+                        # in 3D precisely because of the missing corner volume (when compared to a box).
+                        # Collision here of course is possible but it is nontrivial to calculate it
+                        # in a generic way. For now we just warn.
+                        # TODO We need really sth. more sophisticated here!
+                        log.warning('check_shape_overlap: Incomplete check for orthogonal cylinders overlap.')
+                        return 1
 
                 # If the two objects (cylinder or disk) are parallel
                 elif feq(abs(relative_orientation), 1.0):

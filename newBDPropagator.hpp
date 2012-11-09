@@ -659,10 +659,15 @@ private:
                             // Remember the new structure IDs
                             product0_struct_id = pos0pos1_pair.first.second;
                             product1_struct_id = pos0pos1_pair.second.second;
+                            LOG_DEBUG(("  Applying boundaries to sampled positions: pos0=%s, pos1=%s", boost::lexical_cast<std::string>(pos0pos1_pair.first.first).c_str(),
+                                                           boost::lexical_cast<std::string>(pos0pos1_pair.second.first).c_str() ));
                             // Apply the boundary conditions
                             const position_structid_pair_type pos_structid0 (tx_.apply_boundary( pos0pos1_pair.first  ));
                             const position_structid_pair_type pos_structid1 (tx_.apply_boundary( pos0pos1_pair.second ));
                             pos0pos1_pair = std::make_pair(pos_structid0, pos_structid1);
+                            
+                            LOG_DEBUG(("  New positions: pos0=%s, pos1=%s", boost::lexical_cast<std::string>(pos0pos1_pair.first.first).c_str(),
+                                                           boost::lexical_cast<std::string>(pos0pos1_pair.second.first).c_str() ));
 
 
                             //// 1b - CHECK FOR OVERLAPS

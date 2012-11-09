@@ -29,8 +29,10 @@ TIME_TOLERANCE = 1e-10
 # precision before putting them into the scheduler. This was originally introduced
 # to overcome nasty divergence effects in reloaded simulations caused by limited
 # Python float precision. Put this at a high value if you want to sample accurately
-# very small time steps by purpose. 
-SCHEDULER_DIGITS = int(-1.0*numpy.log10(TIME_TOLERANCE))
+# very small time steps by purpose.
+# Note that a low number of digits may cause cascades of subsequent dt=0 updates
+# for example in pair formation which ultimately will lead to abortion of the simulation.
+SCHEDULER_DIGITS = 2*int(-1.0*numpy.log10(TIME_TOLERANCE))
 
 # Multiplication factor used for seperating 2 particles or a particle and a 
 # surface after unbinding.

@@ -26,6 +26,9 @@ __all__ = [
     'MixedPair1DCap',
     ]
 
+import logging
+log = logging.getLogger('ecell')
+
 
 class Pair(ProtectiveDomain, Others):
     """There are 3 types of pairs:
@@ -136,11 +139,16 @@ class Pair(ProtectiveDomain, Others):
                    self.draw_single_reaction_time_tuple()) 
 
     def draw_iv_event_type(self, r0):
-        gf = self.iv_greens_function(r0)        
+
+        gf = self.iv_greens_function(r0)
+
         if self.dt < TIME_TOLERANCE**2:
+            log.warning('Ridiculously small pair next-event time: pair.dt = %.30g < TIME_TOLERANCE^2, setting pair.dt = TIME_TOLERANCE^2 = %.30g' \
+                       % (self.dt, TIME_TOLERANCE**2) )
             dt = TIME_TOLERANCE**2
         else:
             dt = self.dt
+
         event_kind = draw_event_type_wrapper(gf, dt)
         if event_kind == PairEventKind.IV_REACTION:
             return EventType.IV_REACTION

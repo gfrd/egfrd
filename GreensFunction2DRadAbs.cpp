@@ -1612,11 +1612,12 @@ std::string GreensFunction2DRadAbs::dump() const
 {
     
     std::ostringstream ss;
-    ss << "D = " << this->getD()   << ", sigma = " << this->getSigma() <<
-        ", a = " << this->geta()   <<
+    ss << "Parameters dump: ";
+    ss << "D = "  << this->getD()  << ", sigma = " << this->getSigma() <<
+        ", a = "  << this->geta()  <<
         ", kf = " << this->getkf() <<
         ", r0 = " << this->getr0() <<
-        ", h = " << this->geth()   << std::endl;
+        ", h = "  << this->geth()  << std::endl;
     return ss.str();
 }    
 

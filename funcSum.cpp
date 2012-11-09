@@ -157,7 +157,7 @@ funcSum(boost::function<Real(unsigned int i)> f, size_t max_i, Real tolerance)
         gsl_sum_levin_utrunc_workspace* 
             workspace(gsl_sum_levin_utrunc_alloc(i));
         gsl_sum_levin_utrunc_accel(&pTable[0], pTable.size(), workspace, 
-        &sum, &error);
+            &sum, &error);
         if (fabs(error) >= fabs(sum * tolerance * 10))
         {
             _log.error("series acceleration error: %.16g"
