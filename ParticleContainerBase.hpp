@@ -187,27 +187,36 @@ public:
         return traits_type::apply_boundary(v, world_size());
     }
 
-    // apply_boundary that takes the structure on which the particle lives into account
+    // Version of apply_boundary that takes the structure on which the particle lives into account  
     // This also applies the 'local' boundary conditions of the individual structures (reflecting, periodic, moving
     // onto another adjacent structure etc).
-
+    //
     // To call the right function for a particular Surface we:
-    // -first need to call the 'apply_boundary method of the structure in question with the StructureContainer as an argument (to get
-    //  the StructureContainer that we need to use ->structures don't know about the container they're in!)
-    // -second call the apply_boundary method of the structure_container using the structure (which is now of a fully speciefied type!!!)
-    //  as an argument (see for example PlanarSurface.hpp, NOT surface.hpp)
-    // -Use this fully defined type to call the right function through the template method 'apply_boundary' of the StructureContainer.
-    //  (See StructureContainer.hpp)
+    //
+    // - first need to call the 'apply_boundary method of the structure in question with the StructureContainer as an argument (to get
+    //   the StructureContainer that we need to use ->structures don't know about the container they're in!)
+    //
+    // - second call the apply_boundary method of the structure_container using the structure (which is now of a fully specified type!!!)
+    //   as an argument (for example see PlanarSurface.hpp, NOT Surface.hpp)
+    //
+    // - Use this fully defined type to call the right function through the template method 'apply_boundary' of the StructureContainer.
+    //   (See StructureContainer.hpp)
     virtual position_structid_pair_type apply_boundary(position_structid_pair_type const& pos_struct_id) const
     {
-        // cyclic transpose the position with the structure
-        const boost::shared_ptr<const structure_type> structure (get_structure(pos_struct_id.second));
-        const position_structid_pair_type cyc_pos_struct_id (std::make_pair(cyclic_transpose(pos_struct_id.first, structure->position()),
-                                                                            pos_struct_id.second));
+//         // cyclic transpose the position with the structure
+//         const boost::shared_ptr<const structure_type> structure (get_structure(pos_struct_id.second));
+//         const position_structid_pair_type cyc_pos_struct_id (std::make_pair(cyclic_transpose(pos_struct_id.first, structure->position()),
+//                                                                             pos_struct_id.second));
 
+        // TESTING: cyclic transpose should not be applied when going around an edge!
+        // TODO Clean this up when it is clear that cyclic_transpose is unnecessary here.
+        const position_structid_pair_type cyc_pos_struct_id( pos_struct_id );
+        // Get the structure
+        const boost::shared_ptr<const structure_type> structure (get_structure(pos_struct_id.second));
         // The generalized boundary condition application first:
         // 1. applies the boundary of the structure/surface (go around the corner etc)
         const position_structid_pair_type new_pos_struct_id(structure->apply_boundary(cyc_pos_struct_id, structures_));
+        
         // 2. Then also apply the boundary condition of the world
         return std::make_pair(apply_boundary(new_pos_struct_id.first), new_pos_struct_id.second);
     }

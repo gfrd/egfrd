@@ -242,6 +242,14 @@ def create_box(world, structure_type, center, size, one_sided=True):
 
     # Update the connectivity container
     # This has to follow the plane side convention strictly!
+    # The convention is:
+    #
+    # - neighbor 0 is the one in positive unit_y direction ("top neighbor")
+    # - neighbor 1 is the one in negative unit_y direction ("bottom neighbor")
+    # - neighbor 2 is the one in negative unit_x direction ("left neighbor")
+    # - neighbor 3 is the one in positive unit_x direction ("right neighbor")
+    #
+    # See StructureContainer.hpp for more details.
     world.connect_structures( front, 3, top, 2)
     world.connect_structures( front, 2, bottom, 1)
     world.connect_structures( front, 1, left, 2)
@@ -364,9 +372,13 @@ def throw_in_particles(world, sid, n, bound_1=[0,0,0], bound_2=[0,0,0]):
     """
     species = world.get_species(sid)
     structure_type = world.get_structure_type(species.structure_type_id)
-    structure_list = list(world.get_structure_ids(structure_type))
+    structure_list = list(world.get_structure_ids(structure_type))    
 
     ws = world.world_size
+
+    if species.radius >= 0.05 * ws:
+        log.warn('Particle radius >= 0.05*world_size - this may break simulation efficiency!')
+
     # For comparison purposes:
     bound_1 = numpy.array(bound_1)
     bound_2 = numpy.array(bound_2)
@@ -448,6 +460,9 @@ def place_particle(world, sid, position):
     species = world.get_species(sid)
     radius = species.radius
 
+    if radius >= 0.05 * world.world_size:
+        log.warn('Particle radius >= 0.05*world_size - this may break simulation efficiency!')
+
     # FIXME This is a mess!!
 
     # check that particle doesn't overlap with other particles.
@@ -494,21 +509,24 @@ def place_particle(world, sid, position):
     # added to the world, or added to a self-defined box.
     if species.structure_type_id == world.get_def_structure_type_id():
         
-        structure_id = world.get_def_structure_id()        
-        surface, distance = surfaces[0]  # the closest surface
-        overlaps = world.check_surface_overlap((position, radius*MINIMAL_SEPARATION_FACTOR),
-                                                position, structure_id, radius)
+        structure_id = world.get_def_structure_id()
 
-        # Raise an error in case of overlap with a surface other than PlanarSurface
-        # (the latter we allow to overlap with bulk particles)
-        if overlaps and not isinstance(surface, PlanarSurface):
-            raise RuntimeError('  Placing particle failed: %s %s. '
-                               '  Too close to surface: %s.' %
-                                  (sid, position, surface) )
+        if surfaces:
 
-        if overlaps and isinstance(surface, PlanarSurface):
-            log.warning('  Particle of species %s placed at position %s overlaps with surface %s.' % \
-                           (sid, position, surface) )
+            surface, distance = surfaces[0]  # the closest surface
+            overlaps = world.check_surface_overlap((position, radius*MINIMAL_SEPARATION_FACTOR),
+                                                    position, structure_id, radius)
+
+            # Raise an error in case of overlap with a surface other than PlanarSurface
+            # (the latter we allow to overlap with bulk particles)
+            if overlaps and not isinstance(surface, PlanarSurface):
+                raise RuntimeError('  Placing particle failed: %s %s. '
+                                  '  Too close to surface: %s.' %
+                                      (sid, position, surface) )
+
+            if overlaps and isinstance(surface, PlanarSurface):
+                log.warning('  Particle of species %s placed at position %s overlaps with surface %s.' % \
+                              (sid, position, surface) )
     else:
         # If the particle lives on a surface then the position should be in the closest surface.
         # The closest surface should also be of the structure_type associated with the species.        

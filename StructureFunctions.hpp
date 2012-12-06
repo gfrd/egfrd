@@ -1187,12 +1187,28 @@ get_pos_sid_pair_pair( PlanarSurface<Ttraits_>                const& origin_stru
     typedef typename Ttraits_::position_type            position_type;
     typedef typename Ttraits_::length_type              length_type;
     
-    std::pair<position_type, position_type> new_positions( origin_structure.special_geminate_dissociation_positions(rng, s_orig, s_targ, old_pos, reaction_length) );
-    // special_geminate_dissociation_positions will produce two new positions close to old_pos taking into account
-    // the types of origin_structure and target_structure and the properties of the two product species
-    // (the displacements from old_pos are weighted by the diffusion constants);
-    // the first pair entry is the particle staying on the surface, the second entry the particle
-    // that goes into the bulk
+    std::pair<position_type, position_type> new_positions;
+    length_type dist_to_edge_1;
+    length_type dist_to_edge_2;
+    
+    bool positions_legal(false);
+    
+    do{
+        // Produce two new positions
+        new_positions = origin_structure.special_geminate_dissociation_positions(rng, s_orig, s_targ, old_pos, reaction_length);
+          // special_geminate_dissociation_positions will produce two new positions close to old_pos taking into account
+          // the types of origin_structure and target_structure and the properties of the two product species
+          // (the displacements from old_pos are weighted by the diffusion constants);
+          // the first pair entry is the particle staying on the surface, the second entry the particle
+          // that goes into the bulk
+        
+        // Check whether the newly produced positions are above the origin plane
+        dist_to_edge_1 = origin_structure.project_point(new_positions.first).second.second;
+        dist_to_edge_2 = origin_structure.project_point(new_positions.second).second.second;
+        
+        positions_legal = (dist_to_edge_1 < 0.0) and (dist_to_edge_2 < 0.0);    
+    }
+    while( not(positions_legal) );
             
     return std::make_pair(      std::make_pair(new_positions.first,  origin_structure.id()),
                                 std::make_pair(new_positions.second, target_structure.id())    );    

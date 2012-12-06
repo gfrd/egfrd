@@ -555,7 +555,8 @@ private:
                     {                        
                         //// 0 - SOME NECESSARY DEFINITONS
                         const position_type                             reactant_pos(pp.second.position());                        
-                        const boost::shared_ptr<const structure_type>   reactant_structure( tx_.get_structure( pp.second.structure_id() ) );
+                        const structure_id_type                         reactant_structure_id( pp.second.structure_id() );
+                        const boost::shared_ptr<const structure_type>   reactant_structure( tx_.get_structure( pp.second.structure_id() ) );                        
                         const structure_type_id_type                    reactant_structure_type_id( reactant_structure->sid() );
                         const structure_id_type                         parent_structure_id( reactant_structure->structure_id() );
                         const boost::shared_ptr<const structure_type>   parent_structure( tx_.get_structure(parent_structure_id) );
@@ -572,32 +573,35 @@ private:
                         // Determine the structures on which the products will end up.
                         // By default we set both product structure to reactant_structure.
                         const boost::shared_ptr<const structure_type> product0_structure(reactant_structure);
-                        const boost::shared_ptr<const structure_type> product1_structure(reactant_structure);
+                        boost::shared_ptr<const structure_type>       product1_structure(reactant_structure);
+                        // Also for the structure IDs
+                        structure_id_type product0_structure_id( reactant_structure_id );
+                        structure_id_type product1_structure_id( reactant_structure_id );
                         // Now check whether one of the products actually leaves reactant_structure according to the reaction rules.
                         species_type product0_species(tx_.get_species(products[0]));
-                        species_type product1_species(tx_.get_species(products[1]));                        
+                        species_type product1_species(tx_.get_species(products[1]));
 
                         LOG_DEBUG(("Attempting single reaction with two products." ));
                         
                         // If the products live on different structures, one must be the parent of the other or the default structure.
                         // In this case we have to bring the products into the right order.
                         // We set: species 0 lives on the current structure; species 1 lives in the product structure (if applicable).
-                        // Compare the structure type IDs of the product species to determine where products will end up:                                                                                                                                                                    
-
-                        // Initialize: by default the dissociating particle goes into the bulk
-                        structure_id_type product1_structure_id( tx_.get_def_structure_id() );
+                        // Compare the structure type IDs of the product species to determine where products will end up:                                                                                                                                                                                            
                         
+                        // If product structure types are different
                         if( product0_species.structure_type_id() != product1_species.structure_type_id() )
-                        {                          
+                        {                        
                             // First check whether the reaction rule defines a legal dissociation reaction
+                            // One of the products must stay in the reactant structure
                             if( !( product0_species.structure_type_id() == reactant_structure_type_id ||
                                    product1_species.structure_type_id() == reactant_structure_type_id    )
                               )
                                 throw not_implemented("Invalid product structure for first product in single reaction: One particle must stay behind on structure of origin!");
-                                
+
+                            // One of the products must go into the parent or default structure
                             if( !( product0_species.structure_type_id() == parent_structure_type_id  ||
-                                   product0_species.structure_type_id() == default_structure_type_id || 
-                                   product1_species.structure_type_id() == parent_structure_type_id  ||                                  
+                                   product0_species.structure_type_id() == default_structure_type_id ||
+                                   product1_species.structure_type_id() == parent_structure_type_id  ||                                 
                                    product1_species.structure_type_id() == default_structure_type_id    )
                               )
                                 throw not_implemented("Invalid product structure for second product in single reaction: Must be either parent or default structure!");
@@ -608,11 +612,11 @@ private:
                             
                             // Determine where the dissociating particle (product1) goes
                             if( product1_species.structure_type_id() == default_structure_type_id )
-                                ; // the dissociating product lives in the bulk; do nothing, set correctly already above
+                                product1_structure_id = default_structure_id;
                             
                             else if( product1_species.structure_type_id() == parent_structure_type_id )
                                 // the product lives on the parent structure 
-                                product1_structure_id =  parent_structure_id;
+                                product1_structure_id = parent_structure_id;
                             
                             else
                               
@@ -620,7 +624,7 @@ private:
                                                         
                             // If no exception was thrown, everything should be OK now.
                             // Change the default setting for product1
-                            const boost::shared_ptr<const structure_type> product1_structure( tx_.get_structure(product1_structure_id) );
+                            product1_structure = tx_.get_structure(product1_structure_id);
                         }
                         // TODO Can we not outsource this part to the structure functions, too?
 
@@ -668,6 +672,8 @@ private:
                             
                             LOG_DEBUG(("  New positions: pos0=%s, pos1=%s", boost::lexical_cast<std::string>(pos0pos1_pair.first.first).c_str(),
                                                            boost::lexical_cast<std::string>(pos0pos1_pair.second.first).c_str() ));
+                            LOG_DEBUG(("  New structure IDs: id0=%s, id1=%s", boost::lexical_cast<std::string>(pos0pos1_pair.first.second).c_str(),
+                                                           boost::lexical_cast<std::string>(pos0pos1_pair.second.second).c_str() ));
 
 
                             //// 1b - CHECK FOR OVERLAPS
@@ -861,11 +867,13 @@ private:
                         LOG_DEBUG(("  Note: product_structure_type_id = %s", boost::lexical_cast<std::string>( product_structure_type_id).c_str() ));                        
                         LOG_DEBUG(("  Note: reactants_CoM=%s", boost::lexical_cast<std::string>(reactants_CoM).c_str() ));
                         
-                        const position_structid_pair_type product_pos_struct_id( reactant0_structure->get_pos_sid_pair_2o(*reactant1_structure, product_structure_type_id,
-                                                                                                                          reactants_CoM, typical_length, reaction_length_, rng_ ) );
+                        const position_structid_pair_type product_info_in_reactant_structure( reactant0_structure->get_pos_sid_pair_2o(*reactant1_structure,
+                                                                                                                                        product_structure_type_id,
+                                                                                                                                        reactants_CoM, typical_length, 
+                                                                                                                                        reaction_length_, rng_ ) );
                         // Apply the boundary conditions; this is particularly important here because the CoM projection as produced by the function above
                         // in some cases might end up out of the target_structure (e.g. in case the two reactants are coming from adjacent planes
-                        tx_.apply_boundary(product_pos_struct_id);
+                        const position_structid_pair_type product_pos_struct_id = tx_.apply_boundary(product_info_in_reactant_structure);
                           // TODO cyclic_transpose ?
                           // TODO check whether the new position is in the target structure?
                           

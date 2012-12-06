@@ -855,7 +855,9 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         
         # Some definitions 
         self.structure2D = self.testShell.structure2D   # the surface on which particle1 lives
-        self.structure3D = self.testShell.structure3D   # structure on which both particles live
+        self.structure3D = self.testShell.structure3D   # structure on which particle2 lives
+        self.particle2D  = self.testShell.particle2D
+        self.particle3D  = self.testShell.particle3D
 
         # initialize some useful constants
         self.z_scaling_factor = self.testShell.get_scaling_factor()
@@ -866,52 +868,54 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         # The latter is defined for completeness and used by check_domain() in egfrd.py:
         # (Note that that origin and target end up in same list.)
         self.origin_structure = self.testShell.origin_structure
-        self.target_structure = self.testShell.target_structure         
-#        self.origin_structure = self.structure3D
-#        self.target_structure = self.structure2D
-
+        self.target_structure = self.testShell.target_structure
 
     def determine_radii(self):
-        # determines the dimensions of the domains used for the Green's functions from the dimensions
-        # of the cylindrical shell.
-        # Note that the function assumes that the cylinder is dimensioned properly
-        radius1 = self.pid_particle_pair1[1].radius
-        radius2 = self.pid_particle_pair2[1].radius
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        # Determines the dimensions of the domains used for the Green's functions 
+        # from the dimensions of the cylindrical shell.
+        # Note that the function assumes that the cylinder is dimensioned properly.
+        radius2D = self.particle2D.radius
+        radius3D = self.particle3D.radius
+        D_2D = self.particle2D.D
+        D_3D = self.particle3D.D
 
-        radius      = self.shell.shape.radius
-        half_length = self.shell.shape.half_length
+        shell_radius      = self.shell.shape.radius
+        shell_half_length = self.shell.shape.half_length
+        z_left            = radius2D
+        z_right           = 2.0*shell_half_length - z_left
 
         # Use class methods to check dimensions of the cylinder
-        r_check  = self.testShell.r_right (half_length*2 - radius1)
-        hl_check = (self.testShell.z_right (radius) + self.testShell.z_left (radius))/2
+        r_check  = self.testShell.r_right(z_right)
+        hl_check = (self.testShell.z_right(shell_radius) + self.testShell.z_left(shell_radius)) / 2.0
         if __debug__:
-            assert feq(r_check, radius) and feq(hl_check, half_length), \
+            assert feq(r_check, shell_radius) and feq(hl_check, shell_half_length), \
                 'MixedPair2D3D: Domain did not obey scaling relationship. ' \
-                'radius = %s, half_length = %s, radius_check = %s, half_length_check = %s' % \
-                 (FORMAT_DOUBLE % radius,  FORMAT_DOUBLE % half_length,
-                  FORMAT_DOUBLE % r_check, FORMAT_DOUBLE % hl_check)
-
+                'shell_radius = %s, shell_half_length = %s, radius_check = %s, half_length_check = %s, ' \
+                'z_left = %s, z_right = %s' % \
+                 (FORMAT_DOUBLE % shell_radius, FORMAT_DOUBLE % shell_half_length,
+                  FORMAT_DOUBLE % r_check,      FORMAT_DOUBLE % hl_check,
+                  FORMAT_DOUBLE % z_left,       FORMAT_DOUBLE % z_right          )
 
         # Partition the space in the protective domain over the IV and the CoM domains
-        z_left  = radius1
-        z_right = half_length * 2 - z_left
-        a_r = (z_right - radius2) * self.z_scaling_factor
+        # The outer bound of the interparticle vector is set by the particle diffusing in 3D via:
+        a_r = (z_right - radius3D) * self.z_scaling_factor
 
-        # calculate the maximal displacement of a particle given an a_r. Also include its radius
-        space_for_iv = max( (D_1/self.D_tot) * a_r + radius1,
-                            (D_2/self.D_tot) * a_r + radius2)
-        a_R = radius - space_for_iv
+        # Calculate the maximal displacement of a particle given an interparticle vector bound a_r
+        # taking into account the radius for both the 2D and 3D particle. This sets the remaining
+        # space for the CoM diffusion.
+        space_for_iv = max( (D_2D/self.D_tot) * a_r + radius2D,
+                            (D_3D/self.D_tot) * a_r + radius3D)
 
+        # It then determines the CoM vector bound via
+        a_R = shell_radius - space_for_iv
 
         # Print the domain sizes and their estimated first passage times.
         if __debug__:
-            tr = ((a_r - self.r0)**2) / (6 * self.D_r)  # the expected escape time of the iv
+            tr = ((a_r - self.r0)**2.0) / (6.0 * self.D_r)  # the expected escape time of the iv
             if self.D_R == 0:
                 tR = numpy.inf 
             else:
-                tR = (a_R**2) / (4 * self.D_R)          # the expected escape time of the CoM
+                tR = (a_R**2.0) / (4.0 * self.D_R)          # the expected escape time of the CoM
             log.debug('determine_radii: a_r= %s, tr= %s, a_R= %s, tR= %s, delta_tRr= %s' % \
                       (FORMAT_DOUBLE % a_r, FORMAT_DOUBLE % tr,
                        FORMAT_DOUBLE % a_R, FORMAT_DOUBLE % tR,
@@ -919,8 +923,9 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
 #        assert feq(tr, tR), 'estimate first passage times were not equal'
 
-        assert (self.sigma < a_r) and (a_r < half_length*2)
-        assert (0 < a_R) and (a_R < radius)
+        # Some checks that shall never fail
+        assert (self.sigma < a_r) and (a_r < 2.0*shell_half_length)
+        assert (0 < a_R) and (a_R < shell_radius)
 
         return a_R, a_r
 
@@ -958,16 +963,16 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
         iv_z = unit_z * iv_z_length
 
-        pos1 = com - weight1 * (iv_x + iv_y)
-        pos2 = com + weight2 * (iv_x + iv_y) + iv_z 
+        pos1 = com - weight1 * (iv_x + iv_y)            # the new 2D particle position
+        pos2 = com + weight2 * (iv_x + iv_y) + iv_z     # the new 3D particle position
 
         # Class method; so don't use self.(..)
         return pos1, pos2, structure2D.id, structure3D.id
 
     @ classmethod
-    def calc_z_scaling_factor(cls, D2d, D3d):
-        # calculates the scaling factor to make the anisotropic diffusion problem into a isotropic one
-        return math.sqrt( (D2d + D3d) / D3d)
+    def calc_z_scaling_factor(cls, D_2D, D_3D):
+        # calculates the scaling factor to make the anisotropic diffusion problem into an isotropic one
+        return math.sqrt( (D_2D + D_3D) / D_3D)
 
     def choose_pair_greens_function(self, r0, t):
         return self.iv_greens_function(r0)
@@ -977,8 +982,8 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
         return GreensFunction2DAbsSym(self.D_R, self.a_R)
 
     def iv_greens_function(self, r0):
-        # diffusion of the interparticle vector is three dimensional
-        # TODO Fix ugly hack to prevent particle overlap problem
+        # Diffusion of the interparticle vector is three dimensional
+        # TODO Fix this ugly HACK to prevent particle overlap problem
         return GreensFunction3DRadAbs(self.D_r, self.interparticle_ktot, max(r0, self.sigma),
                                       self.sigma, self.a_r)
 
@@ -1019,17 +1024,17 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
 
     def check(self):
     # perform internal consistency check 
-        radius1 = self.pid_particle_pair1[1].radius
-        radius2 = self.pid_particle_pair2[1].radius
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        radius2D = self.particle2D.radius
+        radius3D = self.particle3D.radius
+        D_2D = self.particle2D.D
+        D_3D = self.particle3D.D
 
         radius      = self.shell.shape.radius
         half_length = self.shell.shape.half_length
 
         # check that the shell obeys the scaling rules dimensions of the cylinder
-        r_check  = self.testShell.r_right (half_length*2 - radius1)
-        hl_check = (self.testShell.z_right (radius) + self.testShell.z_left (radius))/2
+        r_check  = self.testShell.r_right(2.0*half_length - radius2D)
+        hl_check = (self.testShell.z_right(radius) + self.testShell.z_left(radius))/2.0
         assert feq(r_check, radius) and feq(hl_check, half_length), \
             'MixedPair2D3D: Domain did not obey scaling relationship. '
 

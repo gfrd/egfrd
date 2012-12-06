@@ -63,13 +63,13 @@ class Multi(Domain, hasSphericalShell, Others):
 
     def add_shell(self, shell_id_shell_pair):
         if __debug__:
-            log.info("add shell to multi:\n  (%s,\n   %s)" %
+            log.info("add shell to multi:\t (%s,\t%s)" %
                      (shell_id_shell_pair[0], shell_id_shell_pair[1]))
         self.sphere_container.update(shell_id_shell_pair)
 
     def add_particle(self, pid_particle_pair):
         if __debug__:
-            log.info("add particle to multi:\n  (%s,\n   %s)" % 
+            log.info("add particle to multi:\t (%s,\t\t%s)" % 
                      (pid_particle_pair[0], pid_particle_pair[1]))
         self.particle_container.update_particle(pid_particle_pair)
         

@@ -147,10 +147,10 @@ def try_default_testpair(single1, single2, geometrycontainer, domains):
             return CylindricalSurfacePairtestShell  (single1, single2, geometrycontainer, domains)
     elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, PlanarSurface)):
         return PlanarSurfaceTransitionPairtestShell (single1, single2, geometrycontainer, domains) 
-    #elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
-        #return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
-    #elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
-        #return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
+    elif (isinstance(single1.structure, PlanarSurface) and isinstance(single2.structure, CuboidalRegion)):
+        return MixedPair2D3DtestShell               (single1, single2, geometrycontainer, domains) 
+    elif (isinstance(single2.structure, PlanarSurface) and isinstance(single1.structure, CuboidalRegion)):
+        return MixedPair2D3DtestShell(single2, single1, geometrycontainer, domains)
     elif (isinstance(single1.structure, CylindricalSurface) and isinstance(single2.structure, DiskSurface)):
         return MixedPair1DCaptestShell(single1, single2, geometrycontainer, domains)
     elif (isinstance(single2.structure, CylindricalSurface) and isinstance(single1.structure, DiskSurface)):
@@ -498,7 +498,8 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     raise RuntimeError('too many dt=zero steps. '
                                        'Simulator halted?'
                                     'dt= %.10g-%.10g' % (self.scheduler.top[1].time, self.t))
-                    log.warning('dt=zero step, working in s.t >> dt~0 Python limit.')
+
+                log.warning('dt=zero step, working in s.t >> dt~0 Python limit.')
             else:
                 self.zero_steps = 0
 
@@ -940,16 +941,20 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                 if isinstance(domain, NonInteractionSingle) and domain.is_reset():
                     # If the domain was already bursted, but was not on the ignore list yet, put it there.
-                    # NOTE: we assume that the domain has already bursted around it when it was made!
+                    # NOTE: we assume that the domain has already bursted around it when it was made!                    
                     ignore.append(domain_id)
 
-                elif (not isinstance(domain, Multi)) and (self.t != domain.last_time):
+                elif (not isinstance(domain, Multi)): #and (self.t != domain.last_time): ## TESTING TESTING TESTING
                     # Burst domain only if (AND):
                     # -within burst radius
                     # -not already bursted before (not on 'ignore' list)
                     # -domain is not zero dt NonInteractionSingle
                     # -domain is not a multi
-                    # -domain has time passed
+                    # -domain has time passed # TESTING we switch this off because sometimes indeed it is needed to
+                                              # burst newly created domains. For example, when two Multis are dissolved
+                                              # at the same time. Then the first Multi-breakup will result in the creation
+                                              # of new domains that will not be bursted at the second Multi-breakup 
+                                              # because dt=0. This may lead to overlaps.
  
                     # add the domain_id to the list of domains that is already bursted (ignore list),
                     # and burst the domain.
@@ -1175,28 +1180,71 @@ class EGFRDSimulator(ParticleSimulatorBase):
                     # draw a number of new positions for the two product particles
                     # TODO make this a generator
 
-                    product_pos_list = []
-                    for _ in range(self.dissociation_retry_moves):
-                        # draw the random angle for the 3D particle relative to the particle left in the membrane
+                    # Make sure that the new positions lie within the region bounded by neighboring orthogonal
+                    # planes to avoid particles leaking out of a box
+                    # NOTE surface lists have format (surface, distance_to_surface_from_reactant_position)
+                    neighbor_surfaces = get_neighbor_surfaces(self.world, reactant_pos, reactant_structure.id, ignores=[])
 
-                        # do the backtransform with a random iv with length such that the particles are at contact
-                        # Note we make the iv slightly longer because otherwise the anisotropic transform will produce illegal
-                        # positions
-                        iv = random_vector(particle_radius12 * MixedPair2D3D.calc_z_scaling_factor(DA, DB))
-                        iv *= MINIMAL_SEPARATION_FACTOR
+                    # Code snippet to get surfaces that might bound the dissociation positions;
+                    # not used at the moment...
+                    # Determine which of the neighbor surfaces set bounds to the dissociation region
+                    #bounding_surfaces = []
+                    #for surface, surface_distance in neighbor_surfaces:
+
+                        #if isinstance(surface, PlanarSurface) and \
+                            #feq(numpy.dot(surface.shape.unit_z, reactant_structure.shape.unit_z), 0.0) :
+
+                            #bounding_surfaces.append( (surface, surface_distance) )
+
+                    # OK, now sample new positions
+                    product_pos_list = []
+                    for _ in range(self.dissociation_retry_moves):                        
 
                         # determine the side of the membrane the dissociation takes place
                         if(reactant_structure.shape.is_one_sided):
                             unit_z = reactant_structure.shape.unit_z
                         else:
                             unit_z = reactant_structure.shape.unit_z * myrandom.choice(-1, 1)
+                        
+                        Ns = 0
+                        positions_legal = False
+                        while not positions_legal:
 
-                        # calculate the new positions and structure IDs
-                        newposA, newposB, sidA, sidB = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
-                                                                                       productA_radius, productB_radius,
-                                                                                       reactant_structure, reactant_structure,
-                                                                                       unit_z, self.world)
-                        # the second reactant_structure parameter passed is ignored here
+                            # draw the random angle for the 3D particle relative to the particle left in the membrane
+                            # do the backtransform with a random iv with length such that the particles are at contact
+                            # Note we make the iv slightly longer because otherwise the anisotropic transform will produce illegal
+                            # positions
+                            iv = random_vector(particle_radius12 * MixedPair2D3D.calc_z_scaling_factor(DA, DB))
+                            iv *= MINIMAL_SEPARATION_FACTOR
+
+                            # calculate the new positions and structure IDs
+                            newposA, newposB, _, _ = MixedPair2D3D.do_back_transform(reactant_pos, iv, DA, DB,
+                                                                                     productA_radius, productB_radius,
+                                                                                     reactant_structure, reactant_structure,
+                                                                                     unit_z, self.world)
+                            # the second reactant_structure parameter passed is ignored here
+                            # therefore also the structure IDs returned by the classmethod will not be right
+
+                            # Test whether the created positions are above the plane
+                            # This is to ensure that 3D particles will stay inside a box made from planes
+                            dist_to_edgeA = reactant_structure.project_point(newposA)[1][1]
+                            dist_to_edgeB = reactant_structure.project_point(newposB)[1][1]                            
+
+                            if dist_to_edgeA < 0.0 and dist_to_edgeB < 0.0 :
+                                # Note that project_point()[1][1] returns the negative length to the closest edge
+                                positions_legal = True
+
+                            elif __debug__:
+                            
+                                log.warning('Dissociation positions in fire_single on PlanarSurface with two products out of bounds => resampling')
+
+                            Ns = Ns + 1
+                            if Ns > self.MAX_NUM_DT0_STEPS:   # To avoid an infinite loop we need some kind of break condition
+                                                              # We take the same looping limit as for dt=0 steps because this is a similar situation
+                                raise RuntimeError('Too many resampling attempts in fire_single on PlanarSurface with two products: Ns = %s > %s' \
+                                                  % (Ns, self.MAX_NUM_DT0_STEPS) )
+                                                  # TODO This should not necessarily raise RuntimeError but just a warning;
+                                                  # this is for TESTING only; replace by something better
 
                         if default:
                             newpos1, newpos2 = newposA, newposB
@@ -1213,10 +1261,10 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                         unit_z = reactant_structure.shape.unit_z
 
-                        newposA, newposB, sidA, sidB = MixedPair1D3D.do_back_transform(reactant_pos, iv, DA, DB,
-                                                                                       productA_radius, productB_radius,
-                                                                                       reactant_structure, reactant_structure,
-                                                                                       unit_z, self.world)
+                        newposA, newposB, _, _ = MixedPair1D3D.do_back_transform(reactant_pos, iv, DA, DB,
+                                                                                 productA_radius, productB_radius,
+                                                                                 reactant_structure, reactant_structure,
+                                                                                 unit_z, self.world)
                         # the second reactant_structure parameter passed is ignored here
                         # unit_z is passed here for completeness but not used in the method
 
@@ -1564,7 +1612,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # Note that the reactant_structure_id is the id of the structure on which the particle was located at the time of the move.
 
-        if __debug__:
+        if __debug__:            
             assert isinstance(single, Single)
 
         # 0. get reactant info
@@ -1575,12 +1623,14 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         # 3. check that there is space for the reactants
         if ignore_p:
-            if self.world.check_overlap((reactant_pos, reactant[1].radius),
-                                        reactant[0], ignore_p[0]):
+            co = self.world.check_overlap((reactant_pos, reactant[1].radius),
+                                        reactant[0], ignore_p[0])
+            if co:
                 raise RuntimeError('fire_move: particle overlap failed.')
         else:
-            if self.world.check_overlap((reactant_pos, reactant[1].radius),
-                                        reactant[0]):
+            co = self.world.check_overlap((reactant_pos, reactant[1].radius),
+                                        reactant[0])            
+            if co:
                 raise RuntimeError('fire_move: particle overlap failed.')
 
         # 4. process the changes (move particles, change structure)
@@ -1900,8 +1950,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # in case of an interaction domain: determine real event before doing anything
             if single.event_type == EventType.IV_EVENT:
                 single.event_type = single.draw_iv_event_type()
-
-
+            
             # get the (new) position and structure on which the particle is located.
             if single.getD() != 0 and single.dt > 0.0:
                 # If the particle had the possibility to diffuse
@@ -2050,6 +2099,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         ### 3.1 Get new position and current structures of particles
         if pair.dt > 0.0:
+            
             newpos1, newpos2, struct1_id, struct2_id = pair.draw_new_positions(pair.dt, pair.r0, pair.iv, pair.event_type)
             newpos1, struct1_id = self.world.apply_boundary((newpos1, struct1_id))
             newpos2, struct2_id = self.world.apply_boundary((newpos2, struct2_id))
@@ -2200,6 +2250,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
         ### 6. Recursively burst around the newly made zero-dt NonInteractionSingles that surround the particles.
         for zero_single in zero_singles:
+            
             more_zero_singles, ignore = self.burst_non_multis(zero_single.pid_particle_pair[1].position,
                                                               zero_single.pid_particle_pair[1].radius*SINGLE_SHELL_FACTOR,
                                                               ignore)
@@ -2501,7 +2552,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
 
         # Add all partner domains (multi and dt=0 NonInteractionSingles) in the horizon to the multi
-        for partner in neighbors:
+        for partner in neighbors:            
             if (isinstance(partner, NonInteractionSingle) and partner.is_reset()) or \
                isinstance(partner, Multi):
                 self.add_to_multi_recursive(partner, multi)
@@ -2530,7 +2581,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
 
         if __debug__:
-            log.debug('add_to_multi_recursive.\n domain: %s, multi: %s' % (domain, multi))
+            log.debug('add_to_multi_recursive:\t domain: %s, multi: %s' % (domain, multi))
 
         if isinstance(domain, NonInteractionSingle):
             assert domain.is_reset()        # domain must be zero-dt NonInteractionSingle
@@ -2560,6 +2611,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             #    - are Multi or
             #    - are just bursted (initialized) NonInteractionSingles
             for neighbor, dist_to_shell in neighbor_distances:
+
                 if (isinstance (neighbor, NonInteractionSingle) and neighbor.is_reset()):
                     multi_horizon = (domain.pid_particle_pair[1].radius + neighbor.pid_particle_pair[1].radius) * \
                                     MULTI_SHELL_FACTOR
@@ -2608,7 +2660,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     # adding a single to the multi instead of creating a pair or interaction out of single(s)
 
         if __debug__:
-            log.info('add to multi:\n  %s\n  %s' % (single, multi))
+            log.info('add_to_multi:\t Adding %s to %s' % (single, multi))
 
         shell_id = self.shell_id_generator()
         shell = multi.create_new_shell(single.pid_particle_pair[1].position,
@@ -2625,7 +2677,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
     def merge_multis(self, multi1, multi2):
         # merge multi1 into multi2. multi1 will be removed.
         if __debug__:
-            log.info('merging %s to %s' % (multi1.domain_id, multi2.domain_id))
+            log.info('merge_multis: merging %s to %s' % (multi1.domain_id, multi2.domain_id))
             log.info('  %s' % multi1)
             log.info('  %s' % multi2)
 
@@ -2680,6 +2732,13 @@ class EGFRDSimulator(ParticleSimulatorBase):
         multi_steps = self.multi_steps[3] # total multi steps
         total_steps = single_steps + interaction_steps + pair_steps + multi_steps
 
+        if multi_steps:
+            avg_multi_time = 1.0 * self.multi_time / multi_steps
+            avg_multi_rl   = 1.0 * self.multi_rl   / multi_steps
+        else:
+            avg_multi_time = 0.0
+            avg_multi_rl   = 0.0
+
         report = '''
 t = %g
 \tNonmulti: %g\tMulti: %g
@@ -2720,8 +2779,8 @@ rejected moves:  %d
                self.multi_steps[EventType.MULTI_BIMOLECULAR_REACTION],
                self.multi_steps[EventType.MULTI_UNIMOLECULAR_REACTION],
                self.multi_steps[EventType.BURST],
-               1.0 * self.multi_time / multi_steps,
-               1.0 * self.multi_rl   / multi_steps,
+               avg_multi_time,
+               avg_multi_rl,
                self.reaction_events,
                self.rejected_moves
                )

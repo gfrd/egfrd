@@ -194,7 +194,19 @@ class testInteractionSingle(testSingle, Others):
 
         # The reference_vector is the normalized vector from the reference_point to the particle
         if any(pos_transposed != self.reference_point) :
-            self.reference_vector = normalize(pos_transposed - self.reference_point)
+            diff_vector = pos_transposed - self.reference_point
+
+            # Compare to the largest component of the difference vector
+            # If a component is TOLERANCE times smaller, regard it as zero
+            # This is to avoid calculation errors when the distance to the
+            # surface is very small / has very small nonzero components
+            max_component = max(diff_vector, key = lambda x : abs(x))
+            for c in range(0,3):
+                if abs(diff_vector[c]) <= 1.0e-6 * abs(max_component):  # FIXME using TOLERANCE does not always work here                    
+                    log.warning('Setting component %s of difference vector %s to zero.' % (c, diff_vector))
+                    diff_vector[c] = 0.0
+
+            self.reference_vector = normalize(diff_vector)
         else:
             self.reference_vector = 0
             raise testShellError('(testInteractionSingle). reference vector = 0.')
@@ -235,7 +247,7 @@ class testPair(Others):
         self.structure1 = single1.structure
         self.structure2 = single2.structure
 
-        self.com, self.iv = self.do_transform()         # NOTE The IV always points from particle1 to particle2
+        self.com, self.iv = self.do_transform()   # NOTE The IV always points from particle1 to particle2
         self.r0 = length(self.iv)
         if self.r0 < self.sigma:
             raise protoDomainError('distance_from_sigma (pair gap) between %s and %s = %s < 0' % \
@@ -320,8 +332,14 @@ class testMixedPair2D3D(testPair):
 
     def __init__(self, single2D, single3D):
 
-        # First define 
-        # for clarity:
+        # First define for clarity:
+        self.single2D = single2D
+        self.single3D = single3D
+        self.ppp2D      = single2D.pid_particle_pair
+        self.ppp3D      = single3D.pid_particle_pair
+        self.particle2D = single2D.pid_particle_pair[1]
+        self.particle3D = single3D.pid_particle_pair[1]
+
         self.structure2D = single2D.structure   # equal to self.structure1
         self.structure3D = single3D.structure   # equal to self.structure2
 
@@ -331,37 +349,48 @@ class testMixedPair2D3D(testPair):
                 assert isinstance(single3D.structure, CuboidalRegion)
         testPair.__init__(self, single2D, single3D)
           # note: this makes self.single1/self.pid_particle_pair1/self.structure1 for the 2D particle
-          #              and self.single2/self.pid_particle_pair2/self.structure2 for the 3D particle
-          
-        # TODO: modification by Martijn Wehrens (jintram@gmail.com) -- not absolutely sure this is correct place
+          #              and self.single2/self.pid_particle_pair2/self.structure2 for the 3D particle              
+
+        assert self.single2D == self.single1           and self.single3D == self.single2
+        assert self.ppp2D == self.pid_particle_pair1   and self.ppp3D == self.pid_particle_pair2
+        assert self.structure2D == self.structure1     and self.structure3D == self.structure2
+
+        # The following will be needed by some domain overlap checking functions
+        # TODO: modification by Martijn Wehrens (jintram@gmail.com)
+        #       -- not absolutely sure this is correct place
         self.origin_structure = self.structure3D
         self.target_structure = self.structure2D        
 
     def get_sigma(self):
-        # rescale sigma to correct for the rescaling of the coordinate system
-        # This is the sigma that is used for the evaluation of the Green's function and is in this case slightly
-        # different than the sums of the radii of the particleso
+        # rescale sigma to correct for the rescaling of the coordinate system.
+        # This is the sigma that is used for the evaluation of the Green's function and is in this case 
+        # slightly different from the sums of the radii of the particles. We rescale sigma in a way
+        # that the total flux over the reactive surface of the prolate spheroidal boundary with greater radius
+        # sigma is equal to the total flux over a spherical reactive surface with radius = rescaled sigma.
         xi = self.get_scaling_factor()
         xi_inv = 1.0/xi
         alpha = math.acos(xi_inv)
-        sigma = self.pid_particle_pair1[1].radius + self.pid_particle_pair2[1].radius
-        rho = abs(sigma * math.sqrt(0.5 + (alpha * xi/(2.0*math.sin(alpha)))))
-        return rho
+
+        sigma = self.particle2D.radius + self.particle3D.radius
+        rescaled_sigma = abs(sigma * math.sqrt(0.5 + (alpha * xi/(2.0*math.sin(alpha)))))
+
+        return rescaled_sigma
     sigma = property(get_sigma)
 
     def do_transform(self):
         # transform the pos1 and pos2 of particles1 and 2 to the CoM and IV vectors
-        pos1 = self.pid_particle_pair1[1].position
-        pos2 = self.pid_particle_pair2[1].position
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        pos2D = self.particle2D.position
+        pos3D = self.particle3D.position
+        D_2D  = self.particle2D.D
+        D_3D  = self.particle3D.D
 
+        # CoM calculation
         # the CoM is calculated in a similar way to a normal 3D pair
-        com = self.world.calculate_pair_CoM(pos1, pos2, D_1, D_2)
+        com = self.world.calculate_pair_CoM(pos2D, pos3D, D_2D, D_3D)
 
         # and then projected onto the plane to make sure the CoM is in the surface
         com = self.world.cyclic_transpose(com, self.structure2D.shape.position)
-        com, (_, dist) = self.structure2D.project_point (com)
+        com, (_, dist) = self.structure2D.project_point(com)
         if dist >= 0:
             raise testShellError('(testMixedPair2D3D). Projected point of CoM is not in surface.')
         else:
@@ -369,9 +398,9 @@ class testMixedPair2D3D(testPair):
 
         com = self.world.apply_boundary(com)
 
-        # calculate the interparticle vector
-        pos2t = self.world.cyclic_transpose(pos2, pos1)
-        iv = pos2t - pos1
+        # IV calculation
+        pos3D_t = self.world.cyclic_transpose(pos3D, pos2D)
+        iv      = pos3D_t - pos2D
 
         # rescale the iv in the axis normal to the plane
         iv_z_component = numpy.dot (iv, self.structure2D.shape.unit_z)
@@ -385,9 +414,9 @@ class testMixedPair2D3D(testPair):
     def get_scaling_factor(self):
         # This returns the scaling factor needed to make the anisotropic diffusion problem of the IV
         # into a isotropic one.
-        D_2 = self.pid_particle_pair2[1].D      # particle 2 is in 3D and is the only contributor to diffusion
-                                                # normal to the plane
-        return math.sqrt(self.D_r/D_2)
+        D_3D = self.particle3D.D    # 3D particle is the only contributor to diffusion
+                                    # normal to the plane
+        return math.sqrt(self.D_r/D_3D)
 
 class testMixedPair1DCap(testPair):
 
@@ -627,7 +656,8 @@ def get_dr_dzright_dzleft_to_SphericalShape(shape, testShell, r, z_right, z_left
     if ref_to_shell_z >= 0:
         direction = 1           # improve direction specification such that following calculations still work
                                 # Otherwise problems when direction = 0
-        scale_angle = testShell.right_scalingangle
+        scale_angle     = testShell.right_scalingangle
+        tan_scale_angle = testShell.tan_right_scalingangle
         scale_center_r, scale_center_z = testShell.right_scalingcenter 
         r1_function =  testShell.r_right
         z1_function = testShell.z_right
@@ -638,6 +668,7 @@ def get_dr_dzright_dzleft_to_SphericalShape(shape, testShell, r, z_right, z_left
     else:
         direction = -1
         scale_angle = testShell.left_scalingangle
+        tan_scale_angle = testShell.tan_left_scalingangle
         scale_center_r, scale_center_z = testShell.left_scalingcenter 
         r1_function =  testShell.r_left
         z1_function = testShell.z_left
@@ -680,7 +711,7 @@ def get_dr_dzright_dzleft_to_SphericalShape(shape, testShell, r, z_right, z_left
             scale_center_to_shell_z_thres = 0
         else:
             # scale_angle == 0 should not get here
-            scale_center_to_shell_z_thres = abs(scale_center_to_shell_r)/math.tan(scale_angle)
+            scale_center_to_shell_z_thres = abs(scale_center_to_shell_r)/tan_scale_angle
 
         shell_radius_thres = scale_center_to_shell_z - scale_center_to_shell_z_thres
         if shell_radius < shell_radius_thres:
@@ -690,7 +721,7 @@ def get_dr_dzright_dzleft_to_SphericalShape(shape, testShell, r, z_right, z_left
 
     elif scale_angle <= shell_angle and shell_angle < Pi/2.0:
     # The (spherical) shell can touch the cylinder on its edge or its radial side
-        tan_scale_angle = math.tan(scale_angle)                             # scale_angle == Pi/2 should not get here
+        # scale_angle == Pi/2 should not get here
         shell_radius_thres = scale_center_to_shell_r - scale_center_to_shell_z * tan_scale_angle  # TODO same here
 
         if shell_radius > shell_radius_thres:
@@ -808,7 +839,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
     if ref_to_shell_z >= 0:
         direction = 1           # improve direction specification such that following calculations still work
                                 # Otherwise problems when direction = 0
-        scale_angle = testShell.right_scalingangle
+        scale_angle     = testShell.right_scalingangle
+        tan_scale_angle = testShell.tan_right_scalingangle
         scale_center_r, scale_center_z = testShell.right_scalingcenter 
         r1_function = testShell.r_right
         z1_function = testShell.z_right
@@ -818,7 +850,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
     # else -> use z_left
     else:
         direction = -1
-        scale_angle = testShell.left_scalingangle
+        scale_angle     = testShell.left_scalingangle
+        tan_scale_angle = testShell.tan_left_scalingangle
         scale_center_r, scale_center_z = testShell.left_scalingcenter 
         r1_function = testShell.r_left
         z1_function = testShell.z_left
@@ -909,9 +942,6 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
         BARREL_HITS_FLAT, EDGE_HITS_EDGE, BARREL_HITS_EDGE, FLAT_HITS_BARREL, EDGE_HITS_BARREL, BARREL_HITS_BARREL = range(6)
         situation_string = ["BARREL_HITS_FLAT", "EDGE_HITS_EDGE", "BARREL_HITS_EDGE", "FLAT_HITS_BARREL", "EDGE_HITS_BARREL", "BARREL_HITS_BARREL"]
 
-        # Define some constants
-        tan_scale_angle = math.tan(scale_angle)
-
         #### (1) Now first determine which type of collision happens:
 
         if (ref_to_shell_x2 < 0) and (ref_to_shell_y2 < 0):
@@ -922,10 +952,6 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             # Then check whether any point of the axis of cyl. 2 projected on the top side of cyl. 1 is inside the radius of (scaled) cyl. 1.
             # If this is the case, we have the flat side of cyl. 1 hitting the barrel of cyl. 2. Else we have the edge hitting the barrel.
             r1_touch = (scale_center_to_shell_z - shell_radius)*tan_scale_angle
-
-            # TODO Probably not needed any more, remove!
-            dist_to_projected_edge_1 = math.sqrt(scale_center_to_shell_y**2 + (shell_half_length + scale_center_to_shell_y)**2)
-            dist_to_projected_edge_2 = math.sqrt(scale_center_to_shell_y**2 + (shell_half_length - scale_center_to_shell_y)**2)
 
             if r1_touch >= scale_center_to_shell_y:
                 # At least a part of the projected axis is within r_touch => flat side of scaled cyl. hits the barrel of cyl. 2
@@ -938,11 +964,14 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             # Quadrant 2
             quadrant = 2
 
+            scale_center_to_shell_x_minus_half_length = scale_center_to_shell_x - shell_half_length
+
             # The case scale_angle=0, i.e. radius remaining constant at scaling, has to be treated separately
             # because in this case the mathematics in the standard case misdetect the collision situation
             if scale_angle == 0:
                 
-                if math.sqrt( (scale_center_to_shell_x - shell_half_length)**2 + scale_center_to_shell_y**2) < r :
+                if math.sqrt( scale_center_to_shell_x_minus_half_length*scale_center_to_shell_x_minus_half_length + \
+                              scale_center_to_shell_y*scale_center_to_shell_y) < r :
                 # The lowest point of the static cylinder is within the radius/flat side circle of the scaling cylinder.
                 # Therefore, when the height is scaled, the flat side must hit the barrel of the static cylinder at the lowpoint.
                     situation = FLAT_HITS_BARREL
@@ -957,10 +986,11 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 # Two points on the edge of the static cylinder are of interest here:
                 # - the "lowpoint", which is the point on the edge with the minimal z-distance to the scale center in the zy-plane
                 # - the "critpoint" (critical point), which is the point on the edge with the shortest distance to the scale center                  
-                scale_center_to_flatend_x   = (scale_center_to_shell_x - shell_half_length) - scale_center_r
-                scale_center_to_lowpoint_x  = math.sqrt(( scale_center_to_shell_x - shell_half_length)**2 + scale_center_to_shell_y**2) - scale_center_r
+                scale_center_to_flatend_x   = scale_center_to_shell_x_minus_half_length - scale_center_r
+                scale_center_to_lowpoint_x  = math.sqrt( scale_center_to_shell_x_minus_half_length*scale_center_to_shell_x_minus_half_length +\
+                                                         scale_center_to_shell_y*scale_center_to_shell_y ) - scale_center_r
                     # TODO Is there no better way to include scale_center_r here?
-                scale_center_to_critpoint_z = scale_center_to_shell_z - math.sqrt(shell_radius**2 - scale_center_to_shell_y**2) 
+                scale_center_to_critpoint_z = scale_center_to_shell_z - math.sqrt(shell_radius*shell_radius - scale_center_to_shell_y*scale_center_to_shell_y) 
                 scale_center_to_lowpoint_z  = scale_center_to_shell_z - shell_radius
 
                 # Strategy:
@@ -996,7 +1026,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                             scale_angle < scale_center_to_shell_low_angle_y
                     situation = EDGE_HITS_EDGE
                     r1_min = (scale_center_to_shell_x - shell_half_length)*(1.0+TOLERANCE)
-                    h1_min = r1_min/math.tan(scale_angle)
+                    h1_min = r1_min/tan_scale_angle
 
         elif (ref_to_shell_x2 < 0) and (ref_to_shell_y2 >= 0):
             # Quadrant 3
@@ -1025,7 +1055,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 # - the "critpoint" (critical point), which is the point on the edge with the shortest distance to the scale center   
                 scale_center_to_shell_y -= scale_center_r  # TODO Is there no better way to include scale_center_r here?
                 scale_center_to_critpoint_y = scale_center_to_shell_y - shell_radius
-                scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius
+                scale_center_to_lowpoint_z  = scale_center_to_shell_z - shell_radius
 
                 # Calculate the angle between the scaled cylinder's axis and the line that links the scale center and critpoint
                 if scale_center_to_shell_z == 0.0:
@@ -1063,13 +1093,18 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
 
             assert (ref_to_shell_x2 >= 0) and (ref_to_shell_y2 >= 0)
 
+            scale_center_to_shell_x_minus_half_length = scale_center_to_shell_x - shell_half_length
+            scale_center_to_shell_y_minus_radius      = scale_center_to_shell_y - shell_radius
+
             # Two points on the edge of the static cylinder are of interest here:
             # - the "lowpoint", which is the point on the edge with the minimal z-distance to the scale center in the zy-plane
             # - the "critpoint" (critical point), which is the point on the edge with the minimal y-distance to
             #   the scale center in the zy-plane
-            scale_center_to_critpoint_r = math.sqrt((scale_center_to_shell_y - shell_radius)**2 + (scale_center_to_shell_x - shell_half_length)**2) - scale_center_r    # a_r
-            scale_center_to_lowpoint_r = math.sqrt(scale_center_to_shell_y**2 + (scale_center_to_shell_x - shell_half_length)**2) - scale_center_r                      # b_r
-            scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius                                                                                         # b_z
+            scale_center_to_critpoint_r = math.sqrt(scale_center_to_shell_y_minus_radius*scale_center_to_shell_y_minus_radius + \
+                                                    scale_center_to_shell_x_minus_half_length*scale_center_to_shell_x_minus_half_length) - scale_center_r  # a_r
+            scale_center_to_lowpoint_r = math.sqrt(scale_center_to_shell_y*scale_center_to_shell_y + \
+                                                   scale_center_to_shell_x_minus_half_length*scale_center_to_shell_x_minus_half_length) - scale_center_r   # b_r
+            scale_center_to_lowpoint_z = scale_center_to_shell_z - shell_radius                                                                            # b_z
 
             # Calculate the angle between the z-axis of the scaled cylinder and the line that
             # connects this axis with the "critpoint" on the static cylinder's edge
@@ -1109,8 +1144,9 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 else:
                     assert scale_center_to_shell_crit_angle_xy < scale_angle and scale_angle < scale_center_to_shell_low_angle_xy and scale_angle > 0.0
                     situation = EDGE_HITS_EDGE
-                    r1_min = math.sqrt((scale_center_to_shell_x-shell_half_length)**2 + (scale_center_to_shell_y-shell_radius)**2)*(1.0+TOLERANCE)
-                    h1_min = r1_min/math.tan(scale_angle)
+                    r1_min = math.sqrt(scale_center_to_shell_x_minus_half_length*scale_center_to_shell_x_minus_half_length + \
+                                       scale_center_to_shell_y_minus_radius*scale_center_to_shell_y_minus_radius) * (1.0+TOLERANCE)
+                    h1_min = r1_min/tan_scale_angle
 
         ##TODO TESTING Debug info
         #log.info("  *** QUADRANT = %s ***" % str(quadrant) )
@@ -1130,7 +1166,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
         elif situation == EDGE_HITS_EDGE:             
             # the scaling cylinder hits the edge of 'shell' with its edge
             # TODO we have a solution but it can only be found with a root finder -> slow
-            shell_radius_sq = shell_radius**2
+            shell_radius_sq = shell_radius*shell_radius
             scale_center_to_shell_edge_x = scale_center_to_shell_x - shell_half_length
             scale_center_to_shell_edge_y = scale_center_to_shell_y - shell_radius
             scale_center_to_shell_edge_z = scale_center_to_shell_z - shell_radius
@@ -1140,7 +1176,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 # scale_angle = 0 means that the radius r will stay constant at scaling
                 # Therefore, if the projected edge of the static shell lies outside of the 
                 # circle defined by r there will be no collision:
-                if r < math.sqrt(scale_center_to_shell_edge_x**2 + scale_center_to_shell_edge_y**2) :
+                if r < math.sqrt( scale_center_to_shell_edge_x*scale_center_to_shell_edge_x + \
+                                  scale_center_to_shell_edge_y*scale_center_to_shell_edge_y ) :
 
                     # The height and radius of the scaled cylinder remain unaltered
                     r_new = r
@@ -1149,9 +1186,9 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                 else:
                 # There is a collision possible when z1 is scaled
                     
-                    y1_collide = math.sqrt(r**2 - scale_center_to_shell_edge_x**2)
+                    y1_collide = math.sqrt(r*r - scale_center_to_shell_edge_x*scale_center_to_shell_edge_x)
                     y2_collide = scale_center_to_shell_y - y1_collide
-                    h_collide = math.sqrt(shell_radius**2 - y2_collide**2)
+                    h_collide = math.sqrt(shell_radius*shell_radius - y2_collide*y2_collide)
 
                     h_touch = scale_center_to_shell_z - h_collide
                     z1_new = min(z1, h_touch)
@@ -1196,18 +1233,30 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                         #rhs = (scale_center_to_shell_z - \
                               #math.sqrt(shell_radius**2 - (scale_center_to_shell_y - math.sqrt( (x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2 ) )**2 ) )
 
-                        eq_value = (scale_center_to_shell_z - x)**2 - shell_radius_sq +\
-                                  (scale_center_to_shell_y - math.sqrt( (x*tan_scale_angle)**2 - scale_center_to_shell_edge_x**2 ) )**2
-
                         # TODO TESTING REMOVE THIS WHEN DONE
-                        #print "***** ROOTFINDER CALL: Calling h1_eq() with: *****"
-                        #print "  h1 = %s, value = %s" % (x, eq_value )
-                        #print "  r1 = %s" % (r1_function(x+scale_center_z))
-                        #print "  lambda = %s" % (math.sqrt( (x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2 ))
-                        #print "  Dy-lambda = %s" % (scale_center_to_shell_y - math.sqrt( (x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2 ))
-                        #print "  (Dy-lambda)^2 = %s" % ((scale_center_to_shell_y - math.sqrt( (x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2 ))**2 )
-                        #print "  outer = %s" % (shell_radius**2 - (scale_center_to_shell_y - math.sqrt( (x*tan_scale_angle)**2 - (scale_center_to_shell_x - shell_half_length)**2 ) )**2)
-                                            
+                        #log.debug( "***** ROOTFINDER CALL: Calling h1_eq() with: *****" )
+                        #log.debug( "  r1 = %s" % (r1_function(x+scale_center_z)) )
+                        #log.debug( "  sqrt_arg = %s" % ((x*tan_scale_angle)**2 - scale_center_to_shell_edge_x**2) )
+                        #log.debug( "    tan_scale_angle = %s" % (tan_scale_angle) )
+                        #log.debug( "    x*tan_scale_angle = %s" % (x*tan_scale_angle) )
+                        #log.debug( "    scale_center_to_shell_edge_x = %s" % scale_center_to_shell_edge_x )
+
+                        # We will take the square root of the following below
+                        sqrt_arg = (x*tan_scale_angle)*(x*tan_scale_angle) - scale_center_to_shell_edge_x*scale_center_to_shell_edge_x
+
+                        if sqrt_arg < 0.0 and abs(sqrt_arg) <= TOLERANCE*scale_center_to_shell_edge_x*scale_center_to_shell_edge_x:
+
+                            sqrt_arg = 0.0      # This safety check is to prevent math domain errors
+                                                # in case sqrt_arg is close to zero and taking the
+                                                # difference results in very small negative numbers
+                            log.warn('Orthogonal cylinder scaling, EDGE_HITS_EDGE case: Setting negative sqrt argument to zero within TOLERANCE.')
+
+                        eq_value = (scale_center_to_shell_z - x)*(scale_center_to_shell_z - x) - shell_radius_sq +\
+                                      (scale_center_to_shell_y - math.sqrt( sqrt_arg ))*(scale_center_to_shell_y - math.sqrt( sqrt_arg ))
+                        
+                        # TODO TESTING REMOVE THIS WHEN DONE                    
+                        #log.debug( "  h1 = %s, value = %s" % (x, eq_value ) )
+
                         return eq_value
 
                     # Self-adaptive initial value guessing for the rootfinder procedure:
@@ -1220,7 +1269,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     while h1_eq_product > 0.0:
 
                         h1_interval_start = (1.0+TOLERANCE**n) * (z1_function(scale_center_to_shell_edge_x) - scale_center_z)
-                        h1_interval_end   = (1.0-TOLERANCE**n) * (z1_function( math.sqrt( scale_center_to_shell_y**2 + scale_center_to_shell_edge_x**2 ) ) - scale_center_z)
+                        h1_interval_end   = (1.0-TOLERANCE**n) * (z1_function( math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
+                                                                                          scale_center_to_shell_edge_x*scale_center_to_shell_edge_x ) ) - scale_center_z)
                         h1_eq_product     = h1_eq(h1_interval_start) * h1_eq(h1_interval_end)
 
                         n = n+1
@@ -1232,13 +1282,13 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     assert(h1_interval_end   >= h1_interval_end)
 
                     # TODO TESTING REMOVE THIS WHEN DONE
-                    #print "***** NEW ROOTFINDER ITERATION *****"
-                    #print "  Dy-r2 = %s" % (scale_center_to_shell_y-shell_radius)
-                    #print "  Dx-h2 = %s" % scale_center_to_shell_edge_x
-                    #print "  h1_interval_start = %s" % h1_interval_start
-                    #print "  h1_interval_end = %s"   % h1_interval_end
-                    #print "  h1(i_start) = %s"       % h1_eq(h1_interval_start)
-                    #print "  h1(i_end) = %s"         % h1_eq(h1_interval_end)
+                    #log.debug( "***** NEW ROOTFINDER ITERATION *****" )
+                    #log.debug( "  Dy-r2 = %s" % (scale_center_to_shell_y-shell_radius) )
+                    #log.debug( "  Dx-h2 = %s" % scale_center_to_shell_edge_x )
+                    #log.debug( "  h1_interval_start = %s" % h1_interval_start )
+                    #log.debug( "  h1_interval_end = %s"   % h1_interval_end )
+                    #log.debug( "  h1(i_start) = %s"       % h1_eq(h1_interval_start) )
+                    #log.debug( "  h1(i_end) = %s"         % h1_eq(h1_interval_end) )
 
                     h_touch = scale_center_z + findroot(h1_eq, h1_interval_start, h1_interval_end)
                     z1_new = min(z1, h_touch)
@@ -1248,13 +1298,24 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     # This uses the same rootfinding equation and interval as above with r1=h1/tan_scale_angle
                     # instead of h1; notice that scale_angle > 0 here, so we can divide by it
                     def r1_eq(x):
-                        eq_value = (scale_center_to_shell_z - x/tan_scale_angle)**2 - shell_radius_sq +\
-                                  (scale_center_to_shell_y - math.sqrt( x**2 - scale_center_to_shell_edge_x**2 ) )**2
+
+                        # We will take the square root of the following below
+                        sqrt_arg = x*x - scale_center_to_shell_edge_x*scale_center_to_shell_edge_x
+
+                        if sqrt_arg < 0.0 and abs(sqrt_arg) <= TOLERANCE*scale_center_to_shell_edge_x*scale_center_to_shell_edge_x:
+
+                            sqrt_arg = 0.0      # This safety check is to prevent math domain errors
+                                                # in case sqrt_arg is close to zero and taking the
+                                                # difference results in very small negative numbers
+                            log.warn('Orthogonal cylinder scaling, EDGE_HITS_EDGE case: Setting negative sqrt argument to zero within TOLERANCE.')
+
+                        eq_value = (scale_center_to_shell_z - x/tan_scale_angle)*(scale_center_to_shell_z - x/tan_scale_angle) - shell_radius_sq +\
+                                      (scale_center_to_shell_y - math.sqrt( sqrt_arg ) )*(scale_center_to_shell_y - math.sqrt( sqrt_arg ) )
 
                         # TODO TESTING REMOVE THIS WHEN DONE
-                        #print "***** ROOTFINDER CALL: Calling r1_eq() with: *****"
-                        #print "  r1 = %s, value = %s" % (x, eq_value )
-                        #print "  h1 = %s" % (z1_function(x))
+                        #log.debug( "***** ROOTFINDER CALL: Calling r1_eq() with: *****" )
+                        #log.debug( "  r1 = %s, value = %s" % (x, eq_value ) )
+                        #log.debug( "  h1 = %s" % (z1_function(x)) )
 
                         return eq_value
 
@@ -1265,7 +1326,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     while r1_eq_product > 0.0:
 
                         r1_interval_start = (1.0+TOLERANCE**n) * scale_center_to_shell_edge_x
-                        r1_interval_end   = (1.0-TOLERANCE**n) * math.sqrt( scale_center_to_shell_y**2 + scale_center_to_shell_edge_x**2 )
+                        r1_interval_end   = (1.0-TOLERANCE**n) * math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
+                                                                            scale_center_to_shell_edge_x*scale_center_to_shell_edge_x )
                         r1_eq_product     = r1_eq(r1_interval_start) * r1_eq(r1_interval_end)
                         
                         n = n+1
@@ -1296,7 +1358,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
 
         elif situation == BARREL_HITS_EDGE:
             # the scaling cylinder hits the edge of 'shell' with its barrel side
-            r_new = min(r, math.sqrt( (ref_to_shell_x-shell_half_length)**2 + (ref_to_shell_y - shell_radius)**2))
+            r_new = min(r, math.sqrt( (ref_to_shell_x-shell_half_length)*(ref_to_shell_x-shell_half_length) \
+                                      + (ref_to_shell_y - shell_radius)*(ref_to_shell_y - shell_radius)))
             z1_new = min(z1, z1_function(r_new))
 
         elif situation == FLAT_HITS_BARREL:
@@ -1314,18 +1377,13 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             # so that this step only affects the scale_angle == 0 cases:
             scale_center_to_shell_y -= scale_center_r
 
-            ss_sq = (scale_center_to_shell_z**2 + scale_center_to_shell_y**2)
+            ss_sq = (scale_center_to_shell_z*scale_center_to_shell_z + scale_center_to_shell_y*scale_center_to_shell_y)
             scale_center_to_shell = math.sqrt(ss_sq)
 
             shell_angle_yz = math.atan(scale_center_to_shell_y/scale_center_to_shell_z)
             angle_diff = abs(shell_angle_yz - scale_angle)
             sin_angle_diff = math.sin(angle_diff)
             cos_angle_diff = math.cos(angle_diff)
-
-            # TODO TESTING Laurens' version, remove when the other works well
-            # Remove this when it is certain that the new version does not fail
-            #scale_center_shell_dist = (scale_center_to_shell * cos_angle_diff -
-                                       #math.sqrt(shell_radius_sq - (ss_sq * sin_angle_diff * sin_angle_diff) ))
             
             assert scale_center_to_shell >= shell_radius # should never fail
             #ss_angle = math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius) ## TESTING Old version
@@ -1338,9 +1396,11 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                                               % str(scale_center_shell_dist)
 
             # Check whether the calculated distance is within the forseen bounds and warn if not
-            if not(scale_center_shell_dist <= scale_center_to_shell_y and scale_center_shell_dist <= scale_center_to_shell_z):
-                log.warning('EDGE_HITS_BARREL: scale-center-to-shell distance is out of forseen bounds, distance=%s' \
-                              % str(scale_center_shell_dist) )
+            if scale_center_shell_dist > math.sqrt(scale_center_to_shell_y*scale_center_to_shell_y \
+                                                   + scale_center_to_shell_z*scale_center_to_shell_z) * (1.0+TOLERANCE):
+                log.warning('Orthogonal cylinder scaling, EDGE_HITS_BARREL case: scale-center-to-shell distance is out of foreseen bounds:')
+                log.warning('   distance=%s, scale_center_to_shell_y=%s, scale_center_to_shell_z=%s' \
+                             % (scale_center_shell_dist, scale_center_to_shell_y, scale_center_to_shell_z) )
 
             if scale_angle <= Pi/4.0:
                 cos_scale_angle = math.cos(scale_angle)
@@ -1415,6 +1475,7 @@ def get_dr_dzright_dzleft_to_PlanarShape(shape, testShell, r, z_right, z_left):
 
     # determine what parameter of the cylinder (dr of dz) to scale.
     relative_orientation = numpy.dot(orientation_vector, shape.unit_z)
+
     if feq(relative_orientation, 0):
 
         distance = testShell.world.distance(shape, reference_point)
@@ -1821,7 +1882,7 @@ class CylindricaltestShell(testShell):
         else:
             right_scaling_angle = math.atan(self.drdz_right)
         return right_scaling_angle
-    right_scalingangle = property(get_right_scalingangle)
+    # property self.right_scalingangle set by constructor of derived classes
 
     def get_left_scalingangle(self):
         if self.drdz_left == numpy.inf:
@@ -1831,7 +1892,13 @@ class CylindricaltestShell(testShell):
         else:
             left_scaling_angle = math.atan(self.drdz_left)
         return left_scaling_angle
-    left_scalingangle = property(get_left_scalingangle)
+    # property self.left_scalingangle set by constructor of derived classes
+
+    def get_tan_right_scalingangle(self):
+        return self.tan_right_scalingangle
+
+    def get_tan_left_scalingangle(self):
+        return self.tan_left_scalingangle
 
     def get_min_dr_dzright_dzleft(self):
         # This defines the minimal dimensions in terms of r, z_right, z_left of the cylindrical domain
@@ -1867,6 +1934,13 @@ class PlanarSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingl
         self.drdz_left  = numpy.inf
         self.r0_left    = 0.0
         self.z0_left    = self.pid_particle_pair[1].radius
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # sizing up the shell to a zero shell
         self.dz_right = self.pid_particle_pair[1].radius
@@ -1921,6 +1995,13 @@ class PlanarSurfacePairtestShell(CylindricaltestShell, testSimplePair):
         self.drdz_left  = numpy.inf
         self.r0_left    = 0.0
         self.z0_left    = self.z0_right
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
@@ -1979,6 +2060,13 @@ class CylindricalSurfaceSingletestShell(CylindricaltestShell, testNonInteraction
         self.r0_left    = self.dr_const
         self.z0_left    = 0.0
 
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
+
         # Sizing up the shell to a zero shell
         # Important: leave this as it is, because we always want to construct
         # a zero-single by default!
@@ -2033,7 +2121,7 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
         #       - dz_left stays constant and is equal to the cap-bound particle radius
         #       - dz_right can be scaled, minimum is set accordingly
         # - dr stays constant and is determined by the maximal radius involved
-        self.dr_const   = max(self.pid_particle_pair[1].radius*CYLINDER_R_FACTOR, self.structure.shape.radius)
+        self.dr_const   = self.pid_particle_pair[1].radius*CYLINDER_R_FACTOR
 
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
@@ -2043,6 +2131,13 @@ class DiskSurfaceSingletestShell(CylindricaltestShell, testNonInteractionSingle)
         self.drdz_left  = 0.0
         self.r0_left    = self.dr_const
         self.z0_left    = 0.0
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # Sizing up the shell to a zero shell
         # Important: leave this as it is, because we always want to construct
@@ -2096,6 +2191,13 @@ class CylindricalSurfacePairtestShell(CylindricaltestShell, testSimplePair):
         self.drdz_left  = 0.0
         self.r0_left    = self.dr_const
         self.z0_left    = 0.0
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
@@ -2156,6 +2258,13 @@ class PlanarSurfaceInteractiontestShell(CylindricaltestShell, testInteractionSin
         self.r0_left    = 0.0
         self.z0_left    = self.pid_particle_pair[1].radius
 
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
+
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
         # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
@@ -2214,6 +2323,13 @@ class CylindricalSurfaceInteractiontestShell(CylindricaltestShell, testInteracti
         self.r0_left    = self.r0_right
         self.z0_left    = self.z0_right
 
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
+
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
         # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
@@ -2267,8 +2383,7 @@ class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testIntera
         #       - dz_left stays constant and is equal to the cap-bound particle radius * a safety factor
         #       - dz_right can be scaled, minimum is set accordingly
         # - dr stays constant and is determined by the maximal radius involved
-        self.dr_const   = max([self.pid_particle_pair[1].radius * CYLINDER_R_FACTOR, \
-                               self.origin_structure.shape.radius, self.target_structure.shape.radius])
+        self.dr_const   = self.pid_particle_pair[1].radius * CYLINDER_R_FACTOR
 
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
@@ -2278,6 +2393,13 @@ class CylindricalSurfaceCapInteractiontestShell(CylindricaltestShell, testIntera
         self.drdz_left  = 0.0
         self.r0_left    = self.dr_const
         self.z0_left    = self.pid_particle_pair[1].radius * math.sqrt(MULTI_SHELL_FACTOR**2 - 1.0)
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
@@ -2333,6 +2455,13 @@ class CylindricalSurfaceSinktestShell(CylindricaltestShell, testInteractionSingl
         self.drdz_left  = self.drdz_right
         self.r0_left    = self.dr_const
         self.z0_left    = self.z0_right
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
@@ -2390,42 +2519,56 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         CylindricaltestShell.__init__(self, geometrycontainer, domains)  # this must be first because of world definition
         # The initialization of r0 can fail in testPair.__init__
 
-#        raise testShellError('(MixedPair2D3D).')
-
         try:
             testMixedPair2D3D.__init__(self, single2D, single3D)
         except protoDomainError as e:
             raise testShellError('(MixedPair2D3D). %s' %
                                  (str(e)))
 
-        # initialize commonly used constants
+        # Initialize commonly used constants
         self.sqrt_DRDr = math.sqrt((2*self.D_R)/(3*self.D_r))
 
-        # initialize the scaling parameters
-        bla = self.get_scaling_factor() * ( self.sqrt_DRDr + max( self.pid_particle_pair1[1].D/self.D_tot,
-                                                                  self.pid_particle_pair2[1].D/self.D_tot ))
-        minimum = self.r0+self.pid_particle_pair1[1].radius
-        self.drdz_right = self.r_right(minimum + 1.0) - self.r_right(minimum)
-        assert feq(bla, self.drdz_right), 'bla= %s, drdz_right=%s' % (bla, self.drdz_right)
+        # Initialize the scaling parameters
+        # To determine the scale angle we calculate the radius r corresponding to the minimal z_right
+        # of the cylinder in a way that the first passage time of the CoM (towards r) and of the
+        # interparticle vector (towards z_right) are equal (see self.r_right(), self.z_right() below).
+        self.iv_z_minimum = self.r0 + self.particle3D.radius * SINGLE_SHELL_FACTOR
+            # this is an upper bound, actually the height of the domain could be slightly lower than this
+        self.drdz_right = self.r_right(self.iv_z_minimum) / self.iv_z_minimum
+        self.dzdr_right = 1.0/self.drdz_right        
 
-        bla2 = self.z_right(minimum + 1.0) - self.z_right(minimum)
-
-        minr, minz_right, _ = self.get_min_dr_dzright_dzleft()
-        self.dzdr_right = 1.0/self.drdz_right
-        assert feq(self.dzdr_right, bla2), 'bla2= %s, dzdr_right= %s' % (bla2, self.dzdr_right)
         self.r0_right   = 0.0
         self.z0_right   = self.z_right(self.r0_right)
         self.dzdr_left  = 0.0
         self.drdz_left  = numpy.inf
         self.r0_left    = 0.0
-        self.z0_left    = self.pid_particle_pair1[1].radius
+        self.z0_left    = self.particle2D.radius
+
+        # TODO This is probably not needed any more:
+        min_r, min_dz_right, _ = self.get_min_dr_dzright_dzleft()
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
+
+        ### TESTING TESTING TESTING remove when done
+        log.info(' MixedPair2D3D: Initalized shellscaling: scale_angle = %s, drdz  = %s' % (self.right_scalingangle, self.drdz_right))
+        log.info('                                         r0_right = %s, z0_right = %s' % (self.r0_right, self.z0_right))
+        log.info('                                         r0_left  = %s, z0_left  = %s' % (self.r0_left,  self.z0_left))
+
+        log.info('      min_dr_dzright_dzleft = %s' % str(self.get_min_dr_dzright_dzleft() ))
+        log.info('      max_dr_dzright_dzleft = %s' % str(self.get_max_dr_dzright_dzleft() ))
+
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
         # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
         try:
             self.dr, self.dz_right, self.dz_left = \
-                            self.determine_possible_shell(self.structure3D.id, [self.single1.domain_id, self.single2.domain_id],
+                            self.determine_possible_shell(self.structure3D.id, [self.single2D.domain_id, self.single3D.domain_id],
                                                           [self.structure2D.id])
         except ShellmakingError as e:
             raise testShellError('(MixedPair2D3D). %s' %
@@ -2438,7 +2581,7 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
 
     def get_searchpoint(self):
         # TODO this can be improved, now same as PlanarSurfaceInteraction
-        search_distance = self.get_searchradius()/math.sqrt(2) - self.z0_left
+        search_distance = self.get_searchradius()/math.sqrt(2.0) - self.z0_left
         return self.get_referencepoint() + search_distance * self.get_orientation_vector()
 
     def get_referencepoint(self):
@@ -2448,15 +2591,14 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         # defines the minimum parameters of the testShell.
         # Note that also the minimum testShell must obey the scaling rules
 
-        radius1 = self.pid_particle_pair1[1].radius
-        radius2 = self.pid_particle_pair2[1].radius
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        radius2D = self.particle2D.radius
+        radius3D = self.particle3D.radius
+        D_2D = self.particle2D.D
+        D_3D = self.particle3D.D
 
 
         ### calculate the minimal height z_right1 of the shell including burst radius
-        iv_z = self.r0      # approximation, actually the height of the domain can be slightly lower.
-        dz_right1 = iv_z + radius2 * SINGLE_SHELL_FACTOR
+        dz_right1 = self.iv_z_minimum
         # with the accompanying radius r1
         dr_1 = self.r_right(dz_right1)
 
@@ -2482,8 +2624,8 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         dr = dr_1
         dz_right = dz_right1
 
-        dz_left  = self.pid_particle_pair1[1].radius
-#        print "min= ", dr, dz_right, dz_left
+        dz_left  = self.particle2D.radius
+
         return dr, dz_right, dz_left
         
     def get_max_dr_dzright_dzleft(self):
@@ -2491,67 +2633,116 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         dr_sr    = self.get_searchradius()/math.sqrt(2)
         dr_edge  = self.min_dist_proj_to_edge
         dr       = min(dr_sr, dr_edge)
-        dz_left  = self.pid_particle_pair1[1].radius
+        dz_left  = self.particle2D.radius
 
-        # now adjust dz_right such that they obey the scaling laws and are still with the search_radius
+        # now adjust dz_right such that they obey the scaling laws and are still within the search_radius
         # We assume that dz_right needs to be adjusted to dr and not the other way around since the cylinder is
         # always a bit flatter.
-        dz_right = self.z_right(dr)
-#        print "max= ", dr, dz_right, dz_left
-        assert dr > dz_right
+        dz_right = self.z_right(dr)        
+        ## Debug output for TESTING
+        #log.debug( "max_dr=%s, max_dz_right=%s, max_dz_left=%s" % (dr, dz_right, dz_left) )
+        #log.debug( "min_dist_proj_to_edge=%s" % str(self.min_dist_proj_to_edge) )
+        #assert dr > dz_right   ## Removed for TESTING
 
         return dr, dz_right, dz_left
 
     def z_right(self, r_right):
-        # if the radius is known and we want to determine the height z_right
-        radius1 = self.pid_particle_pair1[1].radius
-        radius2 = self.pid_particle_pair2[1].radius
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        # This calculates the height z_right of the newly constructed domain
+        # (above the plane) if the radius r is known
 
-        # calculate a_r such that the expected first-passage for the CoM and IV are equal
-        a_r1 = (r_right - radius1 + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_1/self.D_tot) )
-        a_r2 = (r_right - radius2 + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_2/self.D_tot) )
-        # take the smallest that, if entered in the function for r below, would lead to this z_right
-        a_r = min (a_r1, a_r2)
+        # The trivial case
+        if r_right == 0.0:
+            return 0.0
 
-        z_right = (a_r/self.get_scaling_factor()) + radius2
+        # Some constants that we need
+        radius2D = self.particle2D.radius
+        radius3D = self.particle3D.radius
+        D_2D = self.particle2D.D
+        D_3D = self.particle3D.D
 
-#        assert feq(self.r_right(z_right), r_right), 'inconsistent z_right function \
-#                                                     r_right= %s, r_right(z_right)=%s ' % \
-#                                                     (r_right, self.r_right(z_right))
+        # calculate a_r such that the expected first-passage for the CoM and IV are equal        
+        #sqrt_DRDr_2D = math.sqrt( 2.0/3.0 * self.D_R/D_2D )  # TESTING
+        #sqrt_DRDr_3D = math.sqrt( 2.0/3.0 * self.D_R/D_3D )
+        a_r_2D = (r_right - radius2D + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_2D/self.D_tot) )
+        a_r_3D = (r_right - radius3D + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_3D/self.D_tot) )        
+        # take the smaller a_r that, if entered in the function for r below, would lead to this r_right
+        a_r = min(a_r_2D, a_r_3D)
+
+        z_right = (a_r/self.get_scaling_factor()) + radius3D
+
+        ## Debug output for TESTING
+        #log.debug( " a_r_2D=%s, a_r_3D=%s, z_right=%s, r_right=%s" % (a_r_2D, a_r_3D, z_right, r_right))
+        #log.debug('r_right= %s, r_right(z_right)=%s, z_right=%s' % (r_right, self.r_right(z_right), z_right) )
+
+        #assert feq(self.r_right(z_right), r_right), 'Inconsistent z_right function in MixedPair2D3DtestShell: \
+                                                     #r_right= %s, r_right(z_right)=%s, z_right=%s' % \
+                                                     #(r_right, self.r_right(z_right), z_right)
+
+        if r_right < 0.0 or z_right <0.0:
+            log.warning('Negative cylinder dimensions in MixedPair2D3DtestShell: z_right= %s, r_right=%s' % (z_right, r_right) )
+
+        if abs(z_right) < abs(r_right) * TOLERANCE:
+            log.warning('Setting z_right to zero within TOLERANCE in MixedPair2D3DtestShell, z_right=%s' % str(z_right))
+            z_right = 0.0
 
         return z_right
 
     def r_right(self, z_right):
-        # if the z_right is known and we want to know the radius r
-        radius1 = self.pid_particle_pair1[1].radius
-        radius2 = self.pid_particle_pair2[1].radius
-        D_1 = self.pid_particle_pair1[1].D
-        D_2 = self.pid_particle_pair2[1].D
+        # This calculates the radius r of the newly constructed domain
+        # if the height z_right is known
 
-        # we first calculate the a_r, since it is the only radius that depends on z_right only.
-        a_r = (z_right - radius2) * self.get_scaling_factor()
+        # The trivial case
+        if z_right == 0.0:
+            return 0.0
+
+        # Some constants that we need
+        radius2D = self.particle2D.radius
+        radius3D = self.particle3D.radius
+        D_2D = self.particle2D.D
+        D_3D = self.particle3D.D
+
+        # We first calculate the a_r, since it is the only radius that depends on z_right only.
+        # The dependence is given by the scaling factor that converts spherical coordinates into
+        # prolate spheroidal coordinates
+        a_r = (z_right - radius3D) * self.get_scaling_factor()
 
         # We equalize the estimated first passage time for the CoM (2D) and IV (3D) for a given a_r
+        # via a_R/(a_r-self.r0) == sqrt(4 D_R t)/sqrt(6 D_r t) (for an arbitrary t).
+        # This gives us a CoM domain radius a_R as a function of a_r at equal expected first passage time.
         # Note that for the IV we only take the distance to the outer boundary into account.
         a_R = (a_r - self.r0)*self.sqrt_DRDr
 
         # We calculate the maximum space needed for particles A and B based on maximum IV displacement
-        iv_max = max( (D_1/self.D_tot * a_r + radius1),
-                      (D_2/self.D_tot * a_r + radius2))
+        # taking into account the particle radii
+        iv_max = max( (D_2D/self.D_tot * a_r + radius2D),
+                      (D_3D/self.D_tot * a_r + radius3D))
 
+        # The total domain radius is then given by the sum of the max. IV displacement and
+        # the estimated a_R value for the same first passage time
         r_right = a_R + iv_max
 
-        assert feq(self.z_right(r_right), z_right), 'inconsistent r_right function \
-                                                  z_right= %s, z_right(r_right)=%s ' % \
-                                                  (z_right, self.z_right(r_right))
+        ### TESTING
+        log.info('MixedPair2D3DtestShell: z_right= %s, z_right(r_right)=%s, r_right=%s' % (z_right, self.z_right(r_right), r_right) )
+
+        if r_right < 0.0 or z_right <0.0:
+            log.warning('Negative cylinder dimensions in MixedPair2D3DtestShell: z_right= %s, r_right=%s' % (z_right, r_right) )
+
+        assert feq(self.z_right(r_right), z_right), 'Inconsistent r_right function in MixedPair2D3DtestShell: \
+                                                     z_right= %s, z_right(r_right)=%s, r_right=%s' % \
+                                                     (z_right, self.z_right(r_right), r_right)
+
+        if abs(r_right) < abs(z_right) * TOLERANCE:
+            log.warning('Setting r_right to zero within TOLERANCE in MixedPair2D3DtestShell, r_right=%s' % str(r_right))
+            r_right = 0.0
 
         return r_right
 
     def apply_safety(self, r, z_right, z_left):
-        SAFETY = 1.1 # FIXME What is that? Why is that not the standard?
-        return r/SAFETY, self.z_right(r/SAFETY)/SAFETY, z_left
+        SAFETY = 1.1 # FIXME What the hell is that? Why is that not the standard?
+        # Make sure to keep the right scaling ratio when applying SAFETY
+        # because we determine the math. domains for IV and CoM from the shell dimensions
+        return r/SAFETY, self.z_right(r/SAFETY), z_left
+
 
 class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
 
@@ -2572,8 +2763,7 @@ class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
         #       - dz_right can be scaled, minimum is set accordingly
         # - dr stays constant and is determined by the maximal radius involved
         CRF             = CYLINDER_R_FACTOR
-        self.dr_const   = max([CRF * self.cap_particle.radius, CRF * self.particle1D.radius,\
-                               self.cap_structure.shape.radius, self.structure1D.shape.radius])
+        self.dr_const   = max([CRF * self.cap_particle.radius, CRF * self.particle1D.radius])
 
         self.dzdr_right = numpy.inf
         self.drdz_right = 0.0
@@ -2583,6 +2773,13 @@ class MixedPair1DCaptestShell(CylindricaltestShell, testMixedPair1DCap):
         self.drdz_left  = 0.0
         self.r0_left    = self.dr_const
         self.z0_left    = self.cap_particle.radius * SINGLE_SHELL_FACTOR
+
+        # Now we can also define the scaling angle
+        self.right_scalingangle = self.get_right_scalingangle()
+        self.left_scalingangle  = self.get_left_scalingangle()
+        # In particular store the tangent, because math.tan is expensive!
+        self.tan_right_scalingangle = math.tan(self.right_scalingangle)
+        self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.

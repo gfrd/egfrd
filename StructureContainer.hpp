@@ -396,8 +396,8 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
 
     // Note that we assume that the new position is in the plane (dot(pos, unit_z)==0)
     // and that the position is already transposed for the plane.
-    const plane_type origin_plane (planar_surface.shape());
-    boost::array<length_type, 2> half_extends(origin_plane.half_extent());
+    const plane_type origin_plane( planar_surface.shape() );
+    boost::array<length_type, 2> half_extents( origin_plane.half_extent() );
 
     const position_type pos_vector( subtract(pos_structure_id.first, origin_plane.position()) );
     const length_type component_x ( dot_product(pos_vector, origin_plane.unit_x()) );
@@ -408,7 +408,7 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
     position_type neighbor_plane_par;
     position_type neighbor_plane_inl;
 
-    if ( abs(component_x) <= half_extends[0] && abs(component_y) <= half_extends[1] )
+    if ( abs(component_x) <= half_extents[0] && abs(component_y) <= half_extents[1] )
     {
         // we are still in the plane (did not pass any of the boundaries)
         // don't have to do anything
@@ -417,10 +417,10 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
     else
     {
         // We are outside of the plane.
-        if ( half_extends[1]*abs(component_x) < half_extends[0]*abs(component_y) )
+        if ( half_extents[1]*abs(component_x) < half_extents[0]*abs(component_y) )
         {
             // Top or bottom (and may also be in one of the corners)
-            if ( half_extends[1] < component_y )
+            if ( half_extents[1] < component_y )
             {
                 // we are at the 'top' of the plane (side nr. 0)
                 // the 'vector' is the unit vector pointing from the edge between the two planes to the center of the plane
@@ -428,48 +428,48 @@ apply_boundary (std::pair<typename Ttraits_::position_type, typename Ttraits_::s
 
                 new_id = neighbor_id_vector.first;
                 neighbor_plane_par = multiply(origin_plane.unit_x(), component_x);
-                neighbor_plane_inl = add(multiply(origin_plane.unit_y(),     half_extends[1]),
-                                         multiply(neighbor_id_vector.second, (component_y - half_extends[1]) ) );
+                neighbor_plane_inl = add(multiply(origin_plane.unit_y(),     half_extents[1]),
+                                         multiply(neighbor_id_vector.second, (component_y - half_extents[1]) ) );
             }
-            else if ( component_y < -half_extends[1] )
+            else if ( component_y < -half_extents[1] )
             {
                 // we are at the 'bottom' of the plane (side nr. 1)
                 const neighbor_id_vector_type neighbor_id_vector (sc.get_neighbor_info(planar_surface, 1));
 
                 new_id = neighbor_id_vector.first;
                 neighbor_plane_par = multiply(origin_plane.unit_x(), component_x);
-                neighbor_plane_inl = add(multiply(origin_plane.unit_y(),     -half_extends[1] ),
-                                         multiply(neighbor_id_vector.second, (-component_y - half_extends[1]) ) );
+                neighbor_plane_inl = add(multiply(origin_plane.unit_y(),     -half_extents[1] ),
+                                         multiply(neighbor_id_vector.second, (-component_y - half_extents[1]) ) );
             }
         }
-        else // half_extends[1]*abs(component_x) >= half_extends[0]*abs(component_y)
+        else // half_extents[1]*abs(component_x) >= half_extents[0]*abs(component_y)
         {
-            if ( component_x < -half_extends[0] )
+            if ( component_x < -half_extents[0] )
             {
                 // we are at the 'left' of the plane (side nr. 2)
                 const neighbor_id_vector_type neighbor_id_vector (sc.get_neighbor_info(planar_surface, 2));
 
                 new_id = neighbor_id_vector.first;
                 neighbor_plane_par = multiply(origin_plane.unit_y(), component_y);
-                neighbor_plane_inl = add(multiply(origin_plane.unit_x(),     -half_extends[0]),
-                                         multiply(neighbor_id_vector.second, (-component_x - half_extends[0]) ) );
+                neighbor_plane_inl = add(multiply(origin_plane.unit_x(),     -half_extents[0]),
+                                         multiply(neighbor_id_vector.second, (-component_x - half_extents[0]) ) );
             }
-            else if ( half_extends[0] < component_x )
+            else if ( half_extents[0] < component_x )
             {
                 // we are at the 'right' of the plane (side nr. 3)
                 const neighbor_id_vector_type neighbor_id_vector (sc.get_neighbor_info(planar_surface, 3));
 
                 new_id = neighbor_id_vector.first;
                 neighbor_plane_par = multiply(origin_plane.unit_y(), component_y);
-                neighbor_plane_inl = add(multiply(origin_plane.unit_x(),     half_extends[0]),
-                                         multiply(neighbor_id_vector.second, (component_x - half_extends[0]) ) );
+                neighbor_plane_inl = add(multiply(origin_plane.unit_x(),     half_extents[0]),
+                                         multiply(neighbor_id_vector.second, (component_x - half_extents[0]) ) );
             }
         }
 
         const position_type new_pos ( add(origin_plane.position(), add(neighbor_plane_par, neighbor_plane_inl)));
 
         // Check if we are in one of the corners. If yes -> do another round of border crossing from neighboring plane.
-        if ( abs(component_x) > half_extends[0] && abs(component_y) > half_extends[1] )
+        if ( abs(component_x) > half_extents[0] && abs(component_y) > half_extents[1] )
         {
             return sc.get_structure(new_id)->apply_boundary(std::make_pair(new_pos, new_id), sc);
         }
@@ -516,51 +516,51 @@ cyclic_transpose (std::pair<typename Ttraits_::position_type, typename Ttraits_:
     // TODO use iterator so that we can check whether match was found or that we escaped by reaching the end of the list.
 
     const plane_type plane (planar_surface.shape());
-    boost::array<length_type, 2> half_extends(plane.half_extent());
+    boost::array<length_type, 2> half_extents(plane.half_extent());
     switch ( side_nr )
     {
         case 0:     // top side
         {
             const position_type pos (subtract(pos_structure_id.first, add(plane.position(),
                                                                           multiply(plane.unit_y(),
-                                                                                   half_extends[1]) ) ));
+                                                                                   half_extents[1]) ) ));
             const length_type plane_par (dot_product(pos, plane.unit_x()));     // TODO replace by subtraction?
             const length_type plane_inl (dot_product(pos, neighbor_id_vector.second));
             new_pos_par = multiply(plane.unit_x(), plane_par);
-            new_pos_inl = multiply(plane.unit_y(), half_extends[1] + plane_inl);
+            new_pos_inl = multiply(plane.unit_y(), half_extents[1] + plane_inl);
             break;
         }
         case 1:     // botom
         {
             const position_type pos (subtract(pos_structure_id.first, add(plane.position(),
                                                                           multiply(plane.unit_y(),
-                                                                                   -half_extends[1]) ) ));
+                                                                                   -half_extents[1]) ) ));
             const length_type plane_par (dot_product(pos, plane.unit_x()));     // TODO replace by subtraction?
             const length_type plane_inl (dot_product(pos, neighbor_id_vector.second));
             new_pos_par = multiply(plane.unit_x(), plane_par);
-            new_pos_inl = multiply(plane.unit_y(), -(half_extends[1] + plane_inl) );
+            new_pos_inl = multiply(plane.unit_y(), -(half_extents[1] + plane_inl) );
             break;
         }
         case 2:     // left
         {
             const position_type pos (subtract(pos_structure_id.first, add(plane.position(),
                                                                           multiply(plane.unit_x(),
-                                                                                   -half_extends[0]) ) ));
+                                                                                   -half_extents[0]) ) ));
             const length_type plane_par (dot_product(pos, plane.unit_y()));     // TODO replace by subtraction?
             const length_type plane_inl (dot_product(pos, neighbor_id_vector.second));
             new_pos_par = multiply(plane.unit_y(), plane_par);
-            new_pos_inl = multiply(plane.unit_x(), -(half_extends[0] + plane_inl) );
+            new_pos_inl = multiply(plane.unit_x(), -(half_extents[0] + plane_inl) );
             break;
         }
         case 3:     // right
         {
             const position_type pos (subtract(pos_structure_id.first, add(plane.position(),
                                                                           multiply(plane.unit_x(),
-                                                                                   half_extends[0]) ) ));
+                                                                                   half_extents[0]) ) ));
             const length_type plane_par (dot_product(pos, plane.unit_y()));     // TODO replace by subtraction?
             const length_type plane_inl (dot_product(pos, neighbor_id_vector.second));
             new_pos_par = multiply(plane.unit_y(), plane_par);
-            new_pos_inl = multiply(plane.unit_x(), half_extends[0] + plane_inl );
+            new_pos_inl = multiply(plane.unit_x(), half_extents[0] + plane_inl );
             break;
         }
     }
