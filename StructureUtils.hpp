@@ -35,9 +35,7 @@ struct StructureUtils
     typedef typename simulator_type::disk_surface_type          disk_surface_type;
     typedef typename simulator_type::planar_surface_type        planar_surface_type;
     typedef typename simulator_type::cuboidal_region_type       cuboidal_region_type;
-    typedef typename simulator_type::world_type::traits_type::rng_type rng_type;
-    
-    typedef bool flag_type;
+    typedef typename simulator_type::world_type::traits_type::rng_type rng_type;   
  
     static planar_surface_type* create_planar_surface(
             structure_type_id_type const& sid,          // This refers to the structure type of the planar surface
@@ -61,7 +59,7 @@ struct StructureUtils
 
         const position_type pos(add(add(corner, multiply(unit_x, half_lx)),
                                                 multiply(unit_y, half_ly)));
-        const flag_type is_one_sided(true);
+        const bool is_one_sided(true);
 
         return new planar_surface_type(name, sid, parent_struct_id,
                                        plane_type(pos, unit_x, unit_y,
@@ -90,7 +88,7 @@ struct StructureUtils
 
         const position_type pos(add(add(corner, multiply(unit_x, half_lx)),
                                                 multiply(unit_y, half_ly)));
-        const flag_type is_one_sided(false);
+        const bool is_one_sided(false);
 
         return new planar_surface_type(name, sid, parent_struct_id,
                                        plane_type(pos, unit_x, unit_y,

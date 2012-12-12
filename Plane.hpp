@@ -18,7 +18,6 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
-    typedef bool flag_type;
     typedef enum side_enum_type {TOP=0, BOTTOM=1, LEFT=2, RIGHT=3} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
@@ -72,7 +71,7 @@ public:
         position_type const& vy,
         length_type const& half_lx,
         length_type const& half_ly,
-        flag_type const& is_one_sided)
+        bool const& is_one_sided)
         : position_(position), units_(array_gen(vx, vy, cross_product(vx, vy))),
           half_extent_(array_gen<length_type>(half_lx, half_ly)), is_one_sided_(is_one_sided) {}
 
@@ -156,12 +155,12 @@ public:
         return half_extent_;
     }
     
-    flag_type const& is_one_sided() const
+    bool const& is_one_sided() const
     {
         return is_one_sided_;
     }
     
-    flag_type& is_one_sided()
+    bool& is_one_sided()
     {
         return is_one_sided_;
     }
@@ -189,7 +188,7 @@ protected:
     position_type position_;
     boost::array<position_type, 3> units_;
     boost::array<length_type, 2> half_extent_;
-    flag_type is_one_sided_;
+    bool is_one_sided_;
 };
 
 template<typename T_>

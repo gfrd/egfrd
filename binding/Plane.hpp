@@ -107,14 +107,14 @@ inline boost::python::objects::class_base register_plane_class(char const* name)
             make_function(
                 &peer::util::reference_accessor_wrapper<
                     impl_type,
-                    typename impl_type::flag_type,
+                    bool,
                     &impl_type::is_one_sided,
                     &impl_type::is_one_sided>::get,
                 return_value_policy<return_by_value>()),
             make_function(
                 &peer::util::reference_accessor_wrapper<
                     impl_type,
-                    typename impl_type::flag_type,
+                    bool,
                     &impl_type::is_one_sided,
                     &impl_type::is_one_sided>::set))
         ;

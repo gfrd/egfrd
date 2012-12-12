@@ -439,6 +439,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if __debug__:
             if int("0" + os.environ.get("ECELL_CHECK", ""), 10):
                 self.check()
+
+        if __debug__ and self.control_bounds:
+            self.check_particle_consistency()
         
         self.step_counter += 1
 
@@ -3154,6 +3157,26 @@ rejected moves:  %d
         if world_population != domain_population:
             raise RuntimeError('population %d != domain_population %d' %
                                (world_population, domain_population))
+
+        # If control bounds are defined, check whether all particles are within
+        # (with a certain tolerance):
+        world_particles = list(self.world)
+
+        for particle in world_particles:
+            
+            pos = self.get_position(particle)
+
+            for corner1, corner2 in self.control_bounds:
+
+                  tolerance = length(corner2) * TOLERANCE  
+
+                  if not(      all([diff >= -tolerance for diff in numpy.subtract(pos, corner1)]) \
+                          and  all([diff >= -tolerance for diff in numpy.subtract(corner2, pos)]) ):
+
+                      log.warn('Particle out of control bounds: particle = %s, bounds = %s, tolerance = %s' \
+                               % (particle, (corner1, corner2), tolerance) )
+
+          
 
        ## Next, check that every particle in the domains is once and only once in the world.
        #already_in_domain = set()

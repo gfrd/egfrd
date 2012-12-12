@@ -588,6 +588,11 @@ class ParticleSimulatorBase(object):
 
         self.last_reaction = None
 
+        # control bounds
+        # to allow the user to check whether particles leak out
+        # of certain parts of the system
+        self.control_bounds = []
+
     def initialize(self):
         pass
 
@@ -717,6 +722,41 @@ class ParticleSimulatorBase(object):
 
     def print_report(self):
         pass
+
+    def add_control_bound(self, corner1, corner2):
+        """
+        Adds a control bounding box to the system.
+    
+        Given that logging is on, the system will warn
+        whenever particles leave the predefined bounds.
+    
+        Arguments:
+
+          - corner1
+              3D array defining the lower-left corner
+              of the bounding box
+    
+          - corner2
+              3D array defining the upper right corner
+              of the bounding box
+    
+        Make sure you pass it in the right format.    
+        """
+
+        assert len(corner1)==3 and len(corner2)==3
+
+        if all([c > 0.0 for c in numpy.subtract(corner2, corner1)]):
+            
+            self.control_bounds.append((corner1, corner2))
+            if __debug__:
+                log.info('Added control bound %s' % str((corner1, corner2)) )
+                log.info('Control bounds list: %s' % str(self.control_bounds) )
+
+        else:
+
+            raise RuntimeError('Illegal control bounds; make sure '
+                               'all corner coordinates are positive '
+                               'and corner2 coordinates are larger than corner1 coordinates.')
 
 class NoSpace(Exception):
     pass

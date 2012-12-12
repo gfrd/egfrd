@@ -195,7 +195,7 @@ public:
         pp01.second = add( op_surf, 
                        add( base_type::shape().unit_x() * (x * D_bulk_D01),
                          add( base_type::shape().unit_y() * (y * D_bulk_D01),
-                                unit_z * z ) ) );
+                                unit_z * abs(z) ) ) );
 
         return pp01;
         
