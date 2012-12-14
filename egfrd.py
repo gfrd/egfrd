@@ -1629,11 +1629,15 @@ class EGFRDSimulator(ParticleSimulatorBase):
             co = self.world.check_overlap((reactant_pos, reactant[1].radius),
                                         reactant[0], ignore_p[0])
             if co:
+                for c in co:
+                    log.debug('fire_move: detected overlap with %s' % str(c))
                 raise RuntimeError('fire_move: particle overlap failed.')
         else:
             co = self.world.check_overlap((reactant_pos, reactant[1].radius),
                                         reactant[0])            
             if co:
+                for c in co:
+                    log.debug('fire_move: detected overlap with %s' % str(c))
                 raise RuntimeError('fire_move: particle overlap failed.')
 
         # 4. process the changes (move particles, change structure)
@@ -2107,7 +2111,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
             newpos1, struct1_id = self.world.apply_boundary((newpos1, struct1_id))
             newpos2, struct2_id = self.world.apply_boundary((newpos2, struct2_id))
 
-            # check that the particles do not overlap with any other particles in the world
+            # Check that the particles do not overlap with any other particles in the world
+            # Ignore the two singles because they are still at there old positions and most 
+            # certainly would cause check_overlap to find them!
             assert not self.world.check_overlap((newpos1, pid_particle_pair1[1].radius),
                                                 pid_particle_pair1[0], pid_particle_pair2[0])
             assert not self.world.check_overlap((newpos2, pid_particle_pair2[1].radius),
@@ -2182,7 +2188,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
              pair.event_type == EventType.BURST):
 
             particles      = self.fire_move (single1, newpos1, struct1_id, pid_particle_pair2)
-            particles.extend(self.fire_move (single2, newpos2, struct2_id, pid_particle_pair1))
+            particles.extend(self.fire_move (single2, newpos2, struct2_id))
             zero_singles_b = []
             # ignore is unchanged
 

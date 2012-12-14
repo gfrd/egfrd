@@ -384,7 +384,7 @@ def create_creation_reaction_rule(product, k):
     rr['k'] = '%.16g' % k
     return rr
 
-def create_annihilation_reaction_rule(reactant1, reactant2, ka):
+def create_annihilation_reaction_rule(reactant1, reactant2, k):
     """Example: A + B -> 0.
 
     Arguments:
@@ -392,28 +392,28 @@ def create_annihilation_reaction_rule(reactant1, reactant2, ka):
             a Species.
         - reactant2
             a Species.
-        - ka
+        - k
             intrinsic reaction rate. Units: meters^3 per second. (Rough 
             order of magnitude: 1e-16 m^3/s to 1e-20 m^3/s).
 
     The reactants should be in/on the same Region or Surface.
 
-    ka should be an *intrinsic* reaction rate. You can convert an 
-    overall reaction rate (kon) to an intrinsic reaction rate (ka) with 
+    k should be an *intrinsic* reaction rate. You can convert an 
+    overall reaction rate (kon) to an intrinsic reaction rate (k) with 
     the function utils.k_a(kon, kD), but only for reaction rules in 3D.
 
     By default an EGFRDSimulator will assume a repulsive 
-    bimolecular reaction rule (ka=0) for each possible combination of 
+    bimolecular reaction rule (k=0) for each possible combination of 
     reactants for which no bimolecular reaction rule is specified. 
     You can explicitly add these reaction rules to the model with the 
     method model.ParticleModel.set_all_repulsive.
 
     """
     rr = _gfrd.ReactionRule([reactant1, reactant2], [])
-    rr['k'] = '%.16g' % ka
+    rr['k'] = '%.16g' % k
     return rr
 
-def create_binding_reaction_rule(reactant1, reactant2, product, ka):
+def create_binding_reaction_rule(reactant1, reactant2, product, k):
     """Example: A + B -> C.
 
     Arguments:
@@ -423,7 +423,7 @@ def create_binding_reaction_rule(reactant1, reactant2, product, ka):
             a Species.
         - product
             a Species.
-        - ka
+        - k
             intrinsic reaction rate. Units: meters^3 per second. (Rough 
             order of magnitude: 1e-16 m^3/s to 1e-20 m^3/s)
 
@@ -432,22 +432,22 @@ def create_binding_reaction_rule(reactant1, reactant2, product, ka):
 
     A binding reaction rule always has exactly one product.
 
-    ka should be an *intrinsic* reaction rate. You can convert an 
-    overall reaction rate (kon) to an intrinsic reaction rate (ka) with 
+    k should be an *intrinsic* reaction rate. You can convert an 
+    overall reaction rate (kon) to an intrinsic reaction rate (k) with 
     the function utils.k_a(kon, kD), but only for reaction rules in 3D.
 
     By default an EGFRDSimulator will assume a repulsive 
-    bimolecular reaction rule (ka=0) for each possible combination of 
+    bimolecular reaction rule (k=0) for each possible combination of 
     reactants for which no bimolecular reaction rule is specified. 
     You can explicitly add these reaction rules to the model with the 
     method model.ParticleModel.set_all_repulsive.
 
     """
     rr = _gfrd.ReactionRule([reactant1, reactant2], [product])
-    rr['k'] = '%.16g' % ka
+    rr['k'] = '%.16g' % k
     return rr
 
-def create_unbinding_reaction_rule(reactant, product1, product2, kd):
+def create_unbinding_reaction_rule(reactant, product1, product2, k):
     """Example: A -> B + C.
 
     Arguments:
@@ -457,7 +457,7 @@ def create_unbinding_reaction_rule(reactant, product1, product2, kd):
             a Species.
         - product2
             a Species.
-        - kd
+        - k
             intrinsic reaction rate. Units: per second. (Rough order of 
             magnitude: 1e-2 /s to 1e2 /s).
 
@@ -466,19 +466,19 @@ def create_unbinding_reaction_rule(reactant, product1, product2, kd):
 
     An unbinding reaction rule always has exactly two products.
 
-    kd should be an *intrinsic* reaction rate. You can convert an 
+    k should be an *intrinsic* reaction rate. You can convert an 
     overall reaction rate (koff) for this reaction rule to an intrinsic 
-    reaction rate (kd) with the function utils.k_d(koff, kon, kD) or 
+    reaction rate (k) with the function utils.k_d(koff, kon, kD) or 
     utils.k_d_using_ka(koff, ka, kD).
 
     An unbinding reaction rule defines a Poissonian process.
 
     """
     rr = _gfrd.ReactionRule([reactant], [product1, product2])
-    rr['k'] = '%.16g' % kd
+    rr['k'] = '%.16g' % k
     return rr
 
-def create_surface_absorption_reaction_rule(reactant, surface, ka):
+def create_surface_absorption_reaction_rule(reactant, surface, k):
     """Example: A + some_surface -> 0 + some_surface
 
     Arguments:
@@ -487,17 +487,17 @@ def create_surface_absorption_reaction_rule(reactant, surface, ka):
         - surface
             a Surface created with one of the functions 
             model.create_<>_surface.
-        - ka
+        - k
             intrinsic reaction rate. Units: meters^3 per second. (Rough 
             order of magnitude: 1e-16 m^3/s to 1e-20 m^3/s)
 
-    ka should be an *intrinsic* reaction rate. No analytical expression 
+    k should be an *intrinsic* reaction rate. No analytical expression 
     is currently known to convert an overall reaction rate (kon) to 
-    an intrinsic reaction rate (ka) for surface binding or absorption 
+    an intrinsic reaction rate (k) for surface binding or absorption 
     reaction rules.
 
     By default an EGFRDSimulator will assume a repulsive 
-    surface binding reaction rule (ka=0) for each possible 
+    surface binding reaction rule (k=0) for each possible 
     combination of reactant and Surface for which no surface 
     binding or absorption reaction rule is specified. You can 
     explicitly add these reaction rules to the model by calling 
@@ -506,7 +506,7 @@ def create_surface_absorption_reaction_rule(reactant, surface, ka):
     """
     assert isinstance(reactant['structure'], _gfrd.BoxShapedRegion)
 
-def create_surface_binding_reaction_rule(reactant, surface, product, ka):
+def create_surface_binding_reaction_rule(reactant, surface, product, k):
     """Example: A + some_surface -> A_on_surface + some_surface
 
     Arguments:
@@ -521,19 +521,19 @@ def create_surface_binding_reaction_rule(reactant, surface, product, ka):
             Surface to the variable some_surface, then a valid product 
             Species would be:
             model.Species('A_on_surface', some_D, some_r, some_surface)
-        - ka
+        - k
             intrinsic reaction rate. Units: meters^3 per second. (Rough 
             order of magnitude: 1e-16 m^3/s to 1e-20 m^3/s)
 
     A surface binding reaction rule always has exactly one product.
 
-    ka should be an *intrinsic* reaction rate. No analytical expression 
+    k should be an *intrinsic* reaction rate. No analytical expression 
     is currently known to convert an overall reaction rate (kon) to 
-    an intrinsic reaction rate (ka) for surface binding or absorption 
+    an intrinsic reaction rate (k) for surface binding or absorption 
     reaction rules.
 
     By default an EGFRDSimulator will assume a repulsive 
-    surface binding reaction rule (ka=0) for each possible 
+    surface binding reaction rule (k=0) for each possible 
     combination of reactant and Surface for which no surface 
     binding or absorption reaction rule is specified. You can 
     explicitly add these reaction rules to the model by calling 
@@ -542,7 +542,7 @@ def create_surface_binding_reaction_rule(reactant, surface, product, ka):
     """
     assert product['structure'] == surface
 
-def create_surface_unbinding_reaction_rule(reactant, surface, product, kd):
+def create_surface_unbinding_reaction_rule(reactant, surface, product, k):
     """Example: A_on_surface + some_surface -> A + some_surface
 
     Arguments:
@@ -557,15 +557,15 @@ def create_surface_unbinding_reaction_rule(reactant, surface, product, kd):
             model.create_<>_surface.
         - product
             a Species in the "world" or in a Region.
-        - kd
+        - k
             intrinsic reaction rate. Units: per second. (Rough order of 
             magnitude: 1e-2 /s to 1e2 /s).
 
     A surface unbinding reaction rule always has exactly one product.
 
-    kd should be an *intrinsic* reaction rate. No analytical expression 
+    k should be an *intrinsic* reaction rate. No analytical expression 
     is currently known to convert an overall reaction rate (koff) to 
-    an intrinsic reaction rate (kd) for surface unbinding reaction rules.
+    an intrinsic reaction rate (k) for surface unbinding reaction rules.
 
     A surface unbinding reaction rule defines a Poissonian process.
 
@@ -573,7 +573,7 @@ def create_surface_unbinding_reaction_rule(reactant, surface, product, kd):
     assert reactant['structure'] == surface
 
 def create_membrane_traversal_reaction_rule(reactant, surface1, 
-                                            product, surface2, ka):
+                                            product, surface2, k):
     """
 
     """

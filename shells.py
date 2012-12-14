@@ -1386,7 +1386,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
             cos_angle_diff = math.cos(angle_diff)
             
             assert scale_center_to_shell >= shell_radius # should never fail
-            #ss_angle = math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius) ## TESTING Old version
+
             ss_angle = math.pi - math.asin(math.sin(angle_diff)*scale_center_to_shell/shell_radius)
             assert(ss_angle >= math.pi/2.0), 'EDGE_HITS_BARREL: ss_angle must be >= Pi/2.0; ss_angle = %s' % str(ss_angle)
                     # We know that this angle must be larger than Pi/2 here by construction of the problem
@@ -1766,12 +1766,6 @@ class CylindricaltestShell(testShell):
         # initialize the parameters to start the scaling of the cylinder
         min_dr, min_dz_right, min_dz_left = self.apply_safety(min_dr, min_dz_right, min_dz_left)
         dr, dz_right, dz_left             = max_dr, max_dz_right, max_dz_left
-
-        ## TESTING
-        #assert dr >= min_dr and dz_right >= min_dz_right and dz_left >= min_dz_left, \
-               #'CylindricaltestShell dimensions smaller than the minimum, \
-                #dr = %s, dz_right = %s, dz_left = %s, min_dr = %s, min_dz_right = %s, min_dz_left = %s.' % \
-               #(dr, dz_right, dz_left, min_dr, min_dz_right, min_dz_left)
  
         # first check the maximum dr, dz_right, dz_left against the surfaces
         # NOTE: we assume that all relevant surfaces are cylindrical and parallel to the testCylinder
@@ -2554,15 +2548,6 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         self.tan_right_scalingangle = math.tan(self.right_scalingangle)
         self.tan_left_scalingangle  = math.tan(self.left_scalingangle)
 
-        ### TESTING TESTING TESTING remove when done
-        log.info(' MixedPair2D3D: Initalized shellscaling: scale_angle = %s, drdz  = %s' % (self.right_scalingangle, self.drdz_right))
-        log.info('                                         r0_right = %s, z0_right = %s' % (self.r0_right, self.z0_right))
-        log.info('                                         r0_left  = %s, z0_left  = %s' % (self.r0_left,  self.z0_left))
-
-        log.info('      min_dr_dzright_dzleft = %s' % str(self.get_min_dr_dzright_dzleft() ))
-        log.info('      max_dr_dzright_dzleft = %s' % str(self.get_max_dr_dzright_dzleft() ))
-
-
         # This will determine if the shell is possible.
         # If possible, it will write the dr, dz_right, dz_left defining the dimensions of the cylindrical shell.
         # If not possible, it throws an exception and the construction of the testShell IS ABORTED!
@@ -2638,11 +2623,7 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         # now adjust dz_right such that they obey the scaling laws and are still within the search_radius
         # We assume that dz_right needs to be adjusted to dr and not the other way around since the cylinder is
         # always a bit flatter.
-        dz_right = self.z_right(dr)        
-        ## Debug output for TESTING
-        #log.debug( "max_dr=%s, max_dz_right=%s, max_dz_left=%s" % (dr, dz_right, dz_left) )
-        #log.debug( "min_dist_proj_to_edge=%s" % str(self.min_dist_proj_to_edge) )
-        #assert dr > dz_right   ## Removed for TESTING
+        dz_right = self.z_right(dr)
 
         return dr, dz_right, dz_left
 
@@ -2661,22 +2642,12 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         D_3D = self.particle3D.D
 
         # calculate a_r such that the expected first-passage for the CoM and IV are equal        
-        #sqrt_DRDr_2D = math.sqrt( 2.0/3.0 * self.D_R/D_2D )  # TESTING
-        #sqrt_DRDr_3D = math.sqrt( 2.0/3.0 * self.D_R/D_3D )
         a_r_2D = (r_right - radius2D + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_2D/self.D_tot) )
         a_r_3D = (r_right - radius3D + self.r0*self.sqrt_DRDr ) / (self.sqrt_DRDr + (D_3D/self.D_tot) )        
         # take the smaller a_r that, if entered in the function for r below, would lead to this r_right
         a_r = min(a_r_2D, a_r_3D)
 
         z_right = (a_r/self.get_scaling_factor()) + radius3D
-
-        ## Debug output for TESTING
-        #log.debug( " a_r_2D=%s, a_r_3D=%s, z_right=%s, r_right=%s" % (a_r_2D, a_r_3D, z_right, r_right))
-        #log.debug('r_right= %s, r_right(z_right)=%s, z_right=%s' % (r_right, self.r_right(z_right), z_right) )
-
-        #assert feq(self.r_right(z_right), r_right), 'Inconsistent z_right function in MixedPair2D3DtestShell: \
-                                                     #r_right= %s, r_right(z_right)=%s, z_right=%s' % \
-                                                     #(r_right, self.r_right(z_right), z_right)
 
         if r_right < 0.0 or z_right <0.0:
             log.warning('Negative cylinder dimensions in MixedPair2D3DtestShell: z_right= %s, r_right=%s' % (z_right, r_right) )
@@ -2721,10 +2692,7 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
         # the estimated a_R value for the same first passage time
         r_right = a_R + iv_max
 
-        ### TESTING
-        log.info('MixedPair2D3DtestShell: z_right= %s, z_right(r_right)=%s, r_right=%s' % (z_right, self.z_right(r_right), r_right) )
-
-        if r_right < 0.0 or z_right <0.0:
+        if r_right < 0.0 or z_right <0.0:  ### TESTING; remove when stable (or should we keep it?)
             log.warning('Negative cylinder dimensions in MixedPair2D3DtestShell: z_right= %s, r_right=%s' % (z_right, r_right) )
 
         assert feq(self.z_right(r_right), z_right), 'Inconsistent r_right function in MixedPair2D3DtestShell: \

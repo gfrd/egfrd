@@ -934,34 +934,52 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
     # here we assume that the com and iv are really in the structure and no adjustments have to be
     # made
     #
-    # structure3D is not used here but has to be passed because of the classmethod property
+    # structure3D is not used here but has to be passed because of the classmethod property        
 
         D_tot = D1 + D2
         weight1 = D1 / D_tot
         weight2 = D2 / D_tot
 
-#       min_iv_z_length = radius2
-        # get a sence of scale of the separation between the particle and the membrane
-        min_iv_z_length = (radius1 + radius2) * 0.5 * (MINIMAL_SEPARATION_FACTOR - 1.0)
+        z_btf = math.sqrt(D2/D_tot)     # z back transform factor
 
         # get the coordinates of the iv relative to the system of the surface (or actually the shell)
         iv_x = structure2D.shape.unit_x * numpy.dot(iv, structure2D.shape.unit_x)
         iv_y = structure2D.shape.unit_y * numpy.dot(iv, structure2D.shape.unit_y)
+
+        iv_x_length = length(iv_x)
+        iv_y_length = length(iv_y)
 
         # reflect the coordinates in the unit_z direction back to the side of the membrane
         # where the domain is. Note that it's implied that the origin of the coordinate system lies in the
         # plane of the membrane
         iv_z_length = abs(numpy.dot(iv, unit_z))   # FIXME maybe first project the shell unit_z onto the 
                                                    # surface unit_z to prevent numerical problems?
-        # do the reverse scaling
-        iv_z_length = iv_z_length / math.sqrt(D_tot/D2)
+        # do the reverse scaling in z-direction
+        iv_z_length_btf = iv_z_length * z_btf
 
-        # if the particle is overlapping with the membrane, make sure it doesn't
-        # IS THIS STILL NECESSARY?
-        if iv_z_length < min_iv_z_length:
-            iv_z_length = min_iv_z_length #* MINIMAL_SEPARATION_FACTOR
+        # The following is to avoid overlaps in case that the z-component of the IV is scaled down
+        # so much that it would cause a particle overlap.
+        # This can happen because the inner boundary in the space of transformed coordinates is not a
+        # prolate spheroid, as it should, but approximated by a sphere. This can lead to IV exit points
+        # within the prolate spheroid, i.e. within the sphere with radius sigma = radius1 + radius2 in
+        # the real space after inverse transform.  FIXME This works, but is still somewhat of a HACK!
+        min_iv_length = (radius1 + radius2) * MINIMAL_SEPARATION_FACTOR
 
-        iv_z = unit_z * iv_z_length
+        if (iv_x_length*iv_x_length + iv_y_length*iv_y_length + iv_z_length_btf*iv_z_length_btf) < min_iv_length*min_iv_length:
+
+            z_safety_factor_sq = (min_iv_length*min_iv_length - iv_x_length*iv_x_length - iv_y_length*iv_y_length) \
+                                 / (iv_z_length_btf*iv_z_length_btf)
+
+            assert(z_safety_factor_sq >= 0.0)
+            log.warn('MixedPair2D3D: Applying z_safety_factor = %s to enlarge too small interparticle vector.' % str(math.sqrt(z_safety_factor_sq)) )
+
+            iv_z_length_btf = math.sqrt( z_safety_factor_sq ) * iv_z_length_btf
+            
+
+        # TODO Also check for membrane overlapping?
+
+        # Construct the z-vector-component and the new position vectors
+        iv_z = unit_z * iv_z_length_btf
 
         pos1 = com - weight1 * (iv_x + iv_y)            # the new 2D particle position
         pos2 = com + weight2 * (iv_x + iv_y) + iv_z     # the new 3D particle position
