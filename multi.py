@@ -95,10 +95,13 @@ class Multi(Domain, hasSphericalShell, Others):
                 self.outer_ = outer
 
             def __call__(self, shape, ignore0, ignore1=None):
-                within_radius = bool(
-                    self.outer_.sphere_container.get_neighbors_within_radius(
-                        shape.position, -(shape.radius + self.outer_.reaction_length) ))
-                if not within_radius:
+
+                within_radius = self.outer_.sphere_container.get_neighbors_within_radius(
+                               shape.position, -(shape.radius + self.outer_.reaction_length) )
+
+                if list(within_radius) == []:
+                   # Convert to list first because of tricky C++/Python binding here
+                   # Type casting bool(within_radius) caused segfaults in some simulations
                     main = self.outer_.main()
                     if self.outer_.last_event == EventType.MULTI_DIFFUSION: #None:
                         self.outer_.last_event = EventType.MULTI_ESCAPE
@@ -110,6 +113,7 @@ class Multi(Domain, hasSphericalShell, Others):
                     else:
                         return not main.world.check_overlap(
                             (shape.position, shape.radius), ignore0, ignore1)
+
                 return True
 
         cr = check_reaction()

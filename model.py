@@ -24,6 +24,8 @@ __all__ = [
     'create_double_sided_planar_surface',
     ]
 
+import logging
+log = logging.getLogger('ecell')
 
 # Define _gfrd docstrings here, much easier to format than in C++.
 # TODO These functions should be moved to gfrdbase.py because structures are no longer a part of the model,
@@ -279,7 +281,7 @@ class ParticleModel(_gfrd.ParticleModel):
 #    def get_structure(self, id): 
 #        return self.structures[id]
 
-    def add_reaction_rule(self, reaction_rule):
+    def add_reaction_rule(self, reaction_rule, safe=True):
         """Add a ReactionRule to the ParticleModel.
 
         Argument:
@@ -288,7 +290,21 @@ class ParticleModel(_gfrd.ParticleModel):
                 model.create_<>_reaction_rule.
 
         """
-        self.network_rules.add_reaction_rule(reaction_rule)
+        if safe and float(reaction_rule['k']) == 0.0:
+
+            log.warn('Omitting to add reaction rule with zero reaction rate..')
+            return 0
+
+        elif float(reaction_rule['k']) == 0.0:
+
+            log.warn('Adding reaction rule with zero reaction rate. That creates unnecessary overhead and should be avoided.')
+            self.network_rules.add_reaction_rule(reaction_rule)
+            return 1
+
+        else:
+
+            self.network_rules.add_reaction_rule(reaction_rule)
+            return 1
 
     def set_all_repulsive(self):
         """Set all 'other' possible ReactionRules to be repulsive.
@@ -342,7 +358,7 @@ def create_unimolecular_reaction_rule(reactant, product, k):
 
     A unimolecular reaction rule defines a Poissonian process.
 
-    """
+    """        
     rr = _gfrd.ReactionRule([reactant], [product])
     rr['k'] = '%.16g' % k
     return rr
@@ -379,7 +395,6 @@ def create_creation_reaction_rule(product, k):
     A creation reaction rule defines a Poissonian process.
 
     """
-
     rr = _gfrd.ReactionRule([], [product])
     rr['k'] = '%.16g' % k
     return rr

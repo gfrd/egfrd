@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <limits>
+#include <iostream>
 #include <numpy/arrayobject.h>
 
 namespace peer {
@@ -117,6 +118,10 @@ namespace util
 
         pyarray_backed_allocator(const pyarray_backed_allocator_base& that)
             : pyarray_backed_allocator_base(that) {}
+            
+        ~pyarray_backed_allocator()
+        {
+        }
 
         pointer address(reference r) const
         {

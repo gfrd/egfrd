@@ -135,7 +135,6 @@ public:
             ++rejected_move_count_;
             return true;
         }
-        
 
         /*** 3. COLLECT INFO ***/
         // Get info of the particle
@@ -381,8 +380,8 @@ public:
                                                                      new_structure_id,
                                                                      pp_species.D(),
                                                                      pp_species.v()) );
-                
-            if (vc_)
+                                                                     
+            if (vc_)            
             {
                 if (!(*vc_)(particle_to_update.second.shape(), particle_to_update.first))
                 {
@@ -390,7 +389,7 @@ public:
                     return true;
                 }
             }
-                
+
             tx_.update_particle(particle_to_update);
         }
 
@@ -417,15 +416,16 @@ private:
     // Handles all monomolecular reactions
     {
         reaction_rules const& rules(rules_.query_reaction_rule(pp.second.sid()));
-        if (::size(rules) == 0)
+        
+        if ((int)::size(rules) == 0)
         {
             return false;
         }
-
+     
         const Real rnd(rng_() / dt_);
         Real k_cumm = 0.;
 
-        // select one of the available reaction rules that led to the monomolecular reaction
+        // select one of the available reaction rules that led to the monomolecular reaction        
         for (typename boost::range_const_iterator<reaction_rules>::type
                 i(boost::begin(rules)), e(boost::end(rules)); i != e; ++i)
         {
@@ -435,7 +435,7 @@ private:
             if (k_cumm > rnd)
             // We have found the reaction rule that is in effect
             {
-                // get the products
+                // get the products                
                 typename reaction_rule_type::species_id_range products(reaction_rule.get_products());
 
                 switch (::size(products))
@@ -747,7 +747,7 @@ private:
                 return true;
             }
         }
-        // No monomolecular reaction has taken place. 
+        // No monomolecular reaction has taken place.
         return false;
     }
 

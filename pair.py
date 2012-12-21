@@ -921,10 +921,10 @@ class MixedPair2D3D(Pair, hasCylindricalShell):
                        FORMAT_DOUBLE % a_R, FORMAT_DOUBLE % tR,
                        FORMAT_DOUBLE % (tr-tR) ))
 
-#        assert feq(tr, tR), 'estimate first passage times were not equal'
+#        assert feq(tr, tR), 'estimate first passage times were not equal'  ## FIXME
 
-        # Some checks that shall never fail
-        assert (self.sigma < a_r) and (a_r < 2.0*shell_half_length)
+        # Some checks that shall never fail        
+        assert (self.sigma < a_r) and (a_r < 2.0*shell_half_length * self.z_scaling_factor)
         assert (0 < a_R) and (a_R < shell_radius)
 
         return a_R, a_r

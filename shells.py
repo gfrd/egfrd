@@ -2583,9 +2583,11 @@ class MixedPair2D3DtestShell(CylindricaltestShell, testMixedPair2D3D):
 
 
         ### calculate the minimal height z_right1 of the shell including burst radius
-        dz_right1 = self.iv_z_minimum
+        dz_right1 = 1.5 * self.iv_z_minimum
         # with the accompanying radius r1
         dr_1 = self.r_right(dz_right1)
+
+  
 
 
 #        ### calculate the minimal radius r2 of the shell including the burst radius

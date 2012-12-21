@@ -636,10 +636,12 @@ def load_state(filename):
         # and to the internal rules dictionary
         if rule:
             
-            m.add_reaction_rule(rule)
-            rules_dict[name_to_int(sectionname)] = rule
-            if __debug__:
-                log.info('  Added %s, type = %s' % (rule, rtype) )
+            added = m.add_reaction_rule(rule)
+            
+            if added:
+                rules_dict[name_to_int(sectionname)] = rule
+                if __debug__:
+                    log.info('  Added %s, type = %s' % (rule, rtype) )
 
     if __debug__:
         log.info('  rules_dict = %s' % str(rules_dict) )

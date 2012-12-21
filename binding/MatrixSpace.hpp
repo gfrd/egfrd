@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/type_traits.hpp>
@@ -374,6 +376,7 @@ public:
 
         // take over the ownership of the arrays to the Numpy facility
         alloc.giveup_ownership();
+        
         return retval;
     }
 
