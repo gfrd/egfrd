@@ -484,8 +484,10 @@ class testPlanarSurfaceTransitionPair(testPair):
         if __debug__: 
                 assert isinstance(single1.structure, PlanarSurface) 
                 assert isinstance(single2.structure, PlanarSurface) 
-
-        testPair.__init__(self, single1, single2) # note: this makes self.single1/self.pid_particle_pair1 and the same for particle2
+        
+        testPair.__init__(self, single1, single2) # Note: this makes self.single1/self.pid_particle_pair1 and the same for particle2
+                                                  # and also will run do_transform(); do_transform sets self.com_with_apply_bnd which
+                                                  # will be the position at which the shell will be later constructed.
         self.structure  = self.structure1         # some pair methods need this to be defined
 
     def get_sigma(self):
@@ -497,8 +499,9 @@ class testPlanarSurfaceTransitionPair(testPair):
 
     def do_transform(self):
         # Transform the pos1 and pos2 of particles1 and 2 to the CoM and IV vectors
-        # As an indermediate step project position of single2 into plane of single1 and add its
+        # As an intermediate step project position of single2 into plane of single1 and add its
         # orthogonal component rotated by 90 deg. to transform the whole problem into a single 2D plane
+        # The latter is now taken care of by world.cyclic_transpose()
         pos1 = self.pid_particle_pair1[1].position
 #        pos2 = self.structure1.deflect_back(self.pid_particle_pair2[1].position, self.structure2.shape.unit_z)
         pos2, _ = self.world.cyclic_transpose((self.pid_particle_pair2[1].position, self.pid_particle_pair2[1].structure_id), self.structure1)
@@ -507,8 +510,17 @@ class testPlanarSurfaceTransitionPair(testPair):
 
         com = self.world.calculate_pair_CoM(pos1, pos2, D_1, D_2)
         com = self.world.apply_boundary(com)
+        # Attention! This is the CoM in plane1! It may well lie outside of the structure if it is
+        # closer to particle2 than to particle1. This is correct since we want to perform the whole
+        # calculation in structure1 and later correctly project the results if necessary.
         # TODO make sure that the com is in the structure of the particle
         # (assume that this is done correctly in calculate_pair_CoM)
+
+        # We also want the "real" CoM, i.e. projected to structure2 if outside of structure1.
+        # The test shell will be constructed with its center at this point.
+        # To construct this point we need to take into account a possible change to the other plane.
+        # apply_boundary() called with the structure into which the problem was transformed does the job:
+        self.com_with_apply_bnd, self.com_struct_id = self.world.apply_boundary( (com, self.structure1.id) )
 
         pos2t = self.world.cyclic_transpose(pos2, pos1)
         iv = pos2t - pos1
@@ -866,7 +878,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
     relative_orientation = abs(numpy.dot(orientation_vector, shape.unit_z))
 
     if feq(relative_orientation, 1.0):
-    #### If the cylinders are oriented parallelly ####
+    #### If the cylinders are parallel ####
 
         # calculate ref_to_shell_r/z in the cylindrical coordinate system on the right/left side
         ref_to_shell_z_vec = ref_to_shell_z * orientation_vector
@@ -1259,18 +1271,34 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
 
                         return eq_value
 
-                    # Self-adaptive initial value guessing for the rootfinder procedure:
-                    # Start with prefactors (1+TOLERANCE), (1-TOLERANCE) and check whether the h1_eq values for these
-                    # interval boundaries have different signs; if not, slightly enlarge the interval.
+                    # To ensure that we always search on an interval within which h1_eq() contains only one zero root
+                    # we enlarge the rootfinder interval, starting from safe bounds, towards the bounds beyond which we
+                    # know there are unwanted solutions. We stop the enlargement when function h1_eq() certainly 
+                    # changes sign within the interval.
+                    # We use a multiplicative factor tau to enlarge the domain. tau is set such that 
+                    # (1-tau)*h1_interval_max - (1+tau)*h1_interval_min >= 0.5*(h1_interval_max-h1_interval_min)
+                    # in order to ensure that the interval is nonzero and positive in the first iteration.
+
+                    # Set some repeating and default values
+                    # r1_interval min, r1_interval_max are the outer interval bounds for which there is only one root
+                    h1_interval_min = z1_function(scale_center_to_shell_edge_x) - scale_center_z
+                    h1_interval_max = z1_function( math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
+                                                      scale_center_to_shell_edge_x*scale_center_to_shell_edge_x ) ) - scale_center_z
+                    h1_interval_start = h1_interval_min
+                    h1_interval_end   = h1_interval_max
+                    # Set the enlargement factor; we want it to be at least as small as TOLERANCE
+                    tau = min(TOLERANCE, 0.5*(h1_interval_max-h1_interval_min)/(h1_interval_max+h1_interval_min))
+                    assert tau>0.0 and tau<1.0
+
+                    # Start the iteration
                     n=1
                     nmax=100
-                    h1_eq_product = 1
-                    assert TOLERANCE>0.0 and TOLERANCE<1.0
+                      # Since tau is very small, the iteration hardly ever should get to nmax; but to be safe...
+                    h1_eq_product = 1                    
                     while h1_eq_product > 0.0:
 
-                        h1_interval_start = (1.0+TOLERANCE**n) * (z1_function(scale_center_to_shell_edge_x) - scale_center_z)
-                        h1_interval_end   = (1.0-TOLERANCE**n) * (z1_function( math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
-                                                                                          scale_center_to_shell_edge_x*scale_center_to_shell_edge_x ) ) - scale_center_z)
+                        h1_interval_start = (1.0+tau**n) * h1_interval_min
+                        h1_interval_end   = (1.0-tau**n) * h1_interval_max
                         h1_eq_product     = h1_eq(h1_interval_start) * h1_eq(h1_interval_end)
 
                         n = n+1
@@ -1290,6 +1318,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     #log.debug( "  h1(i_start) = %s"       % h1_eq(h1_interval_start) )
                     #log.debug( "  h1(i_end) = %s"         % h1_eq(h1_interval_end) )
 
+                    # Finally, start the rootfinding
                     h_touch = scale_center_z + findroot(h1_eq, h1_interval_start, h1_interval_end)
                     z1_new = min(z1, h_touch)
                     r_new  = min(r,  r1_function(z1_new))
@@ -1319,15 +1348,34 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
 
                         return eq_value
 
+                    # To ensure that we always search on an interval within which r1_eq() contains only one zero root
+                    # we enlarge the rootfinder interval, starting from safe bounds, towards the bounds beyond which we
+                    # know there are unwanted solutions. We stop the enlargement when function r1_eq() certainly 
+                    # changes sign within the interval.
+                    # We use a multiplicative factor tau to enlarge the domain. tau is set such that 
+                    # (1-tau)*r1_interval_max - (1+tau)*r1_interval_min >= 0.5*(r1_interval_max-r1_interval_min)
+                    # in order to ensure that the interval is nonzero and positive in the first iteration.
+
+                    # Set some repeating and default values
+                    # r1_interval min, r1_interval_max are the outer interval bounds for which there is only one root
+                    r1_interval_min = scale_center_to_shell_edge_x
+                    r1_interval_max = math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
+                                                    scale_center_to_shell_edge_x*scale_center_to_shell_edge_x )
+                    r1_interval_start = r1_interval_min
+                    r1_interval_end   = r1_interval_max
+                    # Set the enlargement factor; we want it to be at least as small as TOLERANCE
+                    tau = min(TOLERANCE, 0.5*(r1_interval_max-r1_interval_min)/(r1_interval_max+r1_interval_min))
+                    assert tau>0.0 and tau<1.0
+
+                    # Start the iteration
                     n=1
                     nmax=100
+                      # Since tau is very small, the iteration hardly ever should get to nmax; but to be safe...
                     r1_eq_product = 1
-                    assert TOLERANCE>0.0 and TOLERANCE<1.0
                     while r1_eq_product > 0.0:
 
-                        r1_interval_start = (1.0+TOLERANCE**n) * scale_center_to_shell_edge_x
-                        r1_interval_end   = (1.0-TOLERANCE**n) * math.sqrt( scale_center_to_shell_y*scale_center_to_shell_y + \
-                                                                            scale_center_to_shell_edge_x*scale_center_to_shell_edge_x )
+                        r1_interval_start = (1.0+tau**n) * r1_interval_min
+                        r1_interval_end   = (1.0-tau**n) * r1_interval_max
                         r1_eq_product     = r1_eq(r1_interval_start) * r1_eq(r1_interval_end)
                         
                         n = n+1
@@ -1338,8 +1386,8 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     # Non-adaptive version; TODO Remove this after TESTING
                     #r1_interval_start = scale_center_to_shell_edge_x
                     #r1_interval_end   = math.sqrt( scale_center_to_shell_y**2 + scale_center_to_shell_edge_x**2 )
-                    assert(r1_interval_start >= 0)
-                    assert(r1_interval_end   >= r1_interval_start)
+                    assert(r1_interval_start >= 0), 'r1_interval_start = %s, n_iterations=%s' % (r1_interval_start, n)
+                    assert(r1_interval_end   >= r1_interval_start), 'r1_interval_start = %s, r1_interval_end=%s, n_iterations=%s' % (r1_interval_start, r1_interval_end, n)
 
                     # TODO TESTING REMOVE THIS WHEN DONE
                     #print "***** NEW ROOTFINDER ITERATION *****"
@@ -1350,6 +1398,7 @@ def get_dr_dzright_dzleft_to_CylindricalShape(shape, testShell, r, z_right, z_le
                     #print "  r1(i_start) = %s"       % r1_eq(scale_center_to_shell_edge_x)
                     #print "  r1(i_end) = %s"         % r1_eq(math.sqrt( scale_center_to_shell_y**2 + scale_center_to_shell_edge_x**2))
 
+                    # Finally, start the rootfinding
                     r_touch = findroot(r1_eq, r1_interval_start, r1_interval_end)
                               
                     r_new  = min(r, r_touch)
@@ -1723,7 +1772,8 @@ class PlanarSurfaceTransitionPairtestShell(SphericaltestShell, testPlanarSurface
             raise testShellError('(PlanarSurfaceTransitionPair). %s' %
                                  (str(e)))
 
-        self.center = self.com
+        self.center = self.com_with_apply_bnd
+        
         try:
             self.radius = self.determine_possible_shell(self.structure1.id, [self.single1.domain_id, self.single2.domain_id],
                                                         [self.structure2.id])

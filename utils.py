@@ -45,7 +45,7 @@ MULTI_SHELL_FACTOR = math.sqrt(3)
                      # IMPORTANT NOTE: MULTI_SHELL_FACTOR should be AT LEAST sqrt(2) !
                      # This stems from the fact that there is vacant space in the cylinder
 
-SINGLE_SHELL_FACTOR = 3.0 #2.0*MULTI_SHELL_FACTOR
+SINGLE_SHELL_FACTOR = 3.5 #2.0*MULTI_SHELL_FACTOR
                       # This is the threshold for when the algorithm switches from forming
                       # NonInteractionSingles to forming a Pair or Interaction. It also defines
                       # the radius in which the NonInteractionSingle will burst intruding domains.
