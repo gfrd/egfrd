@@ -1363,6 +1363,30 @@ class EGFRDSimulator(ParticleSimulatorBase):
             # 3. check that there is space for the products (try different positions if possible)
             # accept the new positions if there is enough space.
             for newpos1, newpos2 in product_pos_list:
+
+                # First, for each neighboring plane, we check whether the new positions lie 
+                # on the same side of the plane as the reactant; if not, this trial will be rejected                
+                product_crossed_plane = False # by default everything is OK
+                neighbor_surfaces = get_neighbor_surfaces(self.world, reactant_pos, reactant_structure.id, ignores=[])
+                    # NOTE surface lists have format (surface, distance_to_surface_from_reactant_position)
+                for surface, surf_dist in neighbor_surfaces:
+                
+                    if isinstance(surface, PlanarSurface):
+                    
+                        # Products and reactant are on the same side if the dot product of the position minus
+                        # a point on the plane with the normal vector of the plane has the same sign
+                        unit_z = surface.shape.unit_z
+                        center = surface.shape.position
+                        newpos1_crossed = numpy.dot(reactant_pos - center, unit_z) * numpy.dot(newpos1 - center, unit_z)
+                        newpos2_crossed = numpy.dot(reactant_pos - center, unit_z) * numpy.dot(newpos2 - center, unit_z)
+                        
+                        if newpos1_crossed < 0.0 or newpos2_crossed < 0.0:
+
+                            product_crossed_plane = True
+                            
+                            if __debug__:
+                                log.info('single reaction: product crosses plane, reaction will be rejected.')
+
                 newpos1 = self.world.apply_boundary(newpos1)
                 newpos2 = self.world.apply_boundary(newpos2)
 
@@ -1371,8 +1395,9 @@ class EGFRDSimulator(ParticleSimulatorBase):
 
                 # check that there is space for the products 
                 # Note that we do not check overlap with surfaces -> TODO
-                if (not self.world.check_overlap((newpos1, product1_radius), reactant[0]) and \
-                    not self.world.check_overlap((newpos2, product2_radius), reactant[0])):
+                if not self.world.check_overlap((newpos1, product1_radius), reactant[0]) and \
+                   not self.world.check_overlap((newpos2, product2_radius), reactant[0]) and \
+                   not product_crossed_plane:
                     
                     # 4. process the changes (remove particle, make new ones)
                     self.world.remove_particle(reactant[0])

@@ -123,6 +123,13 @@ public:
     {
         return base_type::shape().unit_z();
     }
+    
+    // Vector used to determine whether a particle has crossed the structure
+    // For the plane the normal vector is the natural choice
+    virtual position_type const& side_comparison_vector() const
+    {
+        return base_type::shape().unit_z();
+    }
 
     // Positions created at dissociation of one particle on the structure into two particles on the structure
     virtual position_pair_type geminate_dissociation_positions( rng_type& rng, species_type const& s0, species_type const& s1, 

@@ -143,6 +143,7 @@ public:
     virtual projected_type project_point_on_surface(position_type const& pos) const = 0;
     virtual length_type distance(position_type const& pos) const = 0;
     virtual position_type const& position() const = 0;
+    virtual position_type const& side_comparison_vector() const = 0;
 
     // Methods used for edge crossing (only for the planes so far)
     virtual position_flag_pair_type deflect(position_type const& pos0, position_type const& displacement) const = 0;

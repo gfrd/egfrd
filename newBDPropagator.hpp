@@ -705,6 +705,46 @@ private:
                             {
                                 continue;   // try other positions pair
                             }
+                                                        
+                            //// 1c - CHECK FOR PLANE CROSSINGS
+                            // first determine which one is the largest involved particle radius
+                            length_type max_radius( pp.second.radius() ); // initialized with the reactant radius
+                            if( product0_species.radius() > max_radius)         max_radius = product0_species.radius();
+                            if( product1_species.radius() > max_radius)         max_radius = product1_species.radius();
+                            
+                            // get the "close" structures, i.e. the ones that are within max radius distance
+                            boost::scoped_ptr<structure_id_pair_and_distance_list> close_structures( 
+                                    tx_.check_surface_overlap( particle_shape_type( reactant_pos, max_radius + reaction_length_ ), reactant_pos, reactant_structure->id(), max_radius) );                                    
+                            int N_close_structures(close_structures ? close_structures->size(): 0);
+                            
+                            // loop over all close structures
+                            int j = 0;
+                            while(j < N_close_structures)
+                            {
+                                // get the next close structure
+                                const structure_id_pair_and_distance & close_struct( close_structures->at(j) );
+                                // and its center point and normal vector
+                                position_type cs_center( close_struct.first.second->position() );
+                                position_type cs_comp_v( close_struct.first.second->side_comparison_vector() );
+                                
+                                // project the distance of reactant and product positions to the center
+                                // onto the normal vector of the structure
+                                Real deltaR( dot_product(cs_comp_v, subtract(reactant_pos, cs_center)) );
+                                Real delta0( dot_product(cs_comp_v, subtract(pos0pos1_pair.first.first, cs_center)) );
+                                Real delta1( dot_product(cs_comp_v, subtract(pos0pos1_pair.second.first, cs_center)) );
+                                
+                                // if the sign of the projections for the products is different from the one
+                                // for the reactant the particle crossed the plane; in that case reject this
+                                // set of new positions
+                                if( deltaR * delta0 < 0.0 || deltaR * delta1 < 0.0)
+                                {
+                                      LOG_WARNING(("Rejecting new product positions because of structure side crossing." ));
+                                      continue;   // try other positions pair
+                                }
+                            
+                                j++;
+                            }
+                            
                             // If no overlap occured -> positions are ok
                             break;
                         }
