@@ -2,11 +2,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "range_support_test"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
+#include <boost/test/included/unit_test.hpp>
 #include <list>
 #include <vector>
 #include "utils/range.hpp"

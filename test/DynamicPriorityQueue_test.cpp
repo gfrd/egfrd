@@ -2,17 +2,18 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE 
 #define BOOST_TEST_MODULE "DynamicPriorityQueue"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
 #include <boost/mpl/list.hpp>
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/test_case_template.hpp>
+
 #include "DynamicPriorityQueue.hpp"
 
 typedef DynamicPriorityQueue<int>::identifier_type identifier_type;
 typedef std::vector<identifier_type> identifier_vector;
+
+
 typedef DynamicPriorityQueue<int > IntegerDPQ;
 typedef DynamicPriorityQueue<int, std::less_equal<int>, volatile_id_policy<> > VolatileIntegerDPQ;
 typedef boost::mpl::list<IntegerDPQ, VolatileIntegerDPQ> both;

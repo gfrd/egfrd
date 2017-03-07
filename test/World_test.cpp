@@ -9,13 +9,12 @@
 #include <boost/scoped_ptr.hpp>
 #include "utils/range.hpp"
 #include "Defs.hpp"
-//#include "World.hpp"
+#include "World.hpp"
 #include "SerialIDGenerator.hpp"
 #include "abstract_set.hpp"
 
 BOOST_AUTO_TEST_CASE(add_species)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_type species;
@@ -39,12 +38,10 @@ BOOST_AUTO_TEST_CASE(add_species)
     BOOST_CHECK(contains(i.get_species(), s1));
     BOOST_CHECK(contains(i.get_species(), s2));
     BOOST_CHECK(!contains(i.get_species(), s3));
-  */
 }
 
 BOOST_AUTO_TEST_CASE(new_particles)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -93,12 +90,10 @@ BOOST_AUTO_TEST_CASE(new_particles)
     BOOST_CHECK(i.check_overlap(p3.second.shape(), p3.first));
     BOOST_CHECK(!boost::scoped_ptr<particle_id_pair_and_distance_list>(i.check_overlap(p3.second.shape(), array_gen(p2.first, p3.first))));
     BOOST_CHECK(boost::scoped_ptr<particle_id_pair_and_distance_list>(i.check_overlap(p3.second.shape(), array_gen(p1.first, p3.first))));
-  */
 }
 
 BOOST_AUTO_TEST_CASE(get_particle)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -120,12 +115,10 @@ BOOST_AUTO_TEST_CASE(get_particle)
 
     BOOST_CHECK(i.get_particle(p1.first).second == p1.second);
     BOOST_CHECK(i.get_particle(p2.first).second == p2.second);
-  */
 }
 
 BOOST_AUTO_TEST_CASE(transaction_1)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -161,12 +154,10 @@ BOOST_AUTO_TEST_CASE(transaction_1)
 
     BOOST_CHECK_THROW(i.get_particle(p1.first), not_found);
     BOOST_CHECK_THROW(i.get_particle(p2.first), not_found);
-  */
 }
 
 BOOST_AUTO_TEST_CASE(transaction_2)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -200,12 +191,10 @@ BOOST_AUTO_TEST_CASE(transaction_2)
 
     BOOST_CHECK(i.get_particle(p1.first).second == p1.second);
     BOOST_CHECK(i.get_particle(p2.first).second == p2.second);
-  */
 }
 
 BOOST_AUTO_TEST_CASE(transaction_3)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -259,12 +248,10 @@ BOOST_AUTO_TEST_CASE(transaction_3)
     BOOST_CHECK(i.get_particle(p1.first).second == p1.second);
     BOOST_CHECK(i.get_particle(p2.first).second == p2.second);
     BOOST_CHECK_THROW(i.get_particle(p3.first), not_found);
-  */
 }
 
 BOOST_AUTO_TEST_CASE(transaction_4)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -314,12 +301,10 @@ BOOST_AUTO_TEST_CASE(transaction_4)
 
     BOOST_CHECK(i.get_particle(p1.first).second == p1.second);
     BOOST_CHECK(i.get_particle(p2.first).second == p2.second);
-  */
 }
 
 BOOST_AUTO_TEST_CASE(particle_pool)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef world_type::species_id_type species_id;
     typedef world_type::species_id_type species_id_type;
@@ -358,5 +343,4 @@ BOOST_AUTO_TEST_CASE(particle_pool)
     BOOST_CHECK(contains(i.get_particle_ids(s2.id()), p1.first));
     BOOST_CHECK(!contains(i.get_particle_ids(s2.id()), p2.first));
     BOOST_CHECK(contains(i.get_particle_ids(s2.id()), p3.first));
-  */
 }

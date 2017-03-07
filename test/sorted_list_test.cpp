@@ -2,11 +2,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "sorted_list"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
+#include <boost/test/included/unit_test.hpp>
 #include <vector>
 #include "sorted_list.hpp"
 

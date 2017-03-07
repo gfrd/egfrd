@@ -2,11 +2,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "array_helper_test"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
+#include <boost/test/included/unit_test.hpp>
 #include "utils/array_helper.hpp"
 
 BOOST_AUTO_TEST_CASE(basic)

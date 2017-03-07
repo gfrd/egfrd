@@ -2,11 +2,13 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "linear_algebra_test"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif /* HAVE_CONFIG_H */
+
+#include <boost/test/included/unit_test.hpp>
 #include "linear_algebra.hpp"
 
 BOOST_AUTO_TEST_CASE(test_is_matrix)

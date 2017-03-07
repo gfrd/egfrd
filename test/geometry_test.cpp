@@ -1,14 +1,10 @@
-
+#define BOOST_TEST_MODULE "linear_algebra_test"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
-#define BOOST_TEST_MODULE "linear_algebra_test"
 #include <boost/test/included/unit_test.hpp>
-#endif
-
 #include <boost/test/floating_point_comparison.hpp>
 #include "utils/array_helper.hpp"
 #include "geometry.hpp"

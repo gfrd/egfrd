@@ -8,13 +8,11 @@
 #include "Box.hpp"
 #include "Cylinder.hpp"
 #include "World.hpp"
-//#include "EGFRDSimulator.hpp"
-//#include "StructureUtils.hpp"
-
+#include "EGFRDSimulator.hpp"
+#include "StructureUtils.hpp"
 
 BOOST_AUTO_TEST_CASE(test_random_position)
 {
-  /*
     typedef World<CyclicWorldTraits<Real, Real> > world_type;
     typedef EGFRDSimulatorTraitsBase<world_type> simulator_traits_type;
     typedef EGFRDSimulator<simulator_traits_type> simulator_type;
@@ -60,6 +58,4 @@ BOOST_AUTO_TEST_CASE(test_random_position)
             BOOST_CHECK(p[2] < 1.);
         }
     }
-  */
 }
-

@@ -2,11 +2,9 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "Vector3_test"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
+#include <boost/test/included/unit_test.hpp>
 #include "Vector3.hpp"
 #include "geometry.hpp"
 

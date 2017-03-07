@@ -2,15 +2,13 @@
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE "MatrixSpace_test"
-#include <boost/test/included/unit_test.hpp>
-#endif
 
 #include <functional>
 #include <iostream>
 #include <cmath>
 #include <set>
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/floating_point_comparison.hpp>
 #include "Sphere.hpp"
 #include "MatrixSpace.hpp"
