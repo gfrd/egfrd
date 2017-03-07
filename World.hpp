@@ -236,7 +236,9 @@ public:
     typedef typename base_type::cylindrical_surface_type            cylindrical_surface_type;
     typedef typename base_type::disk_surface_type                   disk_surface_type;
     typedef typename base_type::spherical_surface_type              spherical_surface_type;
-  
+    typedef typename planar_surface_type::side_enum_type            planar_surface_side_type;
+    typedef typename cylindrical_surface_type::side_enum_type       cylindrical_surface_side_type;
+    
     typedef typename structure_type::position_type                  vector_type;
     typedef std::pair<structure_id_type, vector_type>               neighbor_id_vector_type;
 
@@ -331,7 +333,7 @@ public:
     void add_species(species_type const& species)
     {
         // make sure that the structure_type defined in the species exists
-        structure_type_type const& structure_type(get_structure_type(species.structure_type_id()));
+        //structure_type_type const& structure_type(get_structure_type(species.structure_type_id()));
 
         species_map_[species.id()] = species;
         particle_pool_[species.id()] = particle_id_set();
@@ -361,7 +363,8 @@ public:
             particle_pool_.find(sid));
         if (i == particle_pool_.end())
         {
-            throw not_found(std::string("Unknown species (id=") + boost::lexical_cast<std::string>(sid) + ")");
+
+	  throw not_found(std::string("Unknown species (id=") + boost::lexical_cast<std::string>(sid) + ")");
         }
         return (*i).second;
     }
@@ -371,8 +374,8 @@ public:
     template <typename Tstructure_>
     structure_id_type add_structure(boost::shared_ptr<Tstructure_> structure)
     {
-        // check that the structure_type that is defined in the structure exists!
-        structure_type_type const& structure_type(get_structure_type(structure->sid()));
+           // check that the structure_type that is defined in the structure exists!
+      //structure_type_type const& structure_type(get_structure_type(structure->sid()));
 
         const structure_id_type structure_id(structidgen_());
         structure->set_id(structure_id);
@@ -475,7 +478,7 @@ public:
         }
 
         // check that the structure_type that is defined in the structure exists!
-        structure_type_type const& structure_type(get_structure_type(cuboidal_region->sid()));
+        //structure_type_type const& structure_type(get_structure_type(cuboidal_region->sid()));
 
         cuboidal_region->set_id(default_struct_id);
         update_structure(std::make_pair(default_struct_id, cuboidal_region));

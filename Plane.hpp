@@ -18,6 +18,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {TOP=0, BOTTOM=1, LEFT=2, RIGHT=3} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     Plane(position_type const& position = position_type())
@@ -428,6 +429,8 @@ template<typename T, typename Trng>
 inline typename Plane<T>::position_type
 random_position(Plane<T> const& shape, Trng& rng)
 {
+  //typedef typename Plane<T>::length_type length_type;
+
     // -1 < rng() < 1. See for example PlanarSurface.hpp.
     return add(
         shape.position(),

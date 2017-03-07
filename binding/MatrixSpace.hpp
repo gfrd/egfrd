@@ -80,7 +80,7 @@ struct MatrixSpaceExtrasBase
         {
             static PyObject* convert(const result_type& val)
             {
-	      const npy_intp dims[1] = { static_cast<const npy_intp>(val.size()) };
+ 	        const npy_intp dims[1] = { static_cast<const npy_intp>(val.size()) };
                 boost::python::incref(reinterpret_cast<PyObject*>(result_type_descr_));
                 PyObject* retval = PyArray_NewFromDescr(&PyArray_Type,
                         result_type_descr_,

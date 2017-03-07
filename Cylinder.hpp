@@ -15,6 +15,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {LEFT=0, RIGHT=1} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     // constructors
@@ -179,6 +180,7 @@ inline typename Cylinder<T_>::length_type
 distance(Cylinder<T_> const& obj,
                 typename Cylinder<T_>::position_type const& pos)
 {
+  //typedef typename Cylinder<T_>::position_type position_type;
     typedef typename Cylinder<T_>::length_type length_type;
 
     /* First compute the (r,z) components of pos in a coordinate system 

@@ -18,6 +18,7 @@ public:
     typedef T_ value_type;
     typedef Vector3<T_> position_type;
     typedef T_ length_type;
+    typedef enum side_enum_type {TOP=0, BOTTOM=1, LEFT=2, RIGHT=3, FRONT=4, BACK=5} side_enum_type;  // The typedef is a little bit C style but doesn't matter for C++
 
 public:
     Box(position_type const& position = position_type())

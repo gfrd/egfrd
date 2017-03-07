@@ -27,6 +27,7 @@ public:
     typedef typename base_type::rng_type                rng_type;
     typedef typename base_type::position_type           position_type;
     typedef typename base_type::length_type             length_type;
+    typedef typename base_type::side_enum_type          side_enum_type;
     typedef typename traits_type::species_type          species_type;
     typedef typename traits_type::structure_type        structure_type;
 

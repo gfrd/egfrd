@@ -76,13 +76,13 @@ def setup_simulator():
 
 
 
-### Set everything up: ###
+# ### Set everything up: ###
 constants()
 setup_model()
 setup_simulator()
 
 
-### Let's roll: ###
+# ### Let's roll: ###
 t_current  = 0.0
 t_bind     = 0.0
 t_decay    = 0.0
