@@ -480,7 +480,7 @@ const void GreensFunction2DRadAbs::GiveRootIntervalSimple(
             Real& low,          // Variable to return left boundary interval
             Real& high,         // Variable to return right boundary interval
             const Integer n,    // Order of Bessel functions
-            const Real i) const // ith root 
+            const Integer i) const // ith root 
 {
     // Offset is simply based on previous root, the interval in which the first 
     // root (i=0) lies is never calculated with this function.

@@ -154,7 +154,7 @@ public:
                                                                     
 
     const void GiveRootIntervalSimple(  Real& low, Real& high, 
-                                        const Integer n, const Real i
+                                        const Integer n, const Integer i
                                      ) const;
 
     const Real getAlphaRoot0( const Real low,

@@ -508,7 +508,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
             domain_counts = self.count_domains()
             log.info('\n\n%d: t=%s dt=%e (next_time=%s)\t' %
                      (self.step_counter, self.t,
-                      self.dt, self.scheduler.top[1].time) + 
+                      self.dt, self.scheduler.top[1].time if self.scheduler.size > 0 else 0) + 
                      'Singles: %d, Pairs: %d, Multis: %d\n' % domain_counts + 
                      'event=#%d reactions=%d rejectedmoves=%d' %
                      (id, self.reaction_events, self.rejected_moves))
@@ -541,7 +541,7 @@ class EGFRDSimulator(ParticleSimulatorBase):
         if __debug__:
             if self.dt < 1e-10: # We consider 0.1 nanoseconds a zero-step
 
-                log.warning('dt = %e = %.10e-%.10e = zero step, working in s.t >> dt~0 Python limit.' % (self.dt, next_time, self.t))
+                # log.warning('dt = %e = %.10e-%.10e = zero step, working in s.t >> dt~0 Python limit.' % (self.dt, next_time, self.t))
                 self.zero_steps += 1
 
                 if self.zero_steps >= max(self.scheduler.size * 3, self.MAX_NUM_DT0_STEPS): 

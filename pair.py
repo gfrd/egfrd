@@ -262,8 +262,12 @@ class StandardPair(Pair):
             log.warn('Particles live on different structures in StandardPair, structure1=%s, structure2=%s' \
                                                                                % (structure1, structure2) )
         D_tot = D1 + D2
-        pos1 = com - iv * (D1 / D_tot)
-        pos2 = com + iv * (D2 / D_tot)
+        if (D_tot != 0):
+            pos1 = com - iv * (D1 / D_tot)
+            pos2 = com + iv * (D2 / D_tot)
+        else:
+            pos1 = com - iv * 0.5
+            pos2 = com + iv * 0.5
 
         return pos1, pos2, structure1.id, structure2.id
 
@@ -378,8 +382,12 @@ class SimplePair(StandardPair):
         assert(structure1.id == structure2.id)
 
         D_tot = D1 + D2
-        pos1 = com - iv * (D1 / D_tot)
-        pos2 = com + iv * (D2 / D_tot)
+        if (D_tot != 0):
+            pos1 = com - iv * (D1 / D_tot)
+            pos2 = com + iv * (D2 / D_tot)
+        else:
+            pos1 = com - iv * 0.5
+            pos2 = com + iv * 0.5
 
         return pos1, pos2, structure1.id, structure2.id
 
