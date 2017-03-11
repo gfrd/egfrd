@@ -35,7 +35,7 @@ else
 fi
 AC_SUBST(DEBUG)
 
-CXXFLAGS="$CXXFLAGS -Wall"
+CXXFLAGS="$CXXFLAGS -std=gnu++98 -Wall"
 
 AX_BOOST_BASE([1.37],,AC_MSG_ERROR([could not find required version of BOOST.]))
 

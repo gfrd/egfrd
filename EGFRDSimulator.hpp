@@ -976,7 +976,7 @@ public:
 
     std::pair<shell_id_type, shell_variant_type> get_shell(shell_id_type const& id)
     {
-        shell_variant_type result;
+        shell_variant_type result(boost::none);
         boost::fusion::for_each(smatm_, shell_finder(id, result));
         return std::make_pair(id, result);
     }

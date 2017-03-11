@@ -5,7 +5,7 @@ import re
 import numpy
 
 import logging
-import h5py # added by sakurai@advancesoft.jp
+#import h5py # added by sakurai@advancesoft.jp
 from egfrd import Single, Pair, Multi # added by sakurai@advancesoft.jp
 
 __all__ = [
